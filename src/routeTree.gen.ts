@@ -15,6 +15,7 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedTurmasRouteImport } from './routes/_authenticated/turmas'
 import { Route as AuthenticatedPresencaRouteImport } from './routes/_authenticated/presenca'
+import { Route as AuthenticatedFinanceiroRouteImport } from './routes/_authenticated/financeiro'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAlunosRouteImport } from './routes/_authenticated/alunos'
 
@@ -47,6 +48,11 @@ const AuthenticatedPresencaRoute = AuthenticatedPresencaRouteImport.update({
   path: '/presenca',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedFinanceiroRoute = AuthenticatedFinanceiroRouteImport.update({
+  id: '/financeiro',
+  path: '/financeiro',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -64,6 +70,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/alunos': typeof AuthenticatedAlunosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/financeiro': typeof AuthenticatedFinanceiroRoute
   '/presenca': typeof AuthenticatedPresencaRoute
   '/turmas': typeof AuthenticatedTurmasRoute
 }
@@ -73,6 +80,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/alunos': typeof AuthenticatedAlunosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/financeiro': typeof AuthenticatedFinanceiroRoute
   '/presenca': typeof AuthenticatedPresencaRoute
   '/turmas': typeof AuthenticatedTurmasRoute
 }
@@ -84,6 +92,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_authenticated/alunos': typeof AuthenticatedAlunosRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/financeiro': typeof AuthenticatedFinanceiroRoute
   '/_authenticated/presenca': typeof AuthenticatedPresencaRoute
   '/_authenticated/turmas': typeof AuthenticatedTurmasRoute
 }
@@ -95,6 +104,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/alunos'
     | '/dashboard'
+    | '/financeiro'
     | '/presenca'
     | '/turmas'
   fileRoutesByTo: FileRoutesByTo
@@ -104,6 +114,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/alunos'
     | '/dashboard'
+    | '/financeiro'
     | '/presenca'
     | '/turmas'
   id:
@@ -114,6 +125,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/_authenticated/alunos'
     | '/_authenticated/dashboard'
+    | '/_authenticated/financeiro'
     | '/_authenticated/presenca'
     | '/_authenticated/turmas'
   fileRoutesById: FileRoutesById
@@ -169,6 +181,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPresencaRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/financeiro': {
+      id: '/_authenticated/financeiro'
+      path: '/financeiro'
+      fullPath: '/financeiro'
+      preLoaderRoute: typeof AuthenticatedFinanceiroRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -189,6 +208,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteChildren {
   AuthenticatedAlunosRoute: typeof AuthenticatedAlunosRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedFinanceiroRoute: typeof AuthenticatedFinanceiroRoute
   AuthenticatedPresencaRoute: typeof AuthenticatedPresencaRoute
   AuthenticatedTurmasRoute: typeof AuthenticatedTurmasRoute
 }
@@ -196,6 +216,7 @@ interface AuthenticatedRouteChildren {
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAlunosRoute: AuthenticatedAlunosRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedFinanceiroRoute: AuthenticatedFinanceiroRoute,
   AuthenticatedPresencaRoute: AuthenticatedPresencaRoute,
   AuthenticatedTurmasRoute: AuthenticatedTurmasRoute,
 }
