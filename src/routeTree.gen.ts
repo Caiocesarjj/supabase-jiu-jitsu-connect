@@ -17,6 +17,7 @@ import { Route as AuthenticatedTurmasRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedPresencaRouteImport } from './routes/_authenticated/presenca'
 import { Route as AuthenticatedFinanceiroRouteImport } from './routes/_authenticated/financeiro'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedAlunosRouteImport } from './routes/_authenticated/alunos'
 
 const LoginRoute = LoginRouteImport.update({
@@ -58,6 +59,12 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedConfiguracoesRoute =
+  AuthenticatedConfiguracoesRouteImport.update({
+    id: '/configuracoes',
+    path: '/configuracoes',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAlunosRoute = AuthenticatedAlunosRouteImport.update({
   id: '/alunos',
   path: '/alunos',
@@ -69,6 +76,7 @@ export interface FileRoutesByFullPath {
   '/cadastro-academia': typeof CadastroAcademiaRoute
   '/login': typeof LoginRoute
   '/alunos': typeof AuthenticatedAlunosRoute
+  '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/financeiro': typeof AuthenticatedFinanceiroRoute
   '/presenca': typeof AuthenticatedPresencaRoute
@@ -79,6 +87,7 @@ export interface FileRoutesByTo {
   '/cadastro-academia': typeof CadastroAcademiaRoute
   '/login': typeof LoginRoute
   '/alunos': typeof AuthenticatedAlunosRoute
+  '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/financeiro': typeof AuthenticatedFinanceiroRoute
   '/presenca': typeof AuthenticatedPresencaRoute
@@ -91,6 +100,7 @@ export interface FileRoutesById {
   '/cadastro-academia': typeof CadastroAcademiaRoute
   '/login': typeof LoginRoute
   '/_authenticated/alunos': typeof AuthenticatedAlunosRoute
+  '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/financeiro': typeof AuthenticatedFinanceiroRoute
   '/_authenticated/presenca': typeof AuthenticatedPresencaRoute
@@ -103,6 +113,7 @@ export interface FileRouteTypes {
     | '/cadastro-academia'
     | '/login'
     | '/alunos'
+    | '/configuracoes'
     | '/dashboard'
     | '/financeiro'
     | '/presenca'
@@ -113,6 +124,7 @@ export interface FileRouteTypes {
     | '/cadastro-academia'
     | '/login'
     | '/alunos'
+    | '/configuracoes'
     | '/dashboard'
     | '/financeiro'
     | '/presenca'
@@ -124,6 +136,7 @@ export interface FileRouteTypes {
     | '/cadastro-academia'
     | '/login'
     | '/_authenticated/alunos'
+    | '/_authenticated/configuracoes'
     | '/_authenticated/dashboard'
     | '/_authenticated/financeiro'
     | '/_authenticated/presenca'
@@ -195,6 +208,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/configuracoes': {
+      id: '/_authenticated/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/configuracoes'
+      preLoaderRoute: typeof AuthenticatedConfiguracoesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/alunos': {
       id: '/_authenticated/alunos'
       path: '/alunos'
@@ -207,6 +227,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedAlunosRoute: typeof AuthenticatedAlunosRoute
+  AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedFinanceiroRoute: typeof AuthenticatedFinanceiroRoute
   AuthenticatedPresencaRoute: typeof AuthenticatedPresencaRoute
@@ -215,6 +236,7 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAlunosRoute: AuthenticatedAlunosRoute,
+  AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedFinanceiroRoute: AuthenticatedFinanceiroRoute,
   AuthenticatedPresencaRoute: AuthenticatedPresencaRoute,
