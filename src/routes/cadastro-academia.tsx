@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
@@ -18,11 +18,7 @@ export const Route = createFileRoute("/cadastro-academia")({
 });
 
 const schema = z.object({
-  academy_name: z
-    .string()
-    .trim()
-    .min(2, "Nome da academia obrigatório")
-    .max(120),
+  academy_name: z.string().trim().min(2, "Nome da academia obrigatório").max(120),
   full_name: z.string().trim().min(2, "Nome do responsável obrigatório").max(120),
   email: z.string().trim().email("E-mail inválido").max(255),
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres").max(72),
@@ -30,8 +26,12 @@ const schema = z.object({
 });
 
 function CadastroPage() {
-  const { refreshProfile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
+
+  // If user already has a profile, send to dashboard
+  const completeMode = !!user && !profile;
+
   const [form, setForm] = useState({
     academy_name: "",
     full_name: "",
@@ -40,6 +40,21 @@ function CadastroPage() {
     phone: "",
   });
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (user && profile) {
+      navigate({ to: "/dashboard" });
+    }
+    if (user && !profile) {
+      setForm((f) => ({
+        ...f,
+        email: user.email ?? f.email,
+        full_name:
+          (user.user_metadata?.full_name as string | undefined) ?? f.full_name,
+        password: f.password || "ja-cadastrado",
+      }));
+    }
+  }, [user, profile, navigate]);
 
   function update<K extends keyof typeof form>(k: K, v: string) {
     setForm((f) => ({ ...f, [k]: v }));
@@ -54,32 +69,37 @@ function CadastroPage() {
     }
     setSubmitting(true);
     try {
-      // 1. signUp
-      const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
-        email: parsed.data.email,
-        password: parsed.data.password,
-        options: {
-          emailRedirectTo: window.location.origin,
-          data: { full_name: parsed.data.full_name },
-        },
-      });
-      if (signUpErr) throw signUpErr;
-      const userId = signUpData.user?.id;
-      if (!userId) throw new Error("Usuário não criado");
+      let userId: string | undefined = user?.id;
 
-      // If email confirmation is required, session may be null.
-      // Try to sign in to ensure we have a session for inserts.
-      if (!signUpData.session) {
-        const { error: siErr } = await supabase.auth.signInWithPassword({
-          email: parsed.data.email,
-          password: parsed.data.password,
-        });
-        if (siErr) {
-          throw new Error(
-            "Conta criada, mas é necessário confirmar o e-mail antes de continuar. Desative a confirmação de e-mail no Supabase ou confirme pelo link enviado.",
-          );
+      if (!completeMode) {
+        // 1. signUp
+        const { data: signUpData, error: signUpErr } =
+          await supabase.auth.signUp({
+            email: parsed.data.email,
+            password: parsed.data.password,
+            options: {
+              emailRedirectTo: window.location.origin,
+              data: { full_name: parsed.data.full_name },
+            },
+          });
+        if (signUpErr) throw signUpErr;
+        userId = signUpData.user?.id;
+        if (!userId) throw new Error("Usuário não criado");
+
+        if (!signUpData.session) {
+          const { error: siErr } = await supabase.auth.signInWithPassword({
+            email: parsed.data.email,
+            password: parsed.data.password,
+          });
+          if (siErr) {
+            throw new Error(
+              "Conta criada, mas é necessário confirmar o e-mail. Desative a confirmação no Supabase ou confirme pelo link enviado.",
+            );
+          }
         }
       }
+
+      if (!userId) throw new Error("Sessão inválida");
 
       // 2. organizations
       const slug =
@@ -138,9 +158,13 @@ function CadastroPage() {
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold">
             JJ
           </div>
-          <h1 className="text-xl font-semibold">Cadastrar nova academia</h1>
+          <h1 className="text-xl font-semibold">
+            {completeMode ? "Completar cadastro" : "Cadastrar nova academia"}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Crie sua conta e comece a gerenciar sua academia
+            {completeMode
+              ? "Sua conta existe — agora vincule a uma academia"
+              : "Crie sua conta e comece a gerenciar sua academia"}
           </p>
         </div>
 
@@ -163,26 +187,30 @@ function CadastroPage() {
               required
             />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="email">E-mail</Label>
-            <Input
-              id="email"
-              type="email"
-              value={form.email}
-              onChange={(e) => update("email", e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="password">Senha</Label>
-            <Input
-              id="password"
-              type="password"
-              value={form.password}
-              onChange={(e) => update("password", e.target.value)}
-              required
-            />
-          </div>
+          {!completeMode && (
+            <>
+              <div className="space-y-1.5">
+                <Label htmlFor="email">E-mail</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => update("email", e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="password">Senha</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={form.password}
+                  onChange={(e) => update("password", e.target.value)}
+                  required
+                />
+              </div>
+            </>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="phone">Telefone</Label>
             <Input
@@ -194,16 +222,18 @@ function CadastroPage() {
           </div>
           <Button type="submit" className="w-full" disabled={submitting}>
             {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Cadastrar academia
+            {completeMode ? "Vincular academia" : "Cadastrar academia"}
           </Button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-muted-foreground">
-          Já tem conta?{" "}
-          <Link to="/login" className="font-medium text-primary hover:underline">
-            Entrar
-          </Link>
-        </p>
+        {!completeMode && (
+          <p className="mt-6 text-center text-sm text-muted-foreground">
+            Já tem conta?{" "}
+            <Link to="/login" className="font-medium text-primary hover:underline">
+              Entrar
+            </Link>
+          </p>
+        )}
       </div>
     </div>
   );

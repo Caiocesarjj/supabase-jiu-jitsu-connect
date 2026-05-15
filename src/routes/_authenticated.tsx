@@ -16,29 +16,15 @@ function AuthenticatedLayout() {
   useEffect(() => {
     if (!loading && !user) {
       navigate({ to: "/login" });
+    } else if (!loading && user && !profile) {
+      navigate({ to: "/cadastro-academia" });
     }
-  }, [loading, user, navigate]);
+  }, [loading, user, profile, navigate]);
 
-  if (loading || !user) {
+  if (loading || !user || !profile) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <LoadingSpinner label="Carregando..." />
-      </div>
-    );
-  }
-
-  if (!profile) {
-    return (
-      <div className="flex min-h-screen items-center justify-center px-4 text-center">
-        <div className="max-w-md">
-          <h2 className="text-lg font-semibold">Perfil não encontrado</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Sua conta existe mas não está vinculada a uma academia. Verifique se
-            o setup do banco foi executado e se há um registro em{" "}
-            <code className="rounded bg-muted px-1">profiles</code> para o seu
-            usuário.
-          </p>
-        </div>
       </div>
     );
   }
