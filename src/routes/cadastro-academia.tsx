@@ -102,24 +102,24 @@ function CadastroPage() {
       if (!userId) throw new Error("Sessão inválida");
 
       // 2. organizations
+      const orgId = crypto.randomUUID();
       const slug =
         slugify(parsed.data.academy_name) + "-" + Date.now().toString(36);
-      const { data: org, error: orgErr } = await supabase
+      const { error: orgErr } = await supabase
         .from("organizations")
         .insert({
+          id: orgId,
           name: parsed.data.academy_name,
           slug,
           email: parsed.data.email,
           phone: parsed.data.phone || null,
-        })
-        .select()
-        .single();
+        });
       if (orgErr) throw orgErr;
 
       // 3. profiles
       const { error: profErr } = await supabase.from("profiles").insert({
         id: userId,
-        organization_id: org.id,
+        organization_id: orgId,
         full_name: parsed.data.full_name,
         role: "admin",
       });
@@ -129,7 +129,7 @@ function CadastroPage() {
       const { error: settErr } = await supabase
         .from("organization_settings")
         .insert({
-          organization_id: org.id,
+          organization_id: orgId,
           monthly_fee_default: 200,
           due_day: 10,
           whatsapp_enabled: false,
@@ -144,7 +144,13 @@ function CadastroPage() {
       navigate({ to: "/dashboard" });
     } catch (err) {
       console.error(err);
-      const msg = err instanceof Error ? err.message : "Erro ao cadastrar";
+      const supabaseError = err as { code?: string; message?: string };
+      const msg =
+        supabaseError?.code === "42501"
+          ? "O Supabase ainda está bloqueando o cadastro por RLS. Execute as políticas de INSERT no SQL Editor do Supabase e tente novamente."
+          : err instanceof Error
+            ? err.message
+            : "Erro ao cadastrar";
       toast.error(msg);
     } finally {
       setSubmitting(false);
