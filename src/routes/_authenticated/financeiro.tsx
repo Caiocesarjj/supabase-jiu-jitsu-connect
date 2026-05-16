@@ -405,12 +405,12 @@ function FinanceiroPage() {
                           params={{ alunoId: studentId }}
                           className="flex items-center gap-2 hover:underline"
                         >
-                          <Avatar name={name} size="sm" />
+                          <Avatar name={name} size={28} />
                           <span>{name}</span>
                         </Link>
                       ) : (
                         <div className="flex items-center gap-2">
-                          <Avatar name={name} size="sm" />
+                          <Avatar name={name} size={28} />
                           <span>{name}</span>
                         </div>
                       )}
