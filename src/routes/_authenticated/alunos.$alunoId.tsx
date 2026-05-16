@@ -1,0 +1,1182 @@
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, UserPlus, Trash2, MoreHorizontal, Copy } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
+import { Avatar } from "@/components/Avatar";
+import { BeltBadge } from "@/components/BeltBadge";
+import { StatusBadge } from "@/components/StatusBadge";
+import { ConfirmModal } from "@/components/ConfirmModal";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { formatDateBR, formatBRL } from "@/lib/format";
+import {
+  calcMinNextPromotionDate,
+  getAvailableBeltsForPromotion,
+  getBeltLabel,
+  getMaxDegrees,
+  BLACK_BELT_DEGREE_YEARS,
+} from "@/lib/graduation";
+import type { Belt } from "@/types/database";
+
+export const Route = createFileRoute("/_authenticated/alunos/$alunoId")({
+  component: AlunoFichaPage,
+});
+
+// ---------- Helpers ----------
+function todayISO() {
+  return new Date().toISOString().split("T")[0];
+}
+function diffDays(a: string, b: string) {
+  const da = new Date(a).getTime();
+  const db = new Date(b).getTime();
+  return Math.round((da - db) / (1000 * 60 * 60 * 24));
+}
+function calcAge(birth: string | null) {
+  if (!birth) return null;
+  const b = new Date(birth);
+  const t = new Date();
+  let age = t.getFullYear() - b.getFullYear();
+  const m = t.getMonth() - b.getMonth();
+  if (m < 0 || (m === 0 && t.getDate() < b.getDate())) age--;
+  return age;
+}
+
+function DegreeDots({ degrees, size = 8 }: { degrees: number; size?: number }) {
+  return (
+    <span style={{ display: "inline-flex", gap: 3 }}>
+      {Array.from({ length: degrees }).map((_, i) => (
+        <span
+          key={i}
+          style={{
+            width: size,
+            height: size,
+            borderRadius: "50%",
+            background: "#fff",
+            border: "1px solid #444",
+            display: "inline-block",
+          }}
+        />
+      ))}
+    </span>
+  );
+}
+
+function StudentStatusBadge({ status }: { status: string }) {
+  const map: Record<string, { label: string; cls: string }> = {
+    active: { label: "Ativo", cls: "bg-emerald-100 text-emerald-800 border-emerald-300" },
+    inactive: { label: "Inativo", cls: "bg-gray-100 text-gray-700 border-gray-300" },
+    suspended: { label: "Suspenso", cls: "bg-yellow-100 text-yellow-800 border-yellow-300" },
+    trial: { label: "Experimental", cls: "bg-blue-100 text-blue-800 border-blue-300" },
+  };
+  const cfg = map[status] ?? { label: status, cls: "bg-gray-100 text-gray-700 border-gray-300" };
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${cfg.cls}`}>
+      {cfg.label}
+    </span>
+  );
+}
+
+// ---------- Page ----------
+function AlunoFichaPage() {
+  const { alunoId } = Route.useParams();
+  const { organizationId, userRole, user } = useAuth();
+  const navigate = useNavigate();
+
+  const [loading, setLoading] = useState(true);
+  const [student, setStudent] = useState<any>(null);
+  const [financial, setFinancial] = useState<any[]>([]);
+  const [attendance, setAttendance] = useState<any[]>([]);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    if (!organizationId) return;
+    let cancelled = false;
+    setLoading(true);
+
+    (async () => {
+      const { data, error } = await supabase
+        .from("students")
+        .select(
+          `
+          id, status, birth_date, is_minor, medical_notes, monthly_fee, enrollment_date,
+          profiles ( id, full_name, email, phone, cpf ),
+          graduations (
+            id, belt, degrees, promotion_date, minimum_next_promotion_date, classes_since_promotion
+          ),
+          graduation_history (
+            id, old_belt, new_belt, old_degrees, new_degrees, promotion_date, notes, created_at
+          ),
+          student_guardians (
+            id, relationship_type, primary_contact,
+            guardians (
+              id, financial_responsible, legal_responsible,
+              profiles ( id, full_name, email, phone, cpf )
+            )
+          )
+        `,
+        )
+        .eq("id", alunoId)
+        .eq("organization_id", organizationId)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (error || !data) {
+        toast.error("Aluno não encontrado");
+        navigate({ to: "/alunos" });
+        return;
+      }
+
+      setStudent(data);
+
+      const [fin, att] = await Promise.all([
+        supabase
+          .from("financial_records")
+          .select("*")
+          .eq("student_id", alunoId)
+          .order("due_date", { ascending: false })
+          .limit(24),
+        supabase
+          .from("attendance")
+          .select("id, class_date, present, class_schedules(name)")
+          .eq("student_id", alunoId)
+          .order("class_date", { ascending: false })
+          .limit(90),
+      ]);
+
+      if (cancelled) return;
+      if (fin.error) toast.error("Erro ao carregar financeiro");
+      if (att.error) toast.error("Erro ao carregar presenças");
+      setFinancial(fin.data ?? []);
+      setAttendance(att.data ?? []);
+      setLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [alunoId, organizationId, reloadKey, navigate]);
+
+  const reload = () => setReloadKey((k) => k + 1);
+
+  if (loading || !student) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <LoadingSpinner label="Carregando aluno..." />
+      </div>
+    );
+  }
+
+  const profile = student.profiles ?? {};
+  const grad = student.graduations?.[0];
+  const currentBelt: Belt = grad?.belt ?? "branca";
+  const currentDegrees: number = grad?.degrees ?? 0;
+  const age = calcAge(student.birth_date);
+  const isAptForPromotion =
+    grad?.minimum_next_promotion_date &&
+    new Date(grad.minimum_next_promotion_date) <= new Date();
+
+  const canPromote = userRole === "admin" || userRole === "instructor";
+
+  return (
+    <div className="space-y-4">
+      {/* Back */}
+      <Link to="/alunos" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="h-4 w-4" /> Alunos
+      </Link>
+
+      {/* Header card */}
+      <div className="rounded-lg border bg-card p-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <Avatar name={profile.full_name ?? "?"} size={64} />
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 style={{ fontSize: 20, fontWeight: 500 }}>{profile.full_name ?? "Sem nome"}</h1>
+              <BeltBadge belt={currentBelt} size="lg" />
+              <DegreeDots degrees={currentDegrees} size={10} />
+              <StudentStatusBadge status={student.status} />
+              {isAptForPromotion && (
+                <span className="inline-flex items-center rounded-full border border-emerald-400 bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 animate-pulse">
+                  Apto para promoção
+                </span>
+              )}
+            </div>
+            <div className="mt-1 text-sm text-muted-foreground">
+              {[
+                profile.cpf,
+                profile.phone,
+                student.enrollment_date && `Matrícula desde ${formatDateBR(student.enrollment_date)}`,
+                student.is_minor && "Menor de idade",
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <Tabs defaultValue="geral" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="geral">Geral</TabsTrigger>
+          <TabsTrigger value="graduacao">Graduação</TabsTrigger>
+          <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
+          <TabsTrigger value="presenca">Presença</TabsTrigger>
+          <TabsTrigger value="observacoes">Observações</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="geral">
+          <GeralTab student={student} age={age} onChange={reload} organizationId={organizationId!} />
+        </TabsContent>
+        <TabsContent value="graduacao">
+          <GraduacaoTab
+            student={student}
+            attendance={attendance}
+            canPromote={canPromote}
+            organizationId={organizationId!}
+            userId={user?.id ?? null}
+            onChange={reload}
+          />
+        </TabsContent>
+        <TabsContent value="financeiro">
+          <FinanceiroTab financial={financial} onChange={reload} />
+        </TabsContent>
+        <TabsContent value="presenca">
+          <PresencaTab attendance={attendance} promotionDate={grad?.promotion_date ?? null} />
+        </TabsContent>
+        <TabsContent value="observacoes">
+          <ObservacoesTab student={student} onChange={reload} />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+// ---------- Geral ----------
+const RELATIONSHIP_LABELS: Record<string, string> = {
+  mae: "Mãe",
+  pai: "Pai",
+  avo_f: "Avó",
+  avo_m: "Avô",
+  tio: "Tio",
+  tia: "Tia",
+  conjuge: "Cônjuge",
+  outro: "Outro",
+};
+
+function GeralTab({
+  student,
+  age,
+  onChange,
+  organizationId,
+}: {
+  student: any;
+  age: number | null;
+  onChange: () => void;
+  organizationId: string;
+}) {
+  const profile = student.profiles ?? {};
+  const [addOpen, setAddOpen] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
+
+  const removeGuardian = async (sgId: string) => {
+    const { error } = await supabase.from("student_guardians").delete().eq("id", sgId);
+    if (error) toast.error("Erro ao remover vínculo");
+    else {
+      toast.success("Vínculo removido");
+      onChange();
+    }
+    setConfirmRemove(null);
+  };
+
+  return (
+    <div className="space-y-6">
+      <section className="rounded-lg border bg-card p-4">
+        <h2 className="mb-3 text-base font-semibold">Dados pessoais</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+          <Field label="Data de nascimento" value={`${formatDateBR(student.birth_date)}${age != null ? ` (${age} anos)` : ""}`} />
+          <Field label="CPF" value={profile.cpf ?? "—"} />
+          <Field label="Telefone" value={profile.phone ?? "—"} />
+          <Field label="E-mail" value={profile.email ?? "—"} />
+          <Field label="Data de matrícula" value={formatDateBR(student.enrollment_date)} />
+          <Field label="Mensalidade" value={student.monthly_fee != null ? formatBRL(student.monthly_fee) : "Padrão da academia"} />
+          <div>
+            <div className="text-xs text-muted-foreground">Status</div>
+            <div className="mt-1"><StudentStatusBadge status={student.status} /></div>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-lg border bg-card p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-semibold">Responsáveis</h2>
+          <Button size="sm" onClick={() => setAddOpen(true)}>
+            <UserPlus className="mr-1 h-4 w-4" /> Adicionar
+          </Button>
+        </div>
+        {(!student.student_guardians || student.student_guardians.length === 0) && (
+          <p className="text-sm text-muted-foreground">Nenhum responsável vinculado.</p>
+        )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {student.student_guardians?.map((sg: any) => {
+            const g = sg.guardians ?? {};
+            const gp = g.profiles ?? {};
+            return (
+              <div key={sg.id} className="rounded-md border p-3">
+                <div className="flex items-start gap-3">
+                  <Avatar name={gp.full_name ?? "?"} size={40} />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium">{gp.full_name ?? "Sem nome"}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {RELATIONSHIP_LABELS[sg.relationship_type] ?? sg.relationship_type}
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {g.financial_responsible && <Tag color="blue">Financeiro</Tag>}
+                      {g.legal_responsible && <Tag color="purple">Legal</Tag>}
+                      {sg.primary_contact && <Tag color="green">Contato principal</Tag>}
+                    </div>
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      {[gp.phone, gp.email].filter(Boolean).join(" · ")}
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => setConfirmRemove(sg.id)}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <AddGuardianModal
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        studentId={student.id}
+        organizationId={organizationId}
+        onSaved={() => {
+          setAddOpen(false);
+          onChange();
+        }}
+      />
+
+      <ConfirmModal
+        open={!!confirmRemove}
+        onOpenChange={(o) => !o && setConfirmRemove(null)}
+        title="Remover responsável?"
+        description="Esta ação remove apenas o vínculo com o aluno."
+        destructive
+        onConfirm={() => confirmRemove && removeGuardian(confirmRemove)}
+      />
+    </div>
+  );
+}
+
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-0.5">{value}</div>
+    </div>
+  );
+}
+
+function Tag({ children, color }: { children: React.ReactNode; color: "blue" | "purple" | "green" }) {
+  const map = {
+    blue: "bg-blue-100 text-blue-800 border-blue-300",
+    purple: "bg-purple-100 text-purple-800 border-purple-300",
+    green: "bg-emerald-100 text-emerald-800 border-emerald-300",
+  };
+  return <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${map[color]}`}>{children}</span>;
+}
+
+function AddGuardianModal({
+  open,
+  onOpenChange,
+  studentId,
+  organizationId,
+  onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  studentId: string;
+  organizationId: string;
+  onSaved: () => void;
+}) {
+  const [fullName, setFullName] = useState("");
+  const [cpf, setCpf] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [rel, setRel] = useState("mae");
+  const [fin, setFin] = useState(false);
+  const [legal, setLegal] = useState(false);
+  const [primary, setPrimary] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const reset = () => {
+    setFullName(""); setCpf(""); setPhone(""); setEmail("");
+    setRel("mae"); setFin(false); setLegal(false); setPrimary(false);
+  };
+
+  const save = async () => {
+    if (!fullName || !cpf || !phone) {
+      toast.error("Nome, CPF e telefone são obrigatórios");
+      return;
+    }
+    setSaving(true);
+    try {
+      const profileId = crypto.randomUUID();
+      const guardianId = crypto.randomUUID();
+
+      const { error: e1 } = await supabase.from("profiles").insert({
+        id: profileId,
+        organization_id: organizationId,
+        full_name: fullName,
+        email: email || null,
+        phone,
+        cpf,
+        role: "responsavel",
+      });
+      if (e1) throw e1;
+
+      const { error: e2 } = await supabase.from("guardians").insert({
+        id: guardianId,
+        organization_id: organizationId,
+        profile_id: profileId,
+        financial_responsible: fin,
+        legal_responsible: legal,
+      });
+      if (e2) throw e2;
+
+      if (primary) {
+        await supabase
+          .from("student_guardians")
+          .update({ primary_contact: false })
+          .eq("student_id", studentId);
+      }
+
+      const { error: e3 } = await supabase.from("student_guardians").insert({
+        organization_id: organizationId,
+        student_id: studentId,
+        guardian_id: guardianId,
+        relationship_type: rel,
+        primary_contact: primary,
+      });
+      if (e3) throw e3;
+
+      toast.success("Responsável adicionado");
+      reset();
+      onSaved();
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao adicionar responsável");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Adicionar responsável</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label>Nome completo *</Label>
+            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>CPF *</Label>
+              <Input value={cpf} onChange={(e) => setCpf(e.target.value)} />
+            </div>
+            <div>
+              <Label>Telefone *</Label>
+              <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <Label>E-mail</Label>
+            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+          <div>
+            <Label>Tipo de relacionamento</Label>
+            <Select value={rel} onValueChange={setRel}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {Object.entries(RELATIONSHIP_LABELS).map(([k, v]) => (
+                  <SelectItem key={k} value={k}>{v}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={fin} onCheckedChange={(c) => setFin(!!c)} /> Responsável financeiro
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={legal} onCheckedChange={(c) => setLegal(!!c)} /> Responsável legal
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={primary} onCheckedChange={(c) => setPrimary(!!c)} /> Marcar como contato principal
+            </label>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button onClick={save} disabled={saving}>Salvar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------- Graduação ----------
+function GraduacaoTab({
+  student,
+  attendance,
+  canPromote,
+  organizationId,
+  userId,
+  onChange,
+}: {
+  student: any;
+  attendance: any[];
+  canPromote: boolean;
+  organizationId: string;
+  userId: string | null;
+  onChange: () => void;
+}) {
+  const grad = student.graduations?.[0];
+  const belt: Belt = grad?.belt ?? "branca";
+  const degrees: number = grad?.degrees ?? 0;
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const presencesSincePromotion = useMemo(() => {
+    if (!grad?.promotion_date) return 0;
+    return attendance.filter(
+      (a) => a.present && a.class_date >= grad.promotion_date,
+    ).length;
+  }, [attendance, grad?.promotion_date]);
+
+  const maxDeg = getMaxDegrees(belt);
+  const minDate = grad?.minimum_next_promotion_date;
+  const today = todayISO();
+
+  let nextStatus: { text: string; tone: "neutral" | "yellow" | "green" } = {
+    text: "Sem tempo mínimo definido — a critério do instrutor",
+    tone: "neutral",
+  };
+  if (minDate) {
+    const d = diffDays(minDate, today);
+    if (d > 0) {
+      nextStatus = { text: `Disponível em ${d} dias (${formatDateBR(minDate)})`, tone: "yellow" };
+    } else {
+      nextStatus = { text: `Apto para promoção há ${-d} dias`, tone: "green" };
+    }
+  }
+
+  const history = [...(student.graduation_history ?? [])].sort(
+    (a: any, b: any) => (b.promotion_date ?? "").localeCompare(a.promotion_date ?? ""),
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Atual */}
+        <div className="rounded-lg border bg-card p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-muted-foreground">Graduação atual</h3>
+          <div className="flex items-center gap-3">
+            <BeltBadge belt={belt} size="lg" />
+            <span style={{ fontSize: 18 }}>{getBeltLabel(belt)}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <DegreeDots degrees={degrees} size={12} />
+            <span className="text-sm text-muted-foreground">
+              Grau {degrees} de {maxDeg}
+            </span>
+          </div>
+          {grad?.promotion_date && (
+            <p className="text-sm">Promovido em {formatDateBR(grad.promotion_date)}</p>
+          )}
+          <p className="text-sm">
+            <span className="font-medium">{presencesSincePromotion}</span> presenças desde a última promoção
+          </p>
+        </div>
+
+        {/* Próxima */}
+        <div className="rounded-lg border bg-card p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-muted-foreground">Próxima promoção</h3>
+          <div
+            className={`inline-flex items-center rounded-md px-2 py-1 text-sm ${
+              nextStatus.tone === "green"
+                ? "bg-emerald-100 text-emerald-800 animate-pulse"
+                : nextStatus.tone === "yellow"
+                  ? "bg-yellow-100 text-yellow-800"
+                  : "bg-gray-100 text-gray-700"
+            }`}
+          >
+            {nextStatus.text}
+          </div>
+          {belt === "preta" && (
+            <p className="text-sm text-muted-foreground">
+              Próximo grau ({degrees + 1}°) requer{" "}
+              {BLACK_BELT_DEGREE_YEARS[degrees + 1] === Infinity || !BLACK_BELT_DEGREE_YEARS[degrees + 1]
+                ? "—"
+                : `${BLACK_BELT_DEGREE_YEARS[degrees + 1]} anos`}{" "}
+              totais de faixa preta.
+            </p>
+          )}
+          {canPromote && (
+            <Button onClick={() => setModalOpen(true)}>Registrar promoção</Button>
+          )}
+        </div>
+      </div>
+
+      {/* Histórico */}
+      <div className="rounded-lg border bg-card p-4">
+        <h3 className="mb-3 text-sm font-semibold">Histórico de promoções</h3>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Data</TableHead>
+              <TableHead>De → Para</TableHead>
+              <TableHead>Observações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {history.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={3} className="text-center text-muted-foreground">Sem promoções registradas</TableCell>
+              </TableRow>
+            )}
+            {history.map((h: any) => (
+              <TableRow key={h.id}>
+                <TableCell>{formatDateBR(h.promotion_date)}</TableCell>
+                <TableCell>
+                  <span className="inline-flex items-center gap-2">
+                    {h.old_belt ? <BeltBadge belt={h.old_belt} size="sm" /> : <span>—</span>}
+                    <span>→</span>
+                    <BeltBadge belt={h.new_belt} size="sm" />
+                    <span className="text-xs text-muted-foreground">
+                      ({h.old_degrees ?? 0} → {h.new_degrees})
+                    </span>
+                  </span>
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">{h.notes ?? "—"}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      <PromotionModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        student={student}
+        organizationId={organizationId}
+        userId={userId}
+        onSaved={() => {
+          setModalOpen(false);
+          onChange();
+        }}
+      />
+    </div>
+  );
+}
+
+function PromotionModal({
+  open,
+  onOpenChange,
+  student,
+  organizationId,
+  userId,
+  onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  student: any;
+  organizationId: string;
+  userId: string | null;
+  onSaved: () => void;
+}) {
+  const grad = student.graduations?.[0];
+  const currentBelt: Belt = grad?.belt ?? "branca";
+  const currentDegrees: number = grad?.degrees ?? 0;
+  const birth = student.birth_date ?? new Date().toISOString();
+
+  const available = useMemo(
+    () => getAvailableBeltsForPromotion(currentBelt, currentDegrees, !!student.is_minor, birth),
+    [currentBelt, currentDegrees, student.is_minor, birth],
+  );
+
+  const [selectedBelt, setSelectedBelt] = useState<Belt>(available[0] ?? currentBelt);
+  const isSame = selectedBelt === currentBelt;
+  const initialDegrees = isSame ? Math.min(currentDegrees + 1, getMaxDegrees(selectedBelt)) : selectedBelt === "preta" ? 1 : 0;
+  const [newDegrees, setNewDegrees] = useState<number>(initialDegrees);
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setSelectedBelt(available[0] ?? currentBelt);
+    }
+  }, [open, available, currentBelt]);
+
+  useEffect(() => {
+    const same = selectedBelt === currentBelt;
+    setNewDegrees(
+      same ? Math.min(currentDegrees + 1, getMaxDegrees(selectedBelt)) : selectedBelt === "preta" ? 1 : 0,
+    );
+  }, [selectedBelt, currentBelt, currentDegrees]);
+
+  const today = todayISO();
+  const previewMin = useMemo(
+    () => calcMinNextPromotionDate(selectedBelt, newDegrees, today),
+    [selectedBelt, newDegrees, today],
+  );
+
+  const maxDeg = getMaxDegrees(selectedBelt);
+  const degOptions = selectedBelt === "preta"
+    ? Array.from({ length: maxDeg }, (_, i) => i + 1)
+    : Array.from({ length: maxDeg + 1 }, (_, i) => i);
+
+  const confirm = async () => {
+    if (!grad) {
+      toast.error("Sem registro de graduação inicial");
+      return;
+    }
+    setSaving(true);
+    try {
+      const minDate = calcMinNextPromotionDate(selectedBelt, newDegrees, today);
+
+      const { error: e1 } = await supabase
+        .from("graduations")
+        .update({
+          belt: selectedBelt,
+          degrees: newDegrees,
+          promotion_date: today,
+          minimum_next_promotion_date: minDate,
+          classes_since_promotion: 0,
+          updated_by: userId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", grad.id);
+      if (e1) throw e1;
+
+      const { error: e2 } = await supabase.from("graduation_history").insert({
+        organization_id: organizationId,
+        student_id: student.id,
+        old_belt: grad.belt,
+        new_belt: selectedBelt,
+        old_degrees: grad.degrees,
+        new_degrees: newDegrees,
+        promotion_date: today,
+        notes: notes || null,
+        created_by: userId,
+      });
+      if (e2) throw e2;
+
+      toast.success("Promoção registrada");
+      setNotes("");
+      onSaved();
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao registrar promoção");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Registrar promoção de {student.profiles?.full_name}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          {available.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhuma promoção disponível no momento.</p>
+          ) : (
+            <>
+              <div>
+                <Label>Faixa</Label>
+                <Select value={selectedBelt} onValueChange={(v) => setSelectedBelt(v as Belt)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {available.map((b) => (
+                      <SelectItem key={b} value={b}>
+                        <span className="inline-flex items-center gap-2">
+                          <BeltBadge belt={b} size="sm" showLabel={false} />
+                          {b === currentBelt
+                            ? `Avançar para grau ${Math.min(currentDegrees + 1, getMaxDegrees(b))} da faixa ${getBeltLabel(b)}`
+                            : `Promover para ${getBeltLabel(b)}`}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Grau</Label>
+                <Select value={String(newDegrees)} onValueChange={(v) => setNewDegrees(Number(v))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {degOptions.map((d) => (
+                      <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedBelt === "preta" && (
+                <p className="text-xs text-muted-foreground">
+                  Grau {newDegrees} →{" "}
+                  {BLACK_BELT_DEGREE_YEARS[newDegrees + 1] === Infinity || !BLACK_BELT_DEGREE_YEARS[newDegrees + 1]
+                    ? "sem próximo grau"
+                    : `requer ${BLACK_BELT_DEGREE_YEARS[newDegrees + 1]} anos totais na faixa preta para o próximo`}
+                </p>
+              )}
+
+              <div className="rounded-md bg-muted px-3 py-2 text-sm">
+                Próxima promoção disponível a partir de:{" "}
+                <strong>{previewMin ? formatDateBR(previewMin) : "Sem restrição de tempo"}</strong>
+              </div>
+
+              <div>
+                <Label>Observações (opcional)</Label>
+                <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
+              </div>
+            </>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button onClick={confirm} disabled={saving || available.length === 0}>Confirmar promoção</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------- Financeiro ----------
+function FinanceiroTab({ financial, onChange }: { financial: any[]; onChange: () => void }) {
+  const now = new Date();
+  const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  const totals = useMemo(() => {
+    const paidMonth = financial
+      .filter((f) => f.status === "paid" && (f.paid_at ?? "").startsWith(ym))
+      .reduce((s, f) => s + Number(f.amount ?? 0), 0);
+    const open = financial
+      .filter((f) => f.status === "pending" || f.status === "overdue")
+      .reduce((s, f) => s + Number(f.amount ?? 0), 0);
+    const overdueCount = financial.filter((f) => f.status === "overdue").length;
+    return { paidMonth, open, overdueCount };
+  }, [financial, ym]);
+
+  const [payOpen, setPayOpen] = useState<any>(null);
+  const [confirmCancel, setConfirmCancel] = useState<string | null>(null);
+
+  const copyPix = async (code: string | null) => {
+    if (!code) return;
+    await navigator.clipboard.writeText(code);
+    toast.success("Código PIX copiado!");
+  };
+
+  const cancelRecord = async (id: string) => {
+    const { error } = await supabase.from("financial_records").update({ status: "canceled" }).eq("id", id);
+    if (error) toast.error("Erro ao cancelar");
+    else {
+      toast.success("Cobrança cancelada");
+      onChange();
+    }
+    setConfirmCancel(null);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <SummaryCard label="Pago no mês" value={formatBRL(totals.paidMonth)} />
+        <SummaryCard label="Em aberto" value={formatBRL(totals.open)} />
+        <SummaryCard label="Vencidos" value={String(totals.overdueCount)} />
+      </div>
+
+      <div className="rounded-lg border bg-card p-2">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Referência</TableHead>
+              <TableHead>Valor</TableHead>
+              <TableHead>Vencimento</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {financial.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center text-muted-foreground">Nenhum registro financeiro</TableCell>
+              </TableRow>
+            )}
+            {financial.map((f) => {
+              const ref = f.reference_month ? formatDateBR(f.reference_month).slice(3) : "—";
+              return (
+                <TableRow key={f.id}>
+                  <TableCell>{ref}</TableCell>
+                  <TableCell>{formatBRL(Number(f.amount))}</TableCell>
+                  <TableCell>{formatDateBR(f.due_date)}</TableCell>
+                  <TableCell><StatusBadge status={f.status} /></TableCell>
+                  <TableCell className="text-right">
+                    <div className="inline-flex items-center gap-1">
+                      {(f.status === "pending" || f.status === "overdue") && (
+                        <>
+                          <Button size="sm" variant="outline" onClick={() => copyPix(f.pix_code)} disabled={!f.pix_code}>
+                            <Copy className="mr-1 h-3 w-3" /> PIX
+                          </Button>
+                          <Button size="sm" onClick={() => setPayOpen(f)}>Registrar pagamento</Button>
+                        </>
+                      )}
+                      {f.status === "paid" && (
+                        <Button size="sm" variant="outline" disabled={!f.invoice_url} onClick={() => f.invoice_url && window.open(f.invoice_url, "_blank")}>
+                          Ver recibo
+                        </Button>
+                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => setConfirmCancel(f.id)}
+                            disabled={f.status === "canceled"}
+                          >
+                            Cancelar cobrança
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      <PayModal record={payOpen} onClose={() => setPayOpen(null)} onSaved={() => { setPayOpen(null); onChange(); }} />
+
+      <ConfirmModal
+        open={!!confirmCancel}
+        onOpenChange={(o) => !o && setConfirmCancel(null)}
+        title="Cancelar cobrança?"
+        destructive
+        onConfirm={() => confirmCancel && cancelRecord(confirmCancel)}
+      />
+    </div>
+  );
+}
+
+function SummaryCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border bg-card p-4">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1 text-xl font-semibold">{value}</div>
+    </div>
+  );
+}
+
+function PayModal({ record, onClose, onSaved }: { record: any; onClose: () => void; onSaved: () => void }) {
+  const [method, setMethod] = useState("pix");
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    if (!record) return;
+    setSaving(true);
+    const { error } = await supabase
+      .from("financial_records")
+      .update({ status: "paid", paid_at: new Date().toISOString(), payment_method: method })
+      .eq("id", record.id);
+    setSaving(false);
+    if (error) toast.error("Erro ao registrar pagamento");
+    else {
+      toast.success("Pagamento registrado");
+      onSaved();
+    }
+  };
+
+  return (
+    <Dialog open={!!record} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Registrar pagamento</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label>Método</Label>
+            <Select value={method} onValueChange={setMethod}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cash">Dinheiro</SelectItem>
+                <SelectItem value="card">Cartão</SelectItem>
+                <SelectItem value="pix">PIX</SelectItem>
+                <SelectItem value="other">Outro</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={save} disabled={saving}>Confirmar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------- Presença ----------
+function PresencaTab({ attendance, promotionDate }: { attendance: any[]; promotionDate: string | null }) {
+  const now = new Date();
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth()); // 0-11
+
+  const ymPrefix = `${year}-${String(month + 1).padStart(2, "0")}`;
+  const monthAttendance = attendance.filter((a) => (a.class_date ?? "").startsWith(ymPrefix));
+  const byDate = new Map<string, any>();
+  for (const a of monthAttendance) byDate.set(a.class_date, a);
+
+  const firstDay = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const startOffset = firstDay.getDay();
+  const cells: (Date | null)[] = [];
+  for (let i = 0; i < startOffset; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
+
+  const presencesMonth = monthAttendance.filter((a) => a.present).length;
+  const presencesSincePromotion = promotionDate
+    ? attendance.filter((a) => a.present && a.class_date >= promotionDate).length
+    : 0;
+
+  const monthLabel = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(firstDay);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
+          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {Array.from({ length: 12 }).map((_, i) => (
+              <SelectItem key={i} value={String(i)}>
+                {new Intl.DateTimeFormat("pt-BR", { month: "long" }).format(new Date(2024, i, 1))}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+          <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {Array.from({ length: 5 }).map((_, i) => {
+              const y = now.getFullYear() - 2 + i;
+              return <SelectItem key={y} value={String(y)}>{y}</SelectItem>;
+            })}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="rounded-lg border bg-card p-4">
+        <div className="mb-2 grid grid-cols-7 gap-1 text-center text-xs font-medium text-muted-foreground">
+          {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d) => <div key={d}>{d}</div>)}
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {cells.map((d, i) => {
+            if (!d) return <div key={i} />;
+            const iso = `${year}-${String(month + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+            const rec = byDate.get(iso);
+            let color = "bg-gray-200 border-gray-300";
+            let title = "Sem registro";
+            if (rec) {
+              if (rec.present) {
+                color = "bg-emerald-500 border-emerald-600 text-white";
+                title = rec.class_schedules?.name ?? "Presente";
+              } else {
+                color = "bg-red-500 border-red-600 text-white";
+                title = "Faltou";
+              }
+            }
+            return (
+              <div key={i} className="flex items-center justify-center" title={title}>
+                <div className={`flex h-8 w-8 items-center justify-center rounded-full border text-xs ${color}`}>
+                  {d.getDate()}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="text-sm text-muted-foreground">
+        <p>{presencesMonth} presenças em {monthLabel}</p>
+        <p>{presencesSincePromotion} presenças desde a última promoção</p>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Observações ----------
+function ObservacoesTab({ student, onChange }: { student: any; onChange: () => void }) {
+  const [notes, setNotes] = useState(student.medical_notes ?? "");
+  const [saving, setSaving] = useState(false);
+  const dirty = notes !== (student.medical_notes ?? "");
+
+  const save = async () => {
+    setSaving(true);
+    const { error } = await supabase.from("students").update({ medical_notes: notes }).eq("id", student.id);
+    setSaving(false);
+    if (error) toast.error("Erro ao salvar observações");
+    else {
+      toast.success("Observações salvas");
+      onChange();
+    }
+  };
+
+  return (
+    <div className="space-y-3 rounded-lg border bg-card p-4">
+      <Label>Observações médicas / gerais</Label>
+      <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={10} />
+      <Button onClick={save} disabled={!dirty || saving}>Salvar observações</Button>
+    </div>
+  );
+}
