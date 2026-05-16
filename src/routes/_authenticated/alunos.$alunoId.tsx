@@ -400,7 +400,7 @@ function GeralTab({
         title="Remover responsável?"
         description="Esta ação remove apenas o vínculo com o aluno."
         destructive
-        onConfirm={() => confirmRemove && removeGuardian(confirmRemove)}
+        onConfirm={() => { if (confirmRemove) void removeGuardian(confirmRemove); }}
       />
     </div>
   );
@@ -1006,7 +1006,7 @@ function FinanceiroTab({ financial, onChange }: { financial: any[]; onChange: ()
         onOpenChange={(o) => !o && setConfirmCancel(null)}
         title="Cancelar cobrança?"
         destructive
-        onConfirm={() => confirmCancel && cancelRecord(confirmCancel)}
+        onConfirm={() => { if (confirmCancel) void cancelRecord(confirmCancel); }}
       />
     </div>
   );
