@@ -58,15 +58,20 @@ export const checkGraduationAlerts = createServerFn({ method: "GET" }).handler(
       };
     }
 
-    for (const grad of graduations as Array<{
+    for (const grad of graduations as unknown as Array<{
       id: string;
       belt: string;
       degrees: number;
       promotion_date: string;
       minimum_next_promotion_date: string | null;
-      students: { id: string; status: string; is_minor: boolean } | null;
+      students:
+        | { id: string; status: string; is_minor: boolean }
+        | Array<{ id: string; status: string; is_minor: boolean }>
+        | null;
     }>) {
-      const student = grad.students;
+      const student = Array.isArray(grad.students)
+        ? grad.students[0]
+        : grad.students;
       if (!student || student.status !== "active") continue;
 
       processed++;
