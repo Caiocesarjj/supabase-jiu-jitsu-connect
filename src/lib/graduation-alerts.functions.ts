@@ -32,8 +32,8 @@ export const checkGraduationAlerts = createServerFn({ method: "GET" }).handler(
   async () => {
     // Admin client criado dentro do handler para garantir acesso ao process.env em runtime
     const supabaseAdmin = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      process.env.APP_SUPABASE_URL!,
+      process.env.APP_SUPABASE_SERVICE_ROLE_KEY!,
     );
 
     const today = new Date().toISOString().split("T")[0];
