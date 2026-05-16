@@ -19,6 +19,7 @@ import { Route as AuthenticatedFinanceiroRouteImport } from './routes/_authentic
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedAlunosRouteImport } from './routes/_authenticated/alunos'
+import { Route as ApiPublicCheckGraduationAlertsRouteImport } from './routes/api/public/check-graduation-alerts'
 import { Route as AuthenticatedAlunosAlunoIdRouteImport } from './routes/_authenticated/alunos.$alunoId'
 
 const LoginRoute = LoginRouteImport.update({
@@ -71,6 +72,12 @@ const AuthenticatedAlunosRoute = AuthenticatedAlunosRouteImport.update({
   path: '/alunos',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const ApiPublicCheckGraduationAlertsRoute =
+  ApiPublicCheckGraduationAlertsRouteImport.update({
+    id: '/api/public/check-graduation-alerts',
+    path: '/api/public/check-graduation-alerts',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedAlunosAlunoIdRoute =
   AuthenticatedAlunosAlunoIdRouteImport.update({
     id: '/$alunoId',
@@ -89,6 +96,7 @@ export interface FileRoutesByFullPath {
   '/presenca': typeof AuthenticatedPresencaRoute
   '/turmas': typeof AuthenticatedTurmasRoute
   '/alunos/$alunoId': typeof AuthenticatedAlunosAlunoIdRoute
+  '/api/public/check-graduation-alerts': typeof ApiPublicCheckGraduationAlertsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -101,6 +109,7 @@ export interface FileRoutesByTo {
   '/presenca': typeof AuthenticatedPresencaRoute
   '/turmas': typeof AuthenticatedTurmasRoute
   '/alunos/$alunoId': typeof AuthenticatedAlunosAlunoIdRoute
+  '/api/public/check-graduation-alerts': typeof ApiPublicCheckGraduationAlertsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -115,6 +124,7 @@ export interface FileRoutesById {
   '/_authenticated/presenca': typeof AuthenticatedPresencaRoute
   '/_authenticated/turmas': typeof AuthenticatedTurmasRoute
   '/_authenticated/alunos/$alunoId': typeof AuthenticatedAlunosAlunoIdRoute
+  '/api/public/check-graduation-alerts': typeof ApiPublicCheckGraduationAlertsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -129,6 +139,7 @@ export interface FileRouteTypes {
     | '/presenca'
     | '/turmas'
     | '/alunos/$alunoId'
+    | '/api/public/check-graduation-alerts'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -141,6 +152,7 @@ export interface FileRouteTypes {
     | '/presenca'
     | '/turmas'
     | '/alunos/$alunoId'
+    | '/api/public/check-graduation-alerts'
   id:
     | '__root__'
     | '/'
@@ -154,6 +166,7 @@ export interface FileRouteTypes {
     | '/_authenticated/presenca'
     | '/_authenticated/turmas'
     | '/_authenticated/alunos/$alunoId'
+    | '/api/public/check-graduation-alerts'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -161,6 +174,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   CadastroAcademiaRoute: typeof CadastroAcademiaRoute
   LoginRoute: typeof LoginRoute
+  ApiPublicCheckGraduationAlertsRoute: typeof ApiPublicCheckGraduationAlertsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -235,6 +249,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAlunosRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/api/public/check-graduation-alerts': {
+      id: '/api/public/check-graduation-alerts'
+      path: '/api/public/check-graduation-alerts'
+      fullPath: '/api/public/check-graduation-alerts'
+      preLoaderRoute: typeof ApiPublicCheckGraduationAlertsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/alunos/$alunoId': {
       id: '/_authenticated/alunos/$alunoId'
       path: '/$alunoId'
@@ -283,17 +304,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   CadastroAcademiaRoute: CadastroAcademiaRoute,
   LoginRoute: LoginRoute,
+  ApiPublicCheckGraduationAlertsRoute: ApiPublicCheckGraduationAlertsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
