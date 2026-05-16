@@ -19,6 +19,7 @@ import { Route as AuthenticatedFinanceiroRouteImport } from './routes/_authentic
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedAlunosRouteImport } from './routes/_authenticated/alunos'
+import { Route as AuthenticatedAlunosAlunoIdRouteImport } from './routes/_authenticated/alunos.$alunoId'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -70,28 +71,36 @@ const AuthenticatedAlunosRoute = AuthenticatedAlunosRouteImport.update({
   path: '/alunos',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAlunosAlunoIdRoute =
+  AuthenticatedAlunosAlunoIdRouteImport.update({
+    id: '/$alunoId',
+    path: '/$alunoId',
+    getParentRoute: () => AuthenticatedAlunosRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/cadastro-academia': typeof CadastroAcademiaRoute
   '/login': typeof LoginRoute
-  '/alunos': typeof AuthenticatedAlunosRoute
+  '/alunos': typeof AuthenticatedAlunosRouteWithChildren
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/financeiro': typeof AuthenticatedFinanceiroRoute
   '/presenca': typeof AuthenticatedPresencaRoute
   '/turmas': typeof AuthenticatedTurmasRoute
+  '/alunos/$alunoId': typeof AuthenticatedAlunosAlunoIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/cadastro-academia': typeof CadastroAcademiaRoute
   '/login': typeof LoginRoute
-  '/alunos': typeof AuthenticatedAlunosRoute
+  '/alunos': typeof AuthenticatedAlunosRouteWithChildren
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/financeiro': typeof AuthenticatedFinanceiroRoute
   '/presenca': typeof AuthenticatedPresencaRoute
   '/turmas': typeof AuthenticatedTurmasRoute
+  '/alunos/$alunoId': typeof AuthenticatedAlunosAlunoIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -99,12 +108,13 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/cadastro-academia': typeof CadastroAcademiaRoute
   '/login': typeof LoginRoute
-  '/_authenticated/alunos': typeof AuthenticatedAlunosRoute
+  '/_authenticated/alunos': typeof AuthenticatedAlunosRouteWithChildren
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/financeiro': typeof AuthenticatedFinanceiroRoute
   '/_authenticated/presenca': typeof AuthenticatedPresencaRoute
   '/_authenticated/turmas': typeof AuthenticatedTurmasRoute
+  '/_authenticated/alunos/$alunoId': typeof AuthenticatedAlunosAlunoIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -118,6 +128,7 @@ export interface FileRouteTypes {
     | '/financeiro'
     | '/presenca'
     | '/turmas'
+    | '/alunos/$alunoId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -129,6 +140,7 @@ export interface FileRouteTypes {
     | '/financeiro'
     | '/presenca'
     | '/turmas'
+    | '/alunos/$alunoId'
   id:
     | '__root__'
     | '/'
@@ -141,6 +153,7 @@ export interface FileRouteTypes {
     | '/_authenticated/financeiro'
     | '/_authenticated/presenca'
     | '/_authenticated/turmas'
+    | '/_authenticated/alunos/$alunoId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -222,11 +235,29 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAlunosRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/alunos/$alunoId': {
+      id: '/_authenticated/alunos/$alunoId'
+      path: '/$alunoId'
+      fullPath: '/alunos/$alunoId'
+      preLoaderRoute: typeof AuthenticatedAlunosAlunoIdRouteImport
+      parentRoute: typeof AuthenticatedAlunosRoute
+    }
   }
 }
 
+interface AuthenticatedAlunosRouteChildren {
+  AuthenticatedAlunosAlunoIdRoute: typeof AuthenticatedAlunosAlunoIdRoute
+}
+
+const AuthenticatedAlunosRouteChildren: AuthenticatedAlunosRouteChildren = {
+  AuthenticatedAlunosAlunoIdRoute: AuthenticatedAlunosAlunoIdRoute,
+}
+
+const AuthenticatedAlunosRouteWithChildren =
+  AuthenticatedAlunosRoute._addFileChildren(AuthenticatedAlunosRouteChildren)
+
 interface AuthenticatedRouteChildren {
-  AuthenticatedAlunosRoute: typeof AuthenticatedAlunosRoute
+  AuthenticatedAlunosRoute: typeof AuthenticatedAlunosRouteWithChildren
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedFinanceiroRoute: typeof AuthenticatedFinanceiroRoute
@@ -235,7 +266,7 @@ interface AuthenticatedRouteChildren {
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
-  AuthenticatedAlunosRoute: AuthenticatedAlunosRoute,
+  AuthenticatedAlunosRoute: AuthenticatedAlunosRouteWithChildren,
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedFinanceiroRoute: AuthenticatedFinanceiroRoute,
