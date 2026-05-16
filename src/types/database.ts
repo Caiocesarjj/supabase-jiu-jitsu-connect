@@ -1,13 +1,52 @@
 export type Belt =
-  | "white"
-  | "blue"
-  | "purple"
-  | "brown"
-  | "black"
-  | "gray"
-  | "yellow"
-  | "orange"
-  | "green";
+  // Trilha adulto
+  | "branca"
+  | "azul"
+  | "roxa"
+  | "marrom"
+  | "preta"
+  // Faixa preta avançada
+  | "coral"
+  | "vermelha"
+  // Trilha infantil — sem friso
+  | "cinza"
+  | "amarela"
+  | "laranja"
+  | "verde"
+  // Trilha infantil — friso branco
+  | "cinza_branco"
+  | "amarela_branco"
+  | "laranja_branco"
+  | "verde_branco"
+  // Trilha infantil — friso preto
+  | "cinza_preto"
+  | "amarela_preto"
+  | "laranja_preto"
+  | "verde_preto";
+
+export interface Graduation {
+  id: string;
+  organization_id: string;
+  student_id: string;
+  belt: Belt;
+  degrees: number; // 0–4 nas faixas coloridas, 1–10 na faixa preta
+  promotion_date: string;
+  minimum_next_promotion_date: string | null;
+  classes_since_promotion: number;
+  updated_by: string | null;
+  updated_at: string;
+}
+
+export interface GraduationHistory {
+  id: string;
+  organization_id: string;
+  student_id: string;
+  new_belt: Belt;
+  new_degrees: number;
+  promoted_at: string;
+  promoted_by: string | null;
+  notes: string | null;
+}
 
 export type StudentStatus = "active" | "inactive" | "trial";
 
