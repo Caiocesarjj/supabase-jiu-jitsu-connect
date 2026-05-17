@@ -1,9 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
+import { createStudentRegistration } from "@/lib/registrations.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +34,7 @@ const BELTS: Belt[] = [
 function NovoAlunoPage() {
   const { organizationId } = useAuth();
   const navigate = useNavigate();
+  const createStudent = useServerFn(createStudentRegistration);
 
   const [fullName, setFullName] = useState("");
   const [cpf, setCpf] = useState("");
@@ -55,44 +58,25 @@ function NovoAlunoPage() {
     }
     setSaving(true);
     try {
-      const profileId = crypto.randomUUID();
-      const today = new Date().toISOString().split("T")[0];
-
-      const { error: e1 } = await supabase.from("profiles").insert({
-        id: profileId,
-        organization_id: organizationId,
-        full_name: fullName.trim(),
-        email: email.trim() || null,
-        phone: phone.trim() || null,
-        cpf: cpf.trim() || null,
-        role: "aluno",
-      });
-      if (e1) throw e1;
-
-      const studentPayload: Record<string, unknown> = {
-        id: profileId,
-        organization_id: organizationId,
-        status,
-        birth_date: birthDate || null,
-        monthly_fee: monthlyFee ? Number(monthlyFee) : null,
-        enrollment_date: today,
-      };
-
-      const { error: e2 } = await supabase.from("students").insert(studentPayload);
-      if (e2) throw e2;
-
-      const { error: e3 } = await supabase.from("graduations").insert({
-        organization_id: organizationId,
-        student_id: profileId,
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida. Faça login novamente.");
+      const result = await createStudent({ data: {
+        accessToken,
+        organizationId,
+        fullName: fullName.trim(),
+        cpf: cpf.trim() || undefined,
+        phone: phone.trim() || undefined,
+        email: email.trim() || undefined,
+        birthDate: birthDate || undefined,
+        monthlyFee: monthlyFee ? Number(monthlyFee) : null,
+        status: status as "active" | "trial" | "inactive",
         belt,
         degrees: Number(degrees) || 0,
-        promotion_date: today,
-        classes_since_promotion: 0,
-      });
-      if (e3) throw e3;
+      } });
 
       toast.success("Aluno cadastrado com sucesso");
-      navigate({ to: "/alunos/$alunoId", params: { alunoId: profileId } });
+      navigate({ to: "/alunos/$alunoId", params: { alunoId: result.studentId } });
     } catch (err: any) {
       console.error("Erro ao cadastrar aluno:", err);
       toast.error(err?.message || "Erro ao cadastrar aluno");
