@@ -357,8 +357,14 @@ function BeltDistribution({ organizationId }: { organizationId: string | null })
     <div className="rounded-xl border bg-card p-5 space-y-4">
       <h2 className="text-base font-semibold">Distribuição por faixa</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {renderList(ADULT_BELTS_FULL, adultTotal)}
-        {renderList(JUNIOR_BELT_ORDER, kidTotal)}
+        <div>
+          <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Adulto</h3>
+          {renderList(ADULT_BELTS_FULL, adultTotal)}
+        </div>
+        <div>
+          <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Infantil</h3>
+          {renderList(JUNIOR_BELT_ORDER, kidTotal)}
+        </div>
       </div>
     </div>
   );
