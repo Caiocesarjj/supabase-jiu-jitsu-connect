@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { CheckSquare } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
+import { saveAttendanceRegistration } from "@/lib/registrations.functions";
 import { Avatar } from "@/components/Avatar";
 import { BeltBadge } from "@/components/BeltBadge";
 import { EmptyState } from "@/components/EmptyState";
@@ -26,14 +28,29 @@ export const Route = createFileRoute("/_authenticated/presenca")({
 
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
+interface ScheduleOption {
+  id: string;
+  name: string;
+  weekday: number;
+  start_time: string;
+  duration_min: number;
+}
+
+interface AttendanceStudent {
+  id: string;
+  profiles?: { full_name?: string | null } | null;
+  graduations?: Array<{ belt?: string | null; degrees?: number | null }> | null;
+}
+
 function todayISO() {
   return new Date().toISOString().split("T")[0];
 }
 
 function PresencaPage() {
-  const { organizationId, user } = useAuth();
-  const [schedules, setSchedules] = useState<any[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
+  const { organizationId } = useAuth();
+  const saveAttendance = useServerFn(saveAttendanceRegistration);
+  const [schedules, setSchedules] = useState<ScheduleOption[]>([]);
+  const [students, setStudents] = useState<AttendanceStudent[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedScheduleId, setSelectedScheduleId] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<string>(todayISO());
@@ -63,14 +80,18 @@ function PresencaPage() {
       if (cancelled) return;
       if (sch.error) toast.error("Erro ao carregar turmas");
       if (st.error) toast.error("Erro ao carregar alunos");
-      const studentList = ((st.data as any) ?? []).slice().sort((a: any, b: any) =>
-        (a.profiles?.full_name ?? "").localeCompare(b.profiles?.full_name ?? "")
-      );
-      setSchedules((sch.data as any) ?? []);
+      const studentList = ((st.data as AttendanceStudent[] | null) ?? [])
+        .slice()
+        .sort((a, b) =>
+          (a.profiles?.full_name ?? "").localeCompare(b.profiles?.full_name ?? ""),
+        );
+      setSchedules((sch.data as ScheduleOption[] | null) ?? []);
       setStudents(studentList);
       setLoading(false);
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [organizationId]);
 
   // Load existing attendance and initialize checks
@@ -85,44 +106,70 @@ function PresencaPage() {
         .eq("schedule_id", selectedScheduleId)
         .eq("class_date", selectedDate);
       if (cancelled) return;
-      if (error) { toast.error("Erro ao carregar presença"); return; }
+      if (error) {
+        toast.error("Erro ao carregar presença");
+        return;
+      }
       const map: Record<string, boolean> = {};
-      students.forEach((s) => { map[s.id] = true; });
-      (data ?? []).forEach((r: any) => { map[r.student_id] = !!r.present; });
+      students.forEach((s) => {
+        map[s.id] = true;
+      });
+      (data ?? []).forEach((r: { student_id: string; present: boolean }) => {
+        map[r.student_id] = !!r.present;
+      });
       setChecked(map);
       setAlreadyRegistered((data ?? []).length > 0);
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [organizationId, selectedScheduleId, selectedDate, students]);
 
   const presentCount = useMemo(
     () => students.filter((s) => checked[s.id]).length,
-    [students, checked]
+    [students, checked],
   );
 
   const handleConfirm = async () => {
     if (!organizationId || !selectedScheduleId || !selectedDate) return;
     setSaving(true);
-    const records = students.map((s) => ({
-      organization_id: organizationId,
-      student_id: s.id,
-      schedule_id: selectedScheduleId,
-      class_date: selectedDate,
-      present: checked[s.id] ?? true,
-      checked_in_by: user?.id ?? null,
-    }));
-    const { error } = await supabase
-      .from("attendance")
-      .upsert(records, { onConflict: "student_id,class_date,schedule_id", ignoreDuplicates: false });
+    const records = students.map((s) => ({ studentId: s.id, present: checked[s.id] ?? true }));
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    if (!accessToken) {
+      setSaving(false);
+      toast.error("Sessão inválida. Faça login novamente.");
+      return;
+    }
+    try {
+      await saveAttendance({
+        data: {
+          accessToken,
+          organizationId,
+          scheduleId: selectedScheduleId,
+          classDate: selectedDate,
+          records,
+        },
+      });
+    } catch (err) {
+      setSaving(false);
+      toast.error(err instanceof Error ? err.message : "Erro ao registrar chamada");
+      return;
+    }
     setSaving(false);
-    if (error) { toast.error("Erro ao registrar chamada"); return; }
     const scheduleName = schedules.find((s) => s.id === selectedScheduleId)?.name ?? "turma";
-    toast.success(`Chamada de ${scheduleName} registrada — ${presentCount} presentes de ${students.length} alunos.`);
+    toast.success(
+      `Chamada de ${scheduleName} registrada — ${presentCount} presentes de ${students.length} alunos.`,
+    );
     setAlreadyRegistered(true);
   };
 
   if (loading) {
-    return <div className="flex h-64 items-center justify-center"><LoadingSpinner label="Carregando..." /></div>;
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <LoadingSpinner label="Carregando..." />
+      </div>
+    );
   }
 
   return (
@@ -133,7 +180,9 @@ function PresencaPage() {
         <div className="min-w-[220px]">
           <Label>Turma</Label>
           <Select value={selectedScheduleId} onValueChange={setSelectedScheduleId}>
-            <SelectTrigger><SelectValue placeholder="Selecione a turma" /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione a turma" />
+            </SelectTrigger>
             <SelectContent>
               {schedules.map((s) => (
                 <SelectItem key={s.id} value={s.id}>
@@ -145,14 +194,20 @@ function PresencaPage() {
         </div>
         <div>
           <Label>Data</Label>
-          <Input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
+          <Input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+          />
         </div>
         {selectedScheduleId && selectedDate && (
-          <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${
-            alreadyRegistered
-              ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-              : "bg-gray-100 text-gray-700 border-gray-300"
-          }`}>
+          <span
+            className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${
+              alreadyRegistered
+                ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                : "bg-gray-100 text-gray-700 border-gray-300"
+            }`}
+          >
             {alreadyRegistered ? "Chamada registrada ✓" : "Chamada pendente"}
           </span>
         )}
@@ -171,7 +226,9 @@ function PresencaPage() {
       ) : (
         <div className="rounded-lg border bg-card">
           <div className="flex items-center justify-between border-b px-4 py-2 text-sm font-medium">
-            <span>{presentCount} / {students.length} presentes</span>
+            <span>
+              {presentCount} / {students.length} presentes
+            </span>
           </div>
           <div className="divide-y">
             {students.map((s) => {
@@ -179,7 +236,10 @@ function PresencaPage() {
               const belt = s.graduations?.[0]?.belt ?? "branca";
               const isPresent = checked[s.id] ?? true;
               return (
-                <label key={s.id} className="flex items-center gap-3 px-4 py-2 cursor-pointer hover:bg-muted/50">
+                <label
+                  key={s.id}
+                  className="flex items-center gap-3 px-4 py-2 cursor-pointer hover:bg-muted/50"
+                >
                   <Checkbox
                     checked={isPresent}
                     onCheckedChange={(v) => setChecked((prev) => ({ ...prev, [s.id]: !!v }))}

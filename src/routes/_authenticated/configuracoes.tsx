@@ -1,9 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  getOrganizationConfig,
+  updateAcademyConfig,
+  updateFinancialConfig,
+  updateWhatsappConfig,
+} from "@/lib/registrations.functions";
 import { formatDateBR } from "@/lib/format";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Button } from "@/components/ui/button";
@@ -82,6 +89,7 @@ function pixPlaceholder(type: string | null): string {
 
 function ConfiguracoesPage() {
   const { organizationId, user, profile, refreshProfile } = useAuth();
+  const getConfig = useServerFn(getOrganizationConfig);
   const [loading, setLoading] = useState(true);
   const [org, setOrg] = useState<Org | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -89,22 +97,16 @@ function ConfiguracoesPage() {
   const load = async () => {
     if (!organizationId) return;
     setLoading(true);
-    const [orgRes, setRes] = await Promise.all([
-      supabase
-        .from("organizations")
-        .select("id, name, phone, email, logo_url, plan, trial_ends_at")
-        .eq("id", organizationId)
-        .single(),
-      supabase
-        .from("organization_settings")
-        .select("*")
-        .eq("organization_id", organizationId)
-        .single(),
-    ]);
-    if (orgRes.error) toast.error("Erro ao carregar academia.");
-    else setOrg(orgRes.data as Org);
-    if (setRes.error) toast.error("Erro ao carregar configurações.");
-    else setSettings(setRes.data as Settings);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida. Faça login novamente.");
+      const result = await getConfig({ data: { accessToken } });
+      setOrg(result.org as Org);
+      setSettings(result.settings as Settings);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao carregar configurações.");
+    }
     setLoading(false);
   };
 
@@ -131,28 +133,13 @@ function ConfiguracoesPage() {
       <Separator />
       <PlanSection org={org} />
       <Separator />
-      <FinancialSection
-        settings={settings}
-        organizationId={organizationId!}
-        onSaved={load}
-      />
+      <FinancialSection settings={settings} organizationId={organizationId!} onSaved={load} />
       <Separator />
-      <WhatsappSection
-        settings={settings}
-        organizationId={organizationId!}
-        onSaved={load}
-      />
+      <WhatsappSection settings={settings} organizationId={organizationId!} onSaved={load} />
       <Separator />
-      <IntegrationsSection
-        settings={settings}
-        organizationId={organizationId!}
-        onSaved={load}
-      />
+      <IntegrationsSection settings={settings} organizationId={organizationId!} onSaved={load} />
       <Separator />
-      <AccountSection
-        userEmail={user?.email ?? ""}
-        userName={profile?.full_name ?? ""}
-      />
+      <AccountSection userEmail={user?.email ?? ""} userName={profile?.full_name ?? ""} />
     </div>
   );
 }
@@ -170,13 +157,7 @@ function SaveButton({ saving }: { saving: boolean }) {
   );
 }
 
-function AcademySection({
-  org,
-  onSaved,
-}: {
-  org: Org;
-  onSaved: () => Promise<void>;
-}) {
+function AcademySection({ org, onSaved }: { org: Org; onSaved: () => Promise<void> }) {
   const [name, setName] = useState(org.name);
   const [phone, setPhone] = useState(org.phone ?? "");
   const [email, setEmail] = useState(org.email);
@@ -214,12 +195,7 @@ function AcademySection({
       </div>
       <div className="space-y-1">
         <Label>E-mail de contato</Label>
-        <Input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
+        <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
       </div>
       <SaveButton saving={saving} />
     </form>
@@ -228,12 +204,9 @@ function AcademySection({
 
 function PlanSection({ org }: { org: Org }) {
   const plan = org.plan ?? "starter";
-  const planLabel =
-    plan === "pro" ? "Pro" : plan === "scale" ? "Scale" : "Starter";
-  const trialActive =
-    org.trial_ends_at && new Date(org.trial_ends_at) > new Date();
-  const trialEnded =
-    org.trial_ends_at && new Date(org.trial_ends_at) <= new Date();
+  const planLabel = plan === "pro" ? "Pro" : plan === "scale" ? "Scale" : "Starter";
+  const trialActive = org.trial_ends_at && new Date(org.trial_ends_at) > new Date();
+  const trialEnded = org.trial_ends_at && new Date(org.trial_ends_at) <= new Date();
   return (
     <div className="space-y-3">
       <SectionHeader title="Plano atual" />
@@ -242,18 +215,11 @@ function PlanSection({ org }: { org: Org }) {
           <span className="text-sm text-muted-foreground">Plano:</span>
           <Badge variant="secondary">{planLabel}</Badge>
         </div>
-        {trialActive && (
-          <p className="text-sm">Trial até {formatDateBR(org.trial_ends_at!)}</p>
-        )}
-        {trialEnded && (
-          <p className="text-sm text-red-600">Trial encerrado</p>
-        )}
+        {trialActive && <p className="text-sm">Trial até {formatDateBR(org.trial_ends_at!)}</p>}
+        {trialEnded && <p className="text-sm text-red-600">Trial encerrado</p>}
         <p className="text-sm text-muted-foreground">
           Para mudar de plano,{" "}
-          <a
-            href="mailto:suporte@jjmanager.com"
-            className="text-primary underline"
-          >
+          <a href="mailto:suporte@jjmanager.com" className="text-primary underline">
             entre em contato
           </a>
           .
@@ -304,12 +270,7 @@ function FinancialSection({
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
           <Label>Mensalidade padrão (R$)</Label>
-          <Input
-            type="number"
-            step="0.01"
-            value={fee}
-            onChange={(e) => setFee(e.target.value)}
-          />
+          <Input type="number" step="0.01" value={fee} onChange={(e) => setFee(e.target.value)} />
         </div>
         <div className="space-y-1">
           <Label>Dia de vencimento</Label>
@@ -371,11 +332,9 @@ function WhatsappSection({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    const days = [
-      dMinus3 ? -3 : null,
-      dZero ? 0 : null,
-      dPlus3 ? 3 : null,
-    ].filter((v): v is number => v !== null);
+    const days = [dMinus3 ? -3 : null, dZero ? 0 : null, dPlus3 ? 3 : null].filter(
+      (v): v is number => v !== null,
+    );
     const { error } = await supabase
       .from("organization_settings")
       .update({
@@ -416,42 +375,26 @@ function WhatsappSection({
                 onClick={() => setShowToken((s) => !s)}
                 className="absolute right-2 top-2.5 text-muted-foreground"
               >
-                {showToken ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
+                {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
           </div>
           <div className="space-y-2">
             <Label>Dias de disparo</Label>
             <div className="flex items-center gap-2">
-              <Checkbox
-                id="d-3"
-                checked={dMinus3}
-                onCheckedChange={(v) => setDMinus3(!!v)}
-              />
+              <Checkbox id="d-3" checked={dMinus3} onCheckedChange={(v) => setDMinus3(!!v)} />
               <Label htmlFor="d-3" className="cursor-pointer">
                 D-3 (3 dias antes do vencimento)
               </Label>
             </div>
             <div className="flex items-center gap-2">
-              <Checkbox
-                id="d0"
-                checked={dZero}
-                onCheckedChange={(v) => setDZero(!!v)}
-              />
+              <Checkbox id="d0" checked={dZero} onCheckedChange={(v) => setDZero(!!v)} />
               <Label htmlFor="d0" className="cursor-pointer">
                 D0 (no dia do vencimento)
               </Label>
             </div>
             <div className="flex items-center gap-2">
-              <Checkbox
-                id="d3"
-                checked={dPlus3}
-                onCheckedChange={(v) => setDPlus3(!!v)}
-              />
+              <Checkbox id="d3" checked={dPlus3} onCheckedChange={(v) => setDPlus3(!!v)} />
               <Label htmlFor="d3" className="cursor-pointer">
                 D+3 (3 dias após o vencimento)
               </Label>
@@ -500,8 +443,7 @@ function IntegrationsSection({
     <form onSubmit={handleSubmit} className="space-y-3">
       <SectionHeader title="Integrações" />
       <div className="rounded-md border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-800">
-        A API key é armazenada de forma segura e usada apenas para geração de
-        cobranças PIX.
+        A API key é armazenada de forma segura e usada apenas para geração de cobranças PIX.
       </div>
       <div className="space-y-1">
         <Label>Provedor</Label>
@@ -528,11 +470,7 @@ function IntegrationsSection({
             onClick={() => setShow((s) => !s)}
             className="absolute right-2 top-2.5 text-muted-foreground"
           >
-            {show ? (
-              <EyeOff className="h-4 w-4" />
-            ) : (
-              <Eye className="h-4 w-4" />
-            )}
+            {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
       </div>
@@ -541,13 +479,7 @@ function IntegrationsSection({
   );
 }
 
-function AccountSection({
-  userEmail,
-  userName,
-}: {
-  userEmail: string;
-  userName: string;
-}) {
+function AccountSection({ userEmail, userName }: { userEmail: string; userName: string }) {
   const [open, setOpen] = useState(false);
   const [pwd, setPwd] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -596,27 +528,15 @@ function AccountSection({
           <div className="space-y-3">
             <div className="space-y-1">
               <Label>Nova senha</Label>
-              <Input
-                type="password"
-                value={pwd}
-                onChange={(e) => setPwd(e.target.value)}
-              />
+              <Input type="password" value={pwd} onChange={(e) => setPwd(e.target.value)} />
             </div>
             <div className="space-y-1">
               <Label>Confirmar nova senha</Label>
-              <Input
-                type="password"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-              />
+              <Input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setOpen(false)}
-              disabled={saving}
-            >
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>
               Cancelar
             </Button>
             <Button onClick={handleChange} disabled={saving}>
