@@ -347,7 +347,7 @@ export const saveClassSchedules = createServerFn({ method: "POST" })
       name: data.name,
       start_time: data.startTime,
       duration_min: data.durationMin,
-      instructor_id: data.instructorId ?? null,
+      instructor_record_id: data.instructorId ?? null,
       active: true,
     };
 

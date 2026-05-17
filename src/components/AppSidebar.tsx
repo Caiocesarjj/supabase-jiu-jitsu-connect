@@ -2,6 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard,
   Users,
+  GraduationCap,
   Calendar,
   CheckSquare,
   DollarSign,
@@ -26,6 +27,7 @@ import { useAuth } from "@/hooks/useAuth";
 const items = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Alunos", url: "/alunos", icon: Users },
+  { title: "Instrutores", url: "/instrutores", icon: GraduationCap },
   { title: "Turmas", url: "/turmas", icon: Calendar },
   { title: "Presença", url: "/presenca", icon: CheckSquare },
   { title: "Financeiro", url: "/financeiro", icon: DollarSign },

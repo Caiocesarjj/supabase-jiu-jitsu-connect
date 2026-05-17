@@ -41,8 +41,8 @@ interface Schedule {
   start_time: string;
   duration_min: number;
   active: boolean;
-  instructor_id?: string | null;
-  profiles?: { full_name: string } | null;
+  instructor_record_id?: string | null;
+  instructors?: { full_name: string } | null;
 }
 
 function TurmasPage() {
@@ -66,17 +66,17 @@ function TurmasPage() {
         supabase
           .from("class_schedules")
           .select(
-            `id, name, weekday, start_time, duration_min, active, instructor_id, profiles ( full_name )`,
+            `id, name, weekday, start_time, duration_min, active, instructor_record_id, instructors ( full_name )`,
           )
           .eq("organization_id", organizationId)
           .eq("active", true)
           .order("weekday")
           .order("start_time"),
         supabase
-          .from("profiles")
-          .select("id, full_name, role")
+          .from("instructors")
+          .select("id, full_name")
           .eq("organization_id", organizationId)
-          .in("role", ["admin", "instructor", "instrutor"]),
+          .order("full_name"),
       ]);
       if (cancelled) return;
       if (sch.error) toast.error("Erro ao carregar turmas");
@@ -162,7 +162,7 @@ function TurmasPage() {
                 <div>
                   {s.start_time?.slice(0, 5)} ({s.duration_min} min)
                 </div>
-                <div>{s.profiles?.full_name ?? "Sem instrutor"}</div>
+                <div>{s.instructors?.full_name ?? "Sem instrutor"}</div>
               </div>
             </div>
           ))}
@@ -219,7 +219,7 @@ function ScheduleModal({
   const [days, setDays] = useState<number[]>(schedule ? [schedule.weekday] : []);
   const [startTime, setStartTime] = useState(schedule?.start_time?.slice(0, 5) ?? "19:00");
   const [duration, setDuration] = useState(String(schedule?.duration_min ?? 60));
-  const [instructorId, setInstructorId] = useState<string>(schedule?.instructor_id ?? "none");
+  const [instructorId, setInstructorId] = useState<string>(schedule?.instructor_record_id ?? "none");
   const [saving, setSaving] = useState(false);
 
   const toggleDay = (d: number) => {

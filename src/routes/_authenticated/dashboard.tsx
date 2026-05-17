@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Users, DollarSign, Calendar, AlertCircle, Trophy } from "lucide-react";
+import { Users, DollarSign, Calendar, AlertCircle, Trophy, GraduationCap } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { formatBRL } from "@/lib/format";
@@ -285,13 +285,90 @@ function DashboardPage() {
 
       <BeltDistribution organizationId={organizationId} />
 
-      <div className="rounded-xl border border-dashed border-border bg-muted/30 p-6 text-sm text-muted-foreground">
-        <p className="font-medium text-foreground">Próximas fases</p>
-        <p className="mt-1">
-          Esta é a Fase 1 (fundação). Nas próximas etapas vamos construir
-          alunos, turmas, presença, financeiro e configurações.
-        </p>
+      <InstructorsPanel organizationId={organizationId} />
+    </div>
+  );
+}
+
+function InstructorsPanel({ organizationId }: { organizationId: string | null }) {
+  const navigate = useNavigate();
+  const { data, isLoading } = useQuery({
+    queryKey: ["dashboard-instructors", organizationId],
+    queryFn: async () => {
+      const [insRes, schRes] = await Promise.all([
+        supabase
+          .from("instructors")
+          .select("id, full_name, belt, degrees")
+          .eq("organization_id", organizationId!)
+          .order("full_name"),
+        supabase
+          .from("class_schedules")
+          .select("instructor_record_id")
+          .eq("organization_id", organizationId!)
+          .eq("active", true),
+      ]);
+      const counts: Record<string, number> = {};
+      for (const row of (schRes.data ?? []) as Array<{ instructor_record_id: string | null }>) {
+        if (row.instructor_record_id)
+          counts[row.instructor_record_id] = (counts[row.instructor_record_id] ?? 0) + 1;
+      }
+      return {
+        instructors: (insRes.data ?? []) as Array<{
+          id: string;
+          full_name: string;
+          belt: Belt;
+          degrees: number;
+        }>,
+        counts,
+      };
+    },
+    enabled: !!organizationId,
+  });
+
+  if (isLoading || !data) {
+    return (
+      <div className="rounded-xl border bg-card p-5">
+        <LoadingSpinner />
       </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border bg-card p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-base font-semibold flex items-center gap-2">
+          <GraduationCap className="h-4 w-4" /> Instrutores ({data.instructors.length})
+        </h2>
+        <Button size="sm" variant="outline" onClick={() => navigate({ to: "/instrutores" })}>
+          Gerenciar
+        </Button>
+      </div>
+      {data.instructors.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Nenhum instrutor cadastrado ainda.</p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+          {data.instructors.map((i) => {
+            const turmas = data.counts[i.id] ?? 0;
+            return (
+              <div
+                key={i.id}
+                className="flex items-center gap-3 rounded-md border bg-background p-3"
+              >
+                <BeltBadge belt={i.belt} stripes={i.degrees} size="sm" showLabel={false} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">{i.full_name}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {getBeltLabel(i.belt)} • {i.degrees}º grau
+                  </div>
+                </div>
+                <span className="text-xs rounded-full bg-muted px-2 py-0.5 whitespace-nowrap">
+                  {turmas} {turmas === 1 ? "turma" : "turmas"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
