@@ -24,11 +24,23 @@ export const Route = createFileRoute("/_authenticated/alunos/novo")({
 });
 
 const BELTS: Belt[] = [
-  "branca", "azul", "roxa", "marrom", "preta",
-  "cinza_branco", "cinza", "cinza_preto",
-  "amarela_branco", "amarela", "amarela_preto",
-  "laranja_branco", "laranja", "laranja_preto",
-  "verde_branco", "verde", "verde_preto",
+  "branca",
+  "azul",
+  "roxa",
+  "marrom",
+  "preta",
+  "cinza_branco",
+  "cinza",
+  "cinza_preto",
+  "amarela_branco",
+  "amarela",
+  "amarela_preto",
+  "laranja_branco",
+  "laranja",
+  "laranja_preto",
+  "verde_branco",
+  "verde",
+  "verde_preto",
 ];
 
 function NovoAlunoPage() {
@@ -61,19 +73,21 @@ function NovoAlunoPage() {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
       if (!accessToken) throw new Error("Sessão inválida. Faça login novamente.");
-      const result = await createStudent({ data: {
-        accessToken,
-        organizationId,
-        fullName: fullName.trim(),
-        cpf: cpf.trim() || undefined,
-        phone: phone.trim() || undefined,
-        email: email.trim() || undefined,
-        birthDate: birthDate || undefined,
-        monthlyFee: monthlyFee ? Number(monthlyFee) : null,
-        status: status as "active" | "trial" | "inactive",
-        belt,
-        degrees: Number(degrees) || 0,
-      } });
+      const result = await createStudent({
+        data: {
+          accessToken,
+          organizationId,
+          fullName: fullName.trim(),
+          cpf: cpf.trim() || undefined,
+          phone: phone.trim() || undefined,
+          email: email.trim() || undefined,
+          birthDate: birthDate || undefined,
+          monthlyFee: monthlyFee ? Number(monthlyFee) : null,
+          status: status as "active" | "trial" | "inactive",
+          belt,
+          degrees: Number(degrees) || 0,
+        },
+      });
 
       toast.success("Aluno cadastrado com sucesso");
       navigate({ to: "/alunos/$alunoId", params: { alunoId: result.studentId } });
@@ -136,7 +150,9 @@ function NovoAlunoPage() {
             <div>
               <Label>Status</Label>
               <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="active">Ativo</SelectItem>
                   <SelectItem value="trial">Experimental</SelectItem>
@@ -162,11 +178,21 @@ function NovoAlunoPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <Label>Faixa</Label>
-              <Select value={belt} onValueChange={(v) => { setBelt(v as Belt); setDegrees("0"); }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select
+                value={belt}
+                onValueChange={(v) => {
+                  setBelt(v as Belt);
+                  setDegrees("0");
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {BELTS.map((b) => (
-                    <SelectItem key={b} value={b}>{getBeltLabel(b)}</SelectItem>
+                    <SelectItem key={b} value={b}>
+                      {getBeltLabel(b)}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -174,13 +200,16 @@ function NovoAlunoPage() {
             <div>
               <Label>Grau</Label>
               <Select value={degrees} onValueChange={setDegrees}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {Array.from(
-                    { length: belt === "preta" ? maxDeg : maxDeg + 1 },
-                    (_, i) => (belt === "preta" ? i + 1 : i),
+                  {Array.from({ length: belt === "preta" ? maxDeg : maxDeg + 1 }, (_, i) =>
+                    belt === "preta" ? i + 1 : i,
                   ).map((d) => (
-                    <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+                    <SelectItem key={d} value={String(d)}>
+                      {d}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>

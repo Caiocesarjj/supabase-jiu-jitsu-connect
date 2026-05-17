@@ -51,8 +51,7 @@ function CadastroPage() {
       setForm((f) => ({
         ...f,
         email: user.email ?? f.email,
-        full_name:
-          (user.user_metadata?.full_name as string | undefined) ?? f.full_name,
+        full_name: (user.user_metadata?.full_name as string | undefined) ?? f.full_name,
         password: f.password || "ja-cadastrado",
       }));
     }
@@ -75,15 +74,14 @@ function CadastroPage() {
 
       if (!completeMode) {
         // 1. signUp
-        const { data: signUpData, error: signUpErr } =
-          await supabase.auth.signUp({
-            email: parsed.data.email,
-            password: parsed.data.password,
-            options: {
-              emailRedirectTo: window.location.origin,
-              data: { full_name: parsed.data.full_name },
-            },
-          });
+        const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+          email: parsed.data.email,
+          password: parsed.data.password,
+          options: {
+            emailRedirectTo: window.location.origin,
+            data: { full_name: parsed.data.full_name },
+          },
+        });
         if (signUpErr) throw signUpErr;
         userId = signUpData.user?.id;
         if (!userId) throw new Error("Usuário não criado");
