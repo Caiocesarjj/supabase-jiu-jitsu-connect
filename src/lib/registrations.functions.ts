@@ -228,8 +228,6 @@ export const promoteStudent = createServerFn({ method: "POST" })
         promotion_date: data.promotionDate,
         minimum_next_promotion_date: data.minimumNextPromotionDate,
         classes_since_promotion: 0,
-        updated_by: user.id,
-        updated_at: new Date().toISOString(),
       })
       .eq("id", data.graduationId)
       .eq("organization_id", data.organizationId);
@@ -264,7 +262,7 @@ export const updateStudentGraduation = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    const { supabase, user } = await requireStaff(data.accessToken, data.organizationId);
+    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
     const { error } = await supabase
       .from("graduations")
       .update({
@@ -272,8 +270,6 @@ export const updateStudentGraduation = createServerFn({ method: "POST" })
         degrees: data.degrees,
         promotion_date: data.promotionDate,
         minimum_next_promotion_date: data.minimumNextPromotionDate,
-        updated_by: user.id,
-        updated_at: new Date().toISOString(),
       })
       .eq("id", data.graduationId)
       .eq("organization_id", data.organizationId);
