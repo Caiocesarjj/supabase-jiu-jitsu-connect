@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { Plus, Pencil, Trash2, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
+import { deactivateClassSchedule, saveClassSchedules } from "@/lib/registrations.functions";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { EmptyState } from "@/components/EmptyState";
 import { ConfirmModal } from "@/components/ConfirmModal";
@@ -45,6 +47,7 @@ interface Schedule {
 
 function TurmasPage() {
   const { organizationId } = useAuth();
+  const deactivateSchedule = useServerFn(deactivateClassSchedule);
   const [loading, setLoading] = useState(true);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [instructors, setInstructors] = useState<{ id: string; full_name: string }[]>([]);
@@ -88,12 +91,16 @@ function TurmasPage() {
 
   const handleDeactivate = async () => {
     if (!confirmDel) return;
-    const { error } = await supabase
-      .from("class_schedules")
-      .update({ active: false })
-      .eq("id", confirmDel.id);
-    if (error) toast.error("Erro ao desativar turma");
-    else { toast.success("Turma desativada"); setReload((r) => r + 1); }
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken || !organizationId) throw new Error("Sessão inválida. Faça login novamente.");
+      await deactivateSchedule({ data: { accessToken, organizationId, id: confirmDel.id } });
+      toast.success("Turma desativada");
+      setReload((r) => r + 1);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao desativar turma");
+    }
     setConfirmDel(null);
   };
 
