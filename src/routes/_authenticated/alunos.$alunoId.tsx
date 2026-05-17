@@ -848,39 +848,31 @@ function PromotionModal({
     setSaving(true);
     try {
       const minDate = calcMinNextPromotionDate(selectedBelt, newDegrees, today);
-
-      const { error: e1 } = await supabase
-        .from("graduations")
-        .update({
-          belt: selectedBelt,
-          degrees: newDegrees,
-          promotion_date: today,
-          minimum_next_promotion_date: minDate,
-          classes_since_promotion: 0,
-          updated_by: userId,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", grad.id);
-      if (e1) throw e1;
-
-      const { error: e2 } = await supabase.from("graduation_history").insert({
-        organization_id: organizationId,
-        student_id: student.id,
-        old_belt: grad.belt,
-        new_belt: selectedBelt,
-        old_degrees: grad.degrees,
-        new_degrees: newDegrees,
-        promotion_date: today,
-        notes: notes || null,
-        created_by: userId,
+      const { data: session } = await supabase.auth.getSession();
+      const accessToken = session.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida");
+      const { promoteStudent } = await import("@/lib/registrations.functions");
+      await promoteStudent({
+        data: {
+          accessToken,
+          organizationId,
+          studentId: student.id,
+          graduationId: grad.id,
+          newBelt: selectedBelt,
+          newDegrees,
+          promotionDate: today,
+          minimumNextPromotionDate: minDate,
+          oldBelt: grad.belt,
+          oldDegrees: grad.degrees,
+          notes: notes || null,
+        },
       });
-      if (e2) throw e2;
 
       toast.success("Promoção registrada");
       setNotes("");
       onSaved();
     } catch (err: any) {
-      toast.error(err.message || "Erro ao registrar promoção");
+      toast.error(err?.message || "Erro ao registrar promoção");
     } finally {
       setSaving(false);
     }
