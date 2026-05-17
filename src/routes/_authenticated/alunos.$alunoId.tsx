@@ -133,7 +133,7 @@ function AlunoFichaPage() {
         .from("students")
         .select(
           `
-          id, status, birth_date, is_minor, medical_notes, monthly_fee, enrollment_date,
+          id, status, birth_date, medical_notes, monthly_fee, enrollment_date,
           profiles ( id, full_name, email, phone, cpf ),
           graduations (
             id, belt, degrees, promotion_date, minimum_next_promotion_date, classes_since_promotion
@@ -241,7 +241,7 @@ function AlunoFichaPage() {
                 profile.cpf,
                 profile.phone,
                 student.enrollment_date && `Matrícula desde ${formatDateBR(student.enrollment_date)}`,
-                student.is_minor && "Menor de idade",
+                age != null && age < 18 && "Menor de idade",
               ]
                 .filter(Boolean)
                 .join(" · ")}
@@ -738,10 +738,19 @@ function PromotionModal({
   const currentBelt: Belt = grad?.belt ?? "branca";
   const currentDegrees: number = grad?.degrees ?? 0;
   const birth = student.birth_date ?? new Date().toISOString();
+  const isMinor = (() => {
+    if (!student.birth_date) return false;
+    const b = new Date(student.birth_date);
+    const t = new Date();
+    let a = t.getFullYear() - b.getFullYear();
+    const m = t.getMonth() - b.getMonth();
+    if (m < 0 || (m === 0 && t.getDate() < b.getDate())) a--;
+    return a < 18;
+  })();
 
   const available = useMemo(
-    () => getAvailableBeltsForPromotion(currentBelt, currentDegrees, !!student.is_minor, birth),
-    [currentBelt, currentDegrees, student.is_minor, birth],
+    () => getAvailableBeltsForPromotion(currentBelt, currentDegrees, isMinor, birth),
+    [currentBelt, currentDegrees, isMinor, birth],
   );
 
   const [selectedBelt, setSelectedBelt] = useState<Belt>(available[0] ?? currentBelt);
