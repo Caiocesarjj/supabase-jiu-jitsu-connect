@@ -1559,10 +1559,8 @@ function PastGraduationModal({
   organizationId: string;
   onSaved: () => void;
 }) {
-  const [oldBelt, setOldBelt] = useState<Belt>("branca");
-  const [oldDegrees, setOldDegrees] = useState(0);
-  const [newBelt, setNewBelt] = useState<Belt>("azul");
-  const [newDegrees, setNewDegrees] = useState(0);
+  const [belt, setBelt] = useState<Belt>("branca");
+  const [degrees, setDegrees] = useState(0);
   const [promotionDate, setPromotionDate] = useState(todayISO());
   const [previousInstructor, setPreviousInstructor] = useState("");
   const [previousTeam, setPreviousTeam] = useState("");
@@ -1571,8 +1569,7 @@ function PastGraduationModal({
 
   useEffect(() => {
     if (open) {
-      setOldBelt("branca"); setOldDegrees(0);
-      setNewBelt("azul"); setNewDegrees(0);
+      setBelt("branca"); setDegrees(0);
       setPromotionDate(todayISO());
       setPreviousInstructor(""); setPreviousTeam(""); setNotes("");
     }
@@ -1588,8 +1585,8 @@ function PastGraduationModal({
       await addPastGraduation({
         data: {
           accessToken, organizationId, studentId,
-          oldBelt, oldDegrees,
-          newBelt, newDegrees,
+          oldBelt: null, oldDegrees: null,
+          newBelt: belt, newDegrees: degrees,
           promotionDate,
           previousInstructor: previousInstructor || null,
           previousTeam: previousTeam || null,
@@ -1598,6 +1595,7 @@ function PastGraduationModal({
       });
       toast.success("Graduação anterior adicionada");
       onSaved();
+      onOpenChange(false);
     } catch (e: any) {
       toast.error(e?.message ?? "Erro ao adicionar graduação");
     } finally {
@@ -1614,8 +1612,8 @@ function PastGraduationModal({
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Faixa anterior</Label>
-              <Select value={oldBelt} onValueChange={(v) => setOldBelt(v as Belt)}>
+              <Label>Faixa</Label>
+              <Select value={belt} onValueChange={(v) => setBelt(v as Belt)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {ALL_BELTS_PAST.map((b) => (
@@ -1625,25 +1623,9 @@ function PastGraduationModal({
               </Select>
             </div>
             <div>
-              <Label>Grau anterior</Label>
-              <Input type="number" min={0} max={10} value={oldDegrees}
-                onChange={(e) => setOldDegrees(Number(e.target.value) || 0)} />
-            </div>
-            <div>
-              <Label>Nova faixa</Label>
-              <Select value={newBelt} onValueChange={(v) => setNewBelt(v as Belt)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {ALL_BELTS_PAST.map((b) => (
-                    <SelectItem key={b} value={b}>{getBeltLabel(b)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Novo grau</Label>
-              <Input type="number" min={0} max={10} value={newDegrees}
-                onChange={(e) => setNewDegrees(Number(e.target.value) || 0)} />
+              <Label>Grau</Label>
+              <Input type="number" min={0} max={10} value={degrees}
+                onChange={(e) => setDegrees(Number(e.target.value) || 0)} />
             </div>
             <div className="col-span-2">
               <Label>Data da promoção</Label>
