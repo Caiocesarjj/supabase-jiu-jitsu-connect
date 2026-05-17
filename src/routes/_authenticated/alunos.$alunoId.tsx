@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, UserPlus, Trash2, MoreHorizontal, Copy } from "lucide-react";
+import { ArrowLeft, UserPlus, Trash2, MoreHorizontal, Copy, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
@@ -133,7 +133,7 @@ function AlunoFichaPage() {
         .from("students")
         .select(
           `
-          id, status, birth_date, is_minor, medical_notes, monthly_fee, enrollment_date,
+          id, status, birth_date, medical_notes, monthly_fee, enrollment_date,
           profiles ( id, full_name, email, phone, cpf ),
           graduations (
             id, belt, degrees, promotion_date, minimum_next_promotion_date, classes_since_promotion
@@ -241,7 +241,7 @@ function AlunoFichaPage() {
                 profile.cpf,
                 profile.phone,
                 student.enrollment_date && `Matrícula desde ${formatDateBR(student.enrollment_date)}`,
-                student.is_minor && "Menor de idade",
+                age != null && age < 18 && "Menor de idade",
               ]
                 .filter(Boolean)
                 .join(" · ")}
@@ -311,6 +311,7 @@ function GeralTab({
 }) {
   const profile = student.profiles ?? {};
   const [addOpen, setAddOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
 
   const removeGuardian = async (sgId: string) => {
@@ -326,7 +327,12 @@ function GeralTab({
   return (
     <div className="space-y-6">
       <section className="rounded-lg border bg-card p-4">
-        <h2 className="mb-3 text-base font-semibold">Dados pessoais</h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-semibold">Dados pessoais</h2>
+          <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
+            <Pencil className="mr-1 h-4 w-4" /> Editar
+          </Button>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
           <Field label="Data de nascimento" value={`${formatDateBR(student.birth_date)}${age != null ? ` (${age} anos)` : ""}`} />
           <Field label="CPF" value={profile.cpf ?? "—"} />
@@ -340,6 +346,13 @@ function GeralTab({
           </div>
         </div>
       </section>
+
+      <EditStudentModal
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        student={student}
+        onSaved={() => { setEditOpen(false); onChange(); }}
+      />
 
       <section className="rounded-lg border bg-card p-4">
         <div className="mb-3 flex items-center justify-between">
@@ -738,10 +751,19 @@ function PromotionModal({
   const currentBelt: Belt = grad?.belt ?? "branca";
   const currentDegrees: number = grad?.degrees ?? 0;
   const birth = student.birth_date ?? new Date().toISOString();
+  const isMinor = (() => {
+    if (!student.birth_date) return false;
+    const b = new Date(student.birth_date);
+    const t = new Date();
+    let a = t.getFullYear() - b.getFullYear();
+    const m = t.getMonth() - b.getMonth();
+    if (m < 0 || (m === 0 && t.getDate() < b.getDate())) a--;
+    return a < 18;
+  })();
 
   const available = useMemo(
-    () => getAvailableBeltsForPromotion(currentBelt, currentDegrees, !!student.is_minor, birth),
-    [currentBelt, currentDegrees, student.is_minor, birth],
+    () => getAvailableBeltsForPromotion(currentBelt, currentDegrees, isMinor, birth),
+    [currentBelt, currentDegrees, isMinor, birth],
   );
 
   const [selectedBelt, setSelectedBelt] = useState<Belt>(available[0] ?? currentBelt);
