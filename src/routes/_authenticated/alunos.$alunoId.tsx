@@ -639,7 +639,7 @@ function GraduacaoTab({
   userId: string | null;
   onChange: () => void;
 }) {
-  const grad = student.graduations?.[0];
+  const grad = Array.isArray(student.graduations) ? student.graduations[0] : student.graduations;
   const belt: Belt = grad?.belt ?? "branca";
   const degrees: number = grad?.degrees ?? 0;
   const [modalOpen, setModalOpen] = useState(false);
