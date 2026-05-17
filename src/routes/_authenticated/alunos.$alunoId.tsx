@@ -968,7 +968,125 @@ function PromotionModal({
   );
 }
 
-// ---------- Financeiro ----------
+function EditGraduationModal({
+  open,
+  onOpenChange,
+  graduation,
+  organizationId,
+  onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  graduation: any;
+  organizationId: string;
+  onSaved: () => void;
+}) {
+  const [belt, setBelt] = useState<Belt>(graduation.belt);
+  const [degrees, setDegrees] = useState<number>(graduation.degrees ?? 0);
+  const [promotionDate, setPromotionDate] = useState<string>(
+    graduation.promotion_date ?? todayISO(),
+  );
+  const [minDate, setMinDate] = useState<string>(
+    graduation.minimum_next_promotion_date ?? "",
+  );
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setBelt(graduation.belt);
+      setDegrees(graduation.degrees ?? 0);
+      setPromotionDate(graduation.promotion_date ?? todayISO());
+      setMinDate(graduation.minimum_next_promotion_date ?? "");
+    }
+  }, [open, graduation]);
+
+  const allBelts: Belt[] = [
+    "branca","azul","roxa","marrom","preta","coral","vermelha",
+    "cinza_branco","cinza","cinza_preto",
+    "amarela_branco","amarela","amarela_preto",
+    "laranja_branco","laranja","laranja_preto",
+    "verde_branco","verde","verde_preto",
+  ];
+  const maxDeg = getMaxDegrees(belt);
+  const degOptions = belt === "preta"
+    ? Array.from({ length: maxDeg }, (_, i) => i + 1)
+    : Array.from({ length: maxDeg + 1 }, (_, i) => i);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const accessToken = session.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida");
+      const { updateStudentGraduation } = await import("@/lib/registrations.functions");
+      await updateStudentGraduation({
+        data: {
+          accessToken,
+          organizationId,
+          graduationId: graduation.id,
+          belt,
+          degrees,
+          promotionDate,
+          minimumNextPromotionDate: minDate || null,
+        },
+      });
+      toast.success("Graduação atualizada");
+      onSaved();
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao atualizar graduação");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Editar graduação</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label>Faixa</Label>
+            <Select value={belt} onValueChange={(v) => setBelt(v as Belt)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {allBelts.map((b) => (
+                  <SelectItem key={b} value={b}>{getBeltLabel(b)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Grau</Label>
+            <Select value={String(degrees)} onValueChange={(v) => setDegrees(Number(v))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {degOptions.map((d) => (
+                  <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Data da promoção</Label>
+            <Input type="date" value={promotionDate} onChange={(e) => setPromotionDate(e.target.value)} />
+          </div>
+          <div>
+            <Label>Próxima promoção disponível em (opcional)</Label>
+            <Input type="date" value={minDate} onChange={(e) => setMinDate(e.target.value)} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button onClick={save} disabled={saving}>Salvar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
 function FinanceiroTab({ financial, onChange }: { financial: any[]; onChange: () => void }) {
   const now = new Date();
   const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
