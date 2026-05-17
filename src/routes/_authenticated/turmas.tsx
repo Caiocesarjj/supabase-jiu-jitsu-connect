@@ -162,7 +162,7 @@ function TurmasPage() {
                 <div>
                   {s.start_time?.slice(0, 5)} ({s.duration_min} min)
                 </div>
-                <div>{s.profiles?.full_name ?? "Sem instrutor"}</div>
+                <div>{s.instructors?.full_name ?? "Sem instrutor"}</div>
               </div>
             </div>
           ))}
