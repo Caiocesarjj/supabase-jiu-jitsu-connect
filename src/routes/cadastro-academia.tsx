@@ -1,9 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
-import { slugify } from "@/lib/format";
+import { createAcademyRegistration } from "@/lib/registrations.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,6 +29,7 @@ const schema = z.object({
 function CadastroPage() {
   const { user, profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
+  const createAcademy = useServerFn(createAcademyRegistration);
 
   // If user already has a profile, send to dashboard
   const completeMode = !!user && !profile;
@@ -101,43 +103,20 @@ function CadastroPage() {
 
       if (!userId) throw new Error("Sessão inválida");
 
-      // 2. organizations
-      const orgId = crypto.randomUUID();
-      const slug =
-        slugify(parsed.data.academy_name) + "-" + Date.now().toString(36);
-      const { error: orgErr } = await supabase
-        .from("organizations")
-        .insert({
-          id: orgId,
-          name: parsed.data.academy_name,
-          slug,
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida. Faça login novamente.");
+
+      await createAcademy({
+        data: {
+          accessToken,
+          userId,
+          academyName: parsed.data.academy_name,
+          fullName: parsed.data.full_name,
           email: parsed.data.email,
-          phone: parsed.data.phone || null,
-        });
-      if (orgErr) throw orgErr;
-
-      // 3. profiles
-      const { error: profErr } = await supabase.from("profiles").insert({
-        id: userId,
-        organization_id: orgId,
-        full_name: parsed.data.full_name,
-        role: "admin",
+          phone: parsed.data.phone || undefined,
+        },
       });
-      if (profErr) throw profErr;
-
-      // 4. organization_settings
-      const { error: settErr } = await supabase
-        .from("organization_settings")
-        .insert({
-          organization_id: orgId,
-          monthly_fee_default: 200,
-          due_day: 10,
-          whatsapp_enabled: false,
-          notify_d_minus_3: false,
-          notify_d_zero: false,
-          notify_d_plus_3: false,
-        });
-      if (settErr) throw settErr;
 
       await refreshProfile();
       toast.success("Academia cadastrada com sucesso!");
