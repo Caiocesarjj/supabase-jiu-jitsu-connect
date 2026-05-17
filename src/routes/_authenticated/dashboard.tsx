@@ -4,10 +4,12 @@ import { useQuery } from "@tanstack/react-query";
 import { Users, DollarSign, Calendar, AlertCircle, Trophy } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
-import { formatBRL, formatDateBR } from "@/lib/format";
+import { formatBRL } from "@/lib/format";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Avatar } from "@/components/Avatar";
 import { BeltBadge } from "@/components/BeltBadge";
+import { JUNIOR_BELT_ORDER, ADULT_BELT_ORDER, getBeltLabel } from "@/lib/graduation";
+import type { Belt } from "@/types/database";
 import {
   Dialog,
   DialogContent,
