@@ -117,10 +117,20 @@ export const createStudentRegistration = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { supabase } = await requireStaff(data.accessToken, data.organizationId);
-    const studentId = crypto.randomUUID();
     const today = new Date().toISOString().split("T")[0];
 
-    const { error: profileError } = await supabase.from("profiles").insert({
+    const placeholderEmail = `aluno-${crypto.randomUUID()}@placeholder.local`;
+    const { data: created, error: createUserError } = await supabase.auth.admin.createUser({
+      email: data.email || placeholderEmail,
+      email_confirm: true,
+      user_metadata: { full_name: data.fullName, role: "aluno", organization_id: data.organizationId },
+    });
+    if (createUserError || !created.user) {
+      throw new Error(createUserError?.message || "Não foi possível criar o usuário do aluno.");
+    }
+    const studentId = created.user.id;
+
+    const { error: profileError } = await supabase.from("profiles").upsert({
       id: studentId,
       organization_id: data.organizationId,
       full_name: data.fullName,
