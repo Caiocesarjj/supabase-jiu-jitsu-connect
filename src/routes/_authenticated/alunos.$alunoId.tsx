@@ -676,7 +676,14 @@ function GraduacaoTab({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Atual */}
         <div className="rounded-lg border bg-card p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-muted-foreground">Graduação atual</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-muted-foreground">Graduação atual</h3>
+            {canPromote && grad && (
+              <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+                <Pencil className="mr-1 h-4 w-4" /> Editar
+              </Button>
+            )}
+          </div>
           <div className="flex items-center gap-3">
             <BeltBadge belt={belt} size="lg" />
             <span style={{ fontSize: 18 }}>{getBeltLabel(belt)}</span>
