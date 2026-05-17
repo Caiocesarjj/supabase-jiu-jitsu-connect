@@ -1559,10 +1559,8 @@ function PastGraduationModal({
   organizationId: string;
   onSaved: () => void;
 }) {
-  const [oldBelt, setOldBelt] = useState<Belt>("branca");
-  const [oldDegrees, setOldDegrees] = useState(0);
-  const [newBelt, setNewBelt] = useState<Belt>("azul");
-  const [newDegrees, setNewDegrees] = useState(0);
+  const [belt, setBelt] = useState<Belt>("branca");
+  const [degrees, setDegrees] = useState(0);
   const [promotionDate, setPromotionDate] = useState(todayISO());
   const [previousInstructor, setPreviousInstructor] = useState("");
   const [previousTeam, setPreviousTeam] = useState("");
@@ -1571,8 +1569,7 @@ function PastGraduationModal({
 
   useEffect(() => {
     if (open) {
-      setOldBelt("branca"); setOldDegrees(0);
-      setNewBelt("azul"); setNewDegrees(0);
+      setBelt("branca"); setDegrees(0);
       setPromotionDate(todayISO());
       setPreviousInstructor(""); setPreviousTeam(""); setNotes("");
     }
@@ -1588,8 +1585,8 @@ function PastGraduationModal({
       await addPastGraduation({
         data: {
           accessToken, organizationId, studentId,
-          oldBelt, oldDegrees,
-          newBelt, newDegrees,
+          oldBelt: null, oldDegrees: null,
+          newBelt: belt, newDegrees: degrees,
           promotionDate,
           previousInstructor: previousInstructor || null,
           previousTeam: previousTeam || null,
@@ -1598,6 +1595,7 @@ function PastGraduationModal({
       });
       toast.success("Graduação anterior adicionada");
       onSaved();
+      onOpenChange(false);
     } catch (e: any) {
       toast.error(e?.message ?? "Erro ao adicionar graduação");
     } finally {
