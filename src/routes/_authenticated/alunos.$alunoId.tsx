@@ -779,6 +779,16 @@ function GraduacaoTab({
           onChange();
         }}
       />
+
+      {grad && (
+        <EditGraduationModal
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          graduation={grad}
+          organizationId={organizationId}
+          onSaved={() => { setEditOpen(false); onChange(); }}
+        />
+      )}
     </div>
   );
 }
