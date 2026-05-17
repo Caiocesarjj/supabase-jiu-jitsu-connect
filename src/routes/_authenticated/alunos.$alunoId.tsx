@@ -645,6 +645,29 @@ function GraduacaoTab({
   const [modalOpen, setModalOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [pastOpen, setPastOpen] = useState(false);
+  const [confirmDeleteHistory, setConfirmDeleteHistory] = useState<string | null>(null);
+  const [deletingHistory, setDeletingHistory] = useState(false);
+
+  const handleDeleteHistory = async (historyId: string) => {
+    if (!organizationId) return;
+    setDeletingHistory(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const accessToken = session.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida");
+      const { deleteGraduationHistoryEntry } = await import("@/lib/registrations.functions");
+      await deleteGraduationHistoryEntry({
+        data: { accessToken, organizationId, historyId },
+      });
+      toast.success("Graduação removida do histórico");
+      onChange();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao excluir graduação");
+    } finally {
+      setDeletingHistory(false);
+      setConfirmDeleteHistory(null);
+    }
+  };
 
   const presencesSincePromotion = useMemo(() => {
     if (!grad?.promotion_date) return 0;
@@ -751,12 +774,13 @@ function GraduacaoTab({
               <TableHead>Faixa</TableHead>
               <TableHead>Professor / Equipe anterior</TableHead>
               <TableHead>Observações</TableHead>
+              {canPromote && <TableHead className="w-16">Ações</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {history.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">Sem promoções registradas</TableCell>
+                <TableCell colSpan={canPromote ? 5 : 4} className="text-center text-muted-foreground">Sem promoções registradas</TableCell>
               </TableRow>
             )}
             {history.map((h: any) => (
@@ -778,6 +802,19 @@ function GraduacaoTab({
                   {[h.previous_instructor, h.previous_team].filter(Boolean).join(" · ") || "—"}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">{h.notes ?? "—"}</TableCell>
+                {canPromote && (
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive"
+                      onClick={() => setConfirmDeleteHistory(h.id)}
+                      title="Excluir graduação"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
@@ -790,6 +827,16 @@ function GraduacaoTab({
         studentId={student.id}
         organizationId={organizationId}
         onSaved={() => { setPastOpen(false); onChange(); }}
+      />
+
+      <ConfirmModal
+        open={!!confirmDeleteHistory}
+        onOpenChange={(o) => !o && setConfirmDeleteHistory(null)}
+        title="Excluir graduação do histórico?"
+        description="Esta ação remove o registro de graduação do histórico. Não pode ser desfeita."
+        confirmLabel={deletingHistory ? "Excluindo..." : "Excluir"}
+        destructive
+        onConfirm={() => { if (confirmDeleteHistory) void handleDeleteHistory(confirmDeleteHistory); }}
       />
 
       <PromotionModal
