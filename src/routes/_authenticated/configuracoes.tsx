@@ -1,9 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  getOrganizationConfig,
+  updateAcademyConfig,
+  updateFinancialConfig,
+  updateWhatsappConfig,
+} from "@/lib/registrations.functions";
 import { formatDateBR } from "@/lib/format";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Button } from "@/components/ui/button";
@@ -82,6 +89,7 @@ function pixPlaceholder(type: string | null): string {
 
 function ConfiguracoesPage() {
   const { organizationId, user, profile, refreshProfile } = useAuth();
+  const getConfig = useServerFn(getOrganizationConfig);
   const [loading, setLoading] = useState(true);
   const [org, setOrg] = useState<Org | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -89,22 +97,16 @@ function ConfiguracoesPage() {
   const load = async () => {
     if (!organizationId) return;
     setLoading(true);
-    const [orgRes, setRes] = await Promise.all([
-      supabase
-        .from("organizations")
-        .select("id, name, phone, email, logo_url, plan, trial_ends_at")
-        .eq("id", organizationId)
-        .single(),
-      supabase
-        .from("organization_settings")
-        .select("*")
-        .eq("organization_id", organizationId)
-        .single(),
-    ]);
-    if (orgRes.error) toast.error("Erro ao carregar academia.");
-    else setOrg(orgRes.data as Org);
-    if (setRes.error) toast.error("Erro ao carregar configurações.");
-    else setSettings(setRes.data as Settings);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida. Faça login novamente.");
+      const result = await getConfig({ data: { accessToken } });
+      setOrg(result.org as Org);
+      setSettings(result.settings as Settings);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao carregar configurações.");
+    }
     setLoading(false);
   };
 
