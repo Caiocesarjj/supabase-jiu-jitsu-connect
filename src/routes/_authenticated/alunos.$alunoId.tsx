@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, UserPlus, Trash2, MoreHorizontal, Copy } from "lucide-react";
+import { ArrowLeft, UserPlus, Trash2, MoreHorizontal, Copy, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
@@ -311,6 +311,7 @@ function GeralTab({
 }) {
   const profile = student.profiles ?? {};
   const [addOpen, setAddOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
 
   const removeGuardian = async (sgId: string) => {
@@ -326,7 +327,12 @@ function GeralTab({
   return (
     <div className="space-y-6">
       <section className="rounded-lg border bg-card p-4">
-        <h2 className="mb-3 text-base font-semibold">Dados pessoais</h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-semibold">Dados pessoais</h2>
+          <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
+            <Pencil className="mr-1 h-4 w-4" /> Editar
+          </Button>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
           <Field label="Data de nascimento" value={`${formatDateBR(student.birth_date)}${age != null ? ` (${age} anos)` : ""}`} />
           <Field label="CPF" value={profile.cpf ?? "—"} />
@@ -340,6 +346,13 @@ function GeralTab({
           </div>
         </div>
       </section>
+
+      <EditStudentModal
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        student={student}
+        onSaved={() => { setEditOpen(false); onChange(); }}
+      />
 
       <section className="rounded-lg border bg-card p-4">
         <div className="mb-3 flex items-center justify-between">
