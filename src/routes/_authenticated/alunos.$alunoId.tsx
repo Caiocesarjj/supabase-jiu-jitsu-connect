@@ -162,7 +162,7 @@ function AlunoFichaPage() {
             id, belt, degrees, promotion_date, minimum_next_promotion_date, classes_since_promotion
           ),
           graduation_history (
-            id, old_belt, new_belt, old_degrees, new_degrees, promotion_date, notes, created_at
+            id, old_belt, new_belt, old_degrees, new_degrees, promotion_date, notes, previous_instructor, previous_team, created_at
           ),
           student_guardians (
             id, relationship_type, primary_contact,
@@ -644,6 +644,7 @@ function GraduacaoTab({
   const degrees: number = grad?.degrees ?? 0;
   const [modalOpen, setModalOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [pastOpen, setPastOpen] = useState(false);
 
   const presencesSincePromotion = useMemo(() => {
     if (!grad?.promotion_date) return 0;
@@ -735,19 +736,27 @@ function GraduacaoTab({
 
       {/* Histórico */}
       <div className="rounded-lg border bg-card p-4">
-        <h3 className="mb-3 text-sm font-semibold">Histórico de promoções</h3>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Histórico de promoções</h3>
+          {canPromote && (
+            <Button size="sm" variant="outline" onClick={() => setPastOpen(true)}>
+              Adicionar graduação anterior
+            </Button>
+          )}
+        </div>
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Data</TableHead>
               <TableHead>De → Para</TableHead>
+              <TableHead>Professor / Equipe anterior</TableHead>
               <TableHead>Observações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {history.length === 0 && (
               <TableRow>
-                <TableCell colSpan={3} className="text-center text-muted-foreground">Sem promoções registradas</TableCell>
+                <TableCell colSpan={4} className="text-center text-muted-foreground">Sem promoções registradas</TableCell>
               </TableRow>
             )}
             {history.map((h: any) => (
@@ -763,12 +772,23 @@ function GraduacaoTab({
                     </span>
                   </span>
                 </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {[h.previous_instructor, h.previous_team].filter(Boolean).join(" · ") || "—"}
+                </TableCell>
                 <TableCell className="text-sm text-muted-foreground">{h.notes ?? "—"}</TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
+
+      <PastGraduationModal
+        open={pastOpen}
+        onOpenChange={setPastOpen}
+        studentId={student.id}
+        organizationId={organizationId}
+        onSaved={() => { setPastOpen(false); onChange(); }}
+      />
 
       <PromotionModal
         open={modalOpen}
@@ -1516,6 +1536,136 @@ function EditStudentModal({
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button onClick={save} disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const ALL_BELTS_PAST: Belt[] = [
+  "branca", "cinza_branco", "cinza", "cinza_preto",
+  "amarela_branco", "amarela", "amarela_preto",
+  "laranja_branco", "laranja", "laranja_preto",
+  "verde_branco", "verde", "verde_preto",
+  "azul", "roxa", "marrom", "preta",
+];
+
+function PastGraduationModal({
+  open, onOpenChange, studentId, organizationId, onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  studentId: string;
+  organizationId: string;
+  onSaved: () => void;
+}) {
+  const [oldBelt, setOldBelt] = useState<Belt>("branca");
+  const [oldDegrees, setOldDegrees] = useState(0);
+  const [newBelt, setNewBelt] = useState<Belt>("azul");
+  const [newDegrees, setNewDegrees] = useState(0);
+  const [promotionDate, setPromotionDate] = useState(todayISO());
+  const [previousInstructor, setPreviousInstructor] = useState("");
+  const [previousTeam, setPreviousTeam] = useState("");
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setOldBelt("branca"); setOldDegrees(0);
+      setNewBelt("azul"); setNewDegrees(0);
+      setPromotionDate(todayISO());
+      setPreviousInstructor(""); setPreviousTeam(""); setNotes("");
+    }
+  }, [open]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const accessToken = session.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida");
+      const { addPastGraduation } = await import("@/lib/registrations.functions");
+      await addPastGraduation({
+        data: {
+          accessToken, organizationId, studentId,
+          oldBelt, oldDegrees,
+          newBelt, newDegrees,
+          promotionDate,
+          previousInstructor: previousInstructor || null,
+          previousTeam: previousTeam || null,
+          notes: notes || null,
+        },
+      });
+      toast.success("Graduação anterior adicionada");
+      onSaved();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao adicionar graduação");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Adicionar graduação anterior</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Faixa anterior</Label>
+              <Select value={oldBelt} onValueChange={(v) => setOldBelt(v as Belt)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ALL_BELTS_PAST.map((b) => (
+                    <SelectItem key={b} value={b}>{getBeltLabel(b)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Grau anterior</Label>
+              <Input type="number" min={0} max={10} value={oldDegrees}
+                onChange={(e) => setOldDegrees(Number(e.target.value) || 0)} />
+            </div>
+            <div>
+              <Label>Nova faixa</Label>
+              <Select value={newBelt} onValueChange={(v) => setNewBelt(v as Belt)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ALL_BELTS_PAST.map((b) => (
+                    <SelectItem key={b} value={b}>{getBeltLabel(b)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Novo grau</Label>
+              <Input type="number" min={0} max={10} value={newDegrees}
+                onChange={(e) => setNewDegrees(Number(e.target.value) || 0)} />
+            </div>
+            <div className="col-span-2">
+              <Label>Data da promoção</Label>
+              <Input type="date" value={promotionDate} onChange={(e) => setPromotionDate(e.target.value)} />
+            </div>
+            <div>
+              <Label>Professor anterior</Label>
+              <Input value={previousInstructor} onChange={(e) => setPreviousInstructor(e.target.value)} />
+            </div>
+            <div>
+              <Label>Equipe anterior</Label>
+              <Input value={previousTeam} onChange={(e) => setPreviousTeam(e.target.value)} />
+            </div>
+            <div className="col-span-2">
+              <Label>Observações</Label>
+              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button onClick={save} disabled={saving}>{saving ? "Salvando..." : "Adicionar ao histórico"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

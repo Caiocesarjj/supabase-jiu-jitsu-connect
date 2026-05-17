@@ -113,8 +113,8 @@ function AlunosListPage() {
       if (term && !name.includes(term)) return false;
       if (statusFilter !== "all" && s.status !== statusFilter) return false;
       if (beltFilter !== "all") {
-        const belt = s.graduations?.[0]?.belt;
-        if (belt !== beltFilter) return false;
+        const g = Array.isArray(s.graduations) ? s.graduations[0] : s.graduations;
+        if (g?.belt !== beltFilter) return false;
       }
       return true;
     });
@@ -213,7 +213,7 @@ function AlunosListPage() {
               <TableBody>
                 {filtered.map((s) => {
                   const name = s.profiles?.full_name ?? "Sem nome";
-                  const grad = s.graduations?.[0];
+                  const grad = Array.isArray(s.graduations) ? s.graduations[0] : s.graduations;
                   return (
                     <TableRow
                       key={s.id}
@@ -259,7 +259,7 @@ function AlunosListPage() {
           <div className="md:hidden space-y-2">
             {filtered.map((s) => {
               const name = s.profiles?.full_name ?? "Sem nome";
-              const grad = s.graduations?.[0];
+              const grad = Array.isArray(s.graduations) ? s.graduations[0] : s.graduations;
               return (
                 <button
                   key={s.id}
