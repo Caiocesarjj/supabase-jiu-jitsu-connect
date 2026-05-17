@@ -162,7 +162,7 @@ function AlunoFichaPage() {
             id, belt, degrees, promotion_date, minimum_next_promotion_date, classes_since_promotion
           ),
           graduation_history (
-            id, old_belt, new_belt, old_degrees, new_degrees, promotion_date, notes, created_at
+            id, old_belt, new_belt, old_degrees, new_degrees, promotion_date, notes, previous_instructor, previous_team, created_at
           ),
           student_guardians (
             id, relationship_type, primary_contact,
