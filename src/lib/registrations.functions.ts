@@ -161,6 +161,46 @@ export const createStudentRegistration = createServerFn({ method: "POST" })
     return { studentId };
   });
 
+export const deleteStudentRegistration = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema.extend({ studentId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
+
+    const { data: studentRow, error: fetchError } = await supabase
+      .from("students")
+      .select("id, profile_id")
+      .eq("id", data.studentId)
+      .eq("organization_id", data.organizationId)
+      .maybeSingle();
+    if (fetchError) throw fetchError;
+    if (!studentRow) throw new Error("Aluno não encontrado.");
+
+    const studentId = studentRow.id as string;
+    const profileId = studentRow.profile_id as string | null;
+
+    // Remove dependent rows first (in case FKs do not cascade)
+    await supabase.from("attendance").delete().eq("student_id", studentId);
+    await supabase.from("financial_records").delete().eq("student_id", studentId);
+    await supabase.from("graduation_history").delete().eq("student_id", studentId);
+    await supabase.from("graduations").delete().eq("student_id", studentId);
+    await supabase.from("student_guardians").delete().eq("student_id", studentId);
+
+    const { error: studentError } = await supabase
+      .from("students")
+      .delete()
+      .eq("id", studentId)
+      .eq("organization_id", data.organizationId);
+    if (studentError) throw studentError;
+
+    if (profileId) {
+      await supabase.from("profiles").delete().eq("id", profileId).eq("role", "aluno");
+    }
+
+    return { ok: true };
+  });
+
 export const saveClassSchedules = createServerFn({ method: "POST" })
   .inputValidator((input) =>
     orgAuthSchema
