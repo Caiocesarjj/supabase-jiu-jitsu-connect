@@ -46,7 +46,7 @@ export const checkGraduationAlerts = createServerFn({ method: "GET" }).handler(
       .select(
         `
         id, belt, degrees, promotion_date, minimum_next_promotion_date,
-        students ( id, status, is_minor )
+        students ( id, status, birth_date )
       `,
       );
 
@@ -65,8 +65,8 @@ export const checkGraduationAlerts = createServerFn({ method: "GET" }).handler(
       promotion_date: string;
       minimum_next_promotion_date: string | null;
       students:
-        | { id: string; status: string; is_minor: boolean }
-        | Array<{ id: string; status: string; is_minor: boolean }>
+        | { id: string; status: string; birth_date: string | null }
+        | Array<{ id: string; status: string; birth_date: string | null }>
         | null;
     }>) {
       const student = Array.isArray(grad.students)

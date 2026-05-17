@@ -38,7 +38,7 @@ interface PendingGraduation {
   minimum_next_promotion_date: string;
   students: {
     id: string;
-    is_minor: boolean;
+    birth_date: string | null;
     profiles: { full_name: string };
   };
 }
@@ -58,7 +58,7 @@ async function fetchKPIs(orgId: string): Promise<KPIs> {
       .from("students")
       .select("id", { count: "exact", head: true })
       .eq("organization_id", orgId)
-      .gte("enrolled_at", startOfMonth),
+      .gte("enrollment_date", startOfMonth),
     supabase
       .from("financial_records")
       .select("amount")
@@ -76,7 +76,7 @@ async function fetchKPIs(orgId: string): Promise<KPIs> {
         `
         id, belt, degrees, promotion_date, minimum_next_promotion_date,
         students (
-          id, is_minor,
+          id, birth_date,
           profiles ( full_name )
         )
       `,
