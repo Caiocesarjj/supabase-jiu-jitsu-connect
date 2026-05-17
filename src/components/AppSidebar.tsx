@@ -32,6 +32,7 @@ const items = [
   { title: "Turmas", url: "/turmas", icon: Calendar },
   { title: "Presença", url: "/presenca", icon: CheckSquare },
   { title: "Financeiro", url: "/financeiro", icon: DollarSign },
+  { title: "Relatórios", url: "/relatorios", icon: BarChart3 },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
 ];
 
