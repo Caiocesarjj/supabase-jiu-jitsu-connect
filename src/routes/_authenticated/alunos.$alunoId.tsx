@@ -226,7 +226,9 @@ function AlunoFichaPage() {
   }
 
   const profile = student.profiles ?? {};
-  const grad = student.graduations?.[0];
+  const grad = Array.isArray(student.graduations)
+    ? student.graduations[0]
+    : student.graduations;
   const currentBelt: Belt = grad?.belt ?? "branca";
   const currentDegrees: number = grad?.degrees ?? 0;
   const age = calcAge(student.birth_date);
@@ -637,7 +639,7 @@ function GraduacaoTab({
   userId: string | null;
   onChange: () => void;
 }) {
-  const grad = student.graduations?.[0];
+  const grad = Array.isArray(student.graduations) ? student.graduations[0] : student.graduations;
   const belt: Belt = grad?.belt ?? "branca";
   const degrees: number = grad?.degrees ?? 0;
   const [modalOpen, setModalOpen] = useState(false);
@@ -808,7 +810,7 @@ function PromotionModal({
   userId: string | null;
   onSaved: () => void;
 }) {
-  const grad = student.graduations?.[0];
+  const grad = Array.isArray(student.graduations) ? student.graduations[0] : student.graduations;
   const currentBelt: Belt = grad?.belt ?? "branca";
   const currentDegrees: number = grad?.degrees ?? 0;
   const birth = student.birth_date ?? new Date().toISOString();
