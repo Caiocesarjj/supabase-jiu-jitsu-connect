@@ -189,6 +189,7 @@ function ScheduleModal({
   onSaved: () => void;
 }) {
   const isEdit = !!schedule;
+  const saveSchedules = useServerFn(saveClassSchedules);
   const [name, setName] = useState(schedule?.name ?? "");
   const [days, setDays] = useState<number[]>(schedule ? [schedule.weekday] : []);
   const [startTime, setStartTime] = useState(schedule?.start_time?.slice(0, 5) ?? "19:00");
@@ -205,25 +206,23 @@ function ScheduleModal({
     if (days.length === 0) { toast.error("Selecione ao menos um dia"); return; }
     setSaving(true);
     const base = {
-      organization_id: organizationId,
       name: name.trim(),
       start_time: startTime,
-      duration_min: Number(duration),
-      instructor_id: instructorId === "none" ? null : instructorId,
-      active: true,
+      durationMin: Number(duration),
+      instructorId: instructorId === "none" ? null : instructorId,
     };
-    if (isEdit && schedule) {
-      const { error } = await supabase
-        .from("class_schedules")
-        .update({ ...base, weekday: days[0] })
-        .eq("id", schedule.id);
-      if (error) { toast.error("Erro ao salvar turma"); setSaving(false); return; }
-      toast.success("Turma atualizada");
-    } else {
-      const rows = days.map((d) => ({ ...base, weekday: d }));
-      const { error } = await supabase.from("class_schedules").insert(rows);
-      if (error) { toast.error("Erro ao criar turma"); setSaving(false); return; }
-      toast.success(`Turma criada (${rows.length} ${rows.length === 1 ? "dia" : "dias"})`);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida. Faça login novamente.");
+      const result = await saveSchedules({
+        data: { accessToken, organizationId, id: schedule?.id, days, ...base },
+      });
+      toast.success(isEdit ? "Turma atualizada" : `Turma criada (${result.count} ${result.count === 1 ? "dia" : "dias"})`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : isEdit ? "Erro ao salvar turma" : "Erro ao criar turma");
+      setSaving(false);
+      return;
     }
     setSaving(false);
     onSaved();
