@@ -2,6 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard,
   Users,
+  GraduationCap,
   Calendar,
   CheckSquare,
   DollarSign,
