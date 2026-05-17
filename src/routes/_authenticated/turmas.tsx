@@ -219,7 +219,7 @@ function ScheduleModal({
   const [days, setDays] = useState<number[]>(schedule ? [schedule.weekday] : []);
   const [startTime, setStartTime] = useState(schedule?.start_time?.slice(0, 5) ?? "19:00");
   const [duration, setDuration] = useState(String(schedule?.duration_min ?? 60));
-  const [instructorId, setInstructorId] = useState<string>(schedule?.instructor_id ?? "none");
+  const [instructorId, setInstructorId] = useState<string>(schedule?.instructor_record_id ?? "none");
   const [saving, setSaving] = useState(false);
 
   const toggleDay = (d: number) => {
