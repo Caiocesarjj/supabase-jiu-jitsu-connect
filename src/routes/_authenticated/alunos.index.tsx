@@ -259,7 +259,7 @@ function AlunosListPage() {
           <div className="md:hidden space-y-2">
             {filtered.map((s) => {
               const name = s.profiles?.full_name ?? "Sem nome";
-              const grad = s.graduations?.[0];
+              const grad = Array.isArray(s.graduations) ? s.graduations[0] : s.graduations;
               return (
                 <button
                   key={s.id}
