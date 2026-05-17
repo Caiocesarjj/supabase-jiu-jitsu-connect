@@ -369,6 +369,9 @@ function InstructorsPanel({ organizationId }: { organizationId: string | null })
           })}
         </div>
       )}
+    </div>
+  );
+}
 
 const ADULT_BELTS_FULL: Belt[] = [...ADULT_BELT_ORDER, "coral", "vermelha"];
 
