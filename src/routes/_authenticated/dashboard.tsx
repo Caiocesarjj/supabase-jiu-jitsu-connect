@@ -308,17 +308,15 @@ function InstructorsPanel({ organizationId }: { organizationId: string | null })
           .eq("active", true),
       ]);
       const counts: Record<string, number> = {};
-      for (const row of (schRes.data ?? []) as Array<{ instructor_record_id: string | null }>) {
+      type SchedRow = { instructor_record_id: string | null };
+      type InsRow = { id: string; full_name: string; belt: Belt; degrees: number };
+      const schedRows = (schRes.data ?? []) as SchedRow[];
+      for (const row of schedRows) {
         if (row.instructor_record_id)
           counts[row.instructor_record_id] = (counts[row.instructor_record_id] ?? 0) + 1;
       }
       return {
-        instructors: (insRes.data ?? []) as Array<{
-          id: string;
-          full_name: string;
-          belt: Belt;
-          degrees: number;
-        }>,
+        instructors: (insRes.data ?? []) as InsRow[],
         counts,
       };
     },
