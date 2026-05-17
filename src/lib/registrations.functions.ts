@@ -277,6 +277,41 @@ export const updateStudentGraduation = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const addPastGraduation = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema
+      .extend({
+        studentId: z.string().uuid(),
+        oldBelt: z.string().min(2).max(40).nullable(),
+        oldDegrees: z.number().int().min(0).max(10).nullable(),
+        newBelt: z.string().min(2).max(40),
+        newDegrees: z.number().int().min(0).max(10),
+        promotionDate: z.string().min(10).max(10),
+        previousInstructor: z.string().max(160).optional().nullable(),
+        previousTeam: z.string().max(160).optional().nullable(),
+        notes: z.string().max(2000).optional().nullable(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabase, user } = await requireStaff(data.accessToken, data.organizationId);
+    const { error } = await supabase.from("graduation_history").insert({
+      organization_id: data.organizationId,
+      student_id: data.studentId,
+      old_belt: data.oldBelt,
+      new_belt: data.newBelt,
+      old_degrees: data.oldDegrees ?? 0,
+      new_degrees: data.newDegrees,
+      promotion_date: data.promotionDate,
+      previous_instructor: data.previousInstructor || null,
+      previous_team: data.previousTeam || null,
+      notes: data.notes || null,
+      created_by: user.id,
+    });
+    if (error) throw error;
+    return { ok: true };
+  });
+
 export const deleteGraduationHistoryEntry = createServerFn({ method: "POST" })
   .inputValidator((input) =>
     orgAuthSchema.extend({ historyId: z.string().uuid() }).parse(input),
