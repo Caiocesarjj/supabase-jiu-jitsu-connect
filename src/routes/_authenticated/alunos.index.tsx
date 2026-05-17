@@ -213,7 +213,7 @@ function AlunosListPage() {
               <TableBody>
                 {filtered.map((s) => {
                   const name = s.profiles?.full_name ?? "Sem nome";
-                  const grad = s.graduations?.[0];
+                  const grad = Array.isArray(s.graduations) ? s.graduations[0] : s.graduations;
                   return (
                     <TableRow
                       key={s.id}
