@@ -6,6 +6,7 @@ import {
   Calendar,
   CheckSquare,
   DollarSign,
+  BarChart3,
   Settings,
   LogOut,
 } from "lucide-react";
