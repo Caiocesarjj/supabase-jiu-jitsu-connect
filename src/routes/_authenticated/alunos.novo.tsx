@@ -91,9 +91,9 @@ function NovoAlunoPage() {
 
       toast.success("Aluno cadastrado com sucesso");
       navigate({ to: "/alunos/$alunoId", params: { alunoId: result.studentId } });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Erro ao cadastrar aluno:", err);
-      toast.error(err?.message || "Erro ao cadastrar aluno");
+      toast.error(err instanceof Error ? err.message : "Erro ao cadastrar aluno");
     } finally {
       setSaving(false);
     }
