@@ -297,12 +297,13 @@ export const getOrganizationConfig = createServerFn({ method: "POST" })
     if (orgError) throw orgError;
     if (!org) throw new Error("Academia não encontrada.");
 
-    let { data: settings, error: settingsError } = await supabase
+    const settingsRes = await supabase
       .from("organization_settings")
       .select("*")
       .eq("organization_id", organizationId)
       .maybeSingle();
-    if (settingsError) throw settingsError;
+    if (settingsRes.error) throw settingsRes.error;
+    let settings = settingsRes.data;
 
     if (!settings) {
       const { data: created, error: createError } = await supabase
