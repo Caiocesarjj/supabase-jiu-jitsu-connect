@@ -28,6 +28,20 @@ export const Route = createFileRoute("/_authenticated/presenca")({
 
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
+interface ScheduleOption {
+  id: string;
+  name: string;
+  weekday: number;
+  start_time: string;
+  duration_min: number;
+}
+
+interface AttendanceStudent {
+  id: string;
+  profiles?: { full_name?: string | null } | null;
+  graduations?: Array<{ belt?: string | null; degrees?: number | null }> | null;
+}
+
 function todayISO() {
   return new Date().toISOString().split("T")[0];
 }
@@ -35,8 +49,8 @@ function todayISO() {
 function PresencaPage() {
   const { organizationId } = useAuth();
   const saveAttendance = useServerFn(saveAttendanceRegistration);
-  const [schedules, setSchedules] = useState<any[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
+  const [schedules, setSchedules] = useState<ScheduleOption[]>([]);
+  const [students, setStudents] = useState<AttendanceStudent[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedScheduleId, setSelectedScheduleId] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<string>(todayISO());
@@ -66,12 +80,12 @@ function PresencaPage() {
       if (cancelled) return;
       if (sch.error) toast.error("Erro ao carregar turmas");
       if (st.error) toast.error("Erro ao carregar alunos");
-      const studentList = ((st.data as any) ?? [])
+      const studentList = ((st.data as AttendanceStudent[] | null) ?? [])
         .slice()
-        .sort((a: any, b: any) =>
+        .sort((a, b) =>
           (a.profiles?.full_name ?? "").localeCompare(b.profiles?.full_name ?? ""),
         );
-      setSchedules((sch.data as any) ?? []);
+      setSchedules((sch.data as ScheduleOption[] | null) ?? []);
       setStudents(studentList);
       setLoading(false);
     })();
@@ -100,7 +114,7 @@ function PresencaPage() {
       students.forEach((s) => {
         map[s.id] = true;
       });
-      (data ?? []).forEach((r: any) => {
+      (data ?? []).forEach((r: { student_id: string; present: boolean }) => {
         map[r.student_id] = !!r.present;
       });
       setChecked(map);
