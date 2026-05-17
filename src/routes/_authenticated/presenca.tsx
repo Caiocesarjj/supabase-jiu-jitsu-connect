@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { saveAttendanceRegistration } from "@/lib/registrations.functions";
 import { Avatar } from "@/components/Avatar";
 import { BeltBadge } from "@/components/BeltBadge";
+import type { Belt } from "@/types/database";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Button } from "@/components/ui/button";
