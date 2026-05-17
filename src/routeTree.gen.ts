@@ -18,7 +18,7 @@ import { Route as AuthenticatedPresencaRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedFinanceiroRouteImport } from './routes/_authenticated/financeiro'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
-import { Route as AuthenticatedAlunosRouteImport } from './routes/_authenticated/alunos'
+import { Route as AuthenticatedAlunosIndexRouteImport } from './routes/_authenticated/alunos.index'
 import { Route as ApiPublicCheckGraduationAlertsRouteImport } from './routes/api/public/check-graduation-alerts'
 import { Route as AuthenticatedAlunosNovoRouteImport } from './routes/_authenticated/alunos.novo'
 import { Route as AuthenticatedAlunosAlunoIdRouteImport } from './routes/_authenticated/alunos.$alunoId'
@@ -68,11 +68,12 @@ const AuthenticatedConfiguracoesRoute =
     path: '/configuracoes',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedAlunosRoute = AuthenticatedAlunosRouteImport.update({
-  id: '/alunos',
-  path: '/alunos',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
+const AuthenticatedAlunosIndexRoute =
+  AuthenticatedAlunosIndexRouteImport.update({
+    id: '/alunos/',
+    path: '/alunos/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const ApiPublicCheckGraduationAlertsRoute =
   ApiPublicCheckGraduationAlertsRouteImport.update({
     id: '/api/public/check-graduation-alerts',
@@ -80,22 +81,21 @@ const ApiPublicCheckGraduationAlertsRoute =
     getParentRoute: () => rootRouteImport,
   } as any)
 const AuthenticatedAlunosNovoRoute = AuthenticatedAlunosNovoRouteImport.update({
-  id: '/novo',
-  path: '/novo',
-  getParentRoute: () => AuthenticatedAlunosRoute,
+  id: '/alunos/novo',
+  path: '/alunos/novo',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedAlunosAlunoIdRoute =
   AuthenticatedAlunosAlunoIdRouteImport.update({
-    id: '/$alunoId',
-    path: '/$alunoId',
-    getParentRoute: () => AuthenticatedAlunosRoute,
+    id: '/alunos/$alunoId',
+    path: '/alunos/$alunoId',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/cadastro-academia': typeof CadastroAcademiaRoute
   '/login': typeof LoginRoute
-  '/alunos': typeof AuthenticatedAlunosRouteWithChildren
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/financeiro': typeof AuthenticatedFinanceiroRoute
@@ -104,12 +104,12 @@ export interface FileRoutesByFullPath {
   '/alunos/$alunoId': typeof AuthenticatedAlunosAlunoIdRoute
   '/alunos/novo': typeof AuthenticatedAlunosNovoRoute
   '/api/public/check-graduation-alerts': typeof ApiPublicCheckGraduationAlertsRoute
+  '/alunos/': typeof AuthenticatedAlunosIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/cadastro-academia': typeof CadastroAcademiaRoute
   '/login': typeof LoginRoute
-  '/alunos': typeof AuthenticatedAlunosRouteWithChildren
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/financeiro': typeof AuthenticatedFinanceiroRoute
@@ -118,6 +118,7 @@ export interface FileRoutesByTo {
   '/alunos/$alunoId': typeof AuthenticatedAlunosAlunoIdRoute
   '/alunos/novo': typeof AuthenticatedAlunosNovoRoute
   '/api/public/check-graduation-alerts': typeof ApiPublicCheckGraduationAlertsRoute
+  '/alunos': typeof AuthenticatedAlunosIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -125,7 +126,6 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/cadastro-academia': typeof CadastroAcademiaRoute
   '/login': typeof LoginRoute
-  '/_authenticated/alunos': typeof AuthenticatedAlunosRouteWithChildren
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/financeiro': typeof AuthenticatedFinanceiroRoute
@@ -134,6 +134,7 @@ export interface FileRoutesById {
   '/_authenticated/alunos/$alunoId': typeof AuthenticatedAlunosAlunoIdRoute
   '/_authenticated/alunos/novo': typeof AuthenticatedAlunosNovoRoute
   '/api/public/check-graduation-alerts': typeof ApiPublicCheckGraduationAlertsRoute
+  '/_authenticated/alunos/': typeof AuthenticatedAlunosIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -141,7 +142,6 @@ export interface FileRouteTypes {
     | '/'
     | '/cadastro-academia'
     | '/login'
-    | '/alunos'
     | '/configuracoes'
     | '/dashboard'
     | '/financeiro'
@@ -150,12 +150,12 @@ export interface FileRouteTypes {
     | '/alunos/$alunoId'
     | '/alunos/novo'
     | '/api/public/check-graduation-alerts'
+    | '/alunos/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/cadastro-academia'
     | '/login'
-    | '/alunos'
     | '/configuracoes'
     | '/dashboard'
     | '/financeiro'
@@ -164,13 +164,13 @@ export interface FileRouteTypes {
     | '/alunos/$alunoId'
     | '/alunos/novo'
     | '/api/public/check-graduation-alerts'
+    | '/alunos'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/cadastro-academia'
     | '/login'
-    | '/_authenticated/alunos'
     | '/_authenticated/configuracoes'
     | '/_authenticated/dashboard'
     | '/_authenticated/financeiro'
@@ -179,6 +179,7 @@ export interface FileRouteTypes {
     | '/_authenticated/alunos/$alunoId'
     | '/_authenticated/alunos/novo'
     | '/api/public/check-graduation-alerts'
+    | '/_authenticated/alunos/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -254,11 +255,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedConfiguracoesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/alunos': {
-      id: '/_authenticated/alunos'
+    '/_authenticated/alunos/': {
+      id: '/_authenticated/alunos/'
       path: '/alunos'
-      fullPath: '/alunos'
-      preLoaderRoute: typeof AuthenticatedAlunosRouteImport
+      fullPath: '/alunos/'
+      preLoaderRoute: typeof AuthenticatedAlunosIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/api/public/check-graduation-alerts': {
@@ -270,50 +271,41 @@ declare module '@tanstack/react-router' {
     }
     '/_authenticated/alunos/novo': {
       id: '/_authenticated/alunos/novo'
-      path: '/novo'
+      path: '/alunos/novo'
       fullPath: '/alunos/novo'
       preLoaderRoute: typeof AuthenticatedAlunosNovoRouteImport
-      parentRoute: typeof AuthenticatedAlunosRoute
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/alunos/$alunoId': {
       id: '/_authenticated/alunos/$alunoId'
-      path: '/$alunoId'
+      path: '/alunos/$alunoId'
       fullPath: '/alunos/$alunoId'
       preLoaderRoute: typeof AuthenticatedAlunosAlunoIdRouteImport
-      parentRoute: typeof AuthenticatedAlunosRoute
+      parentRoute: typeof AuthenticatedRoute
     }
   }
 }
 
-interface AuthenticatedAlunosRouteChildren {
-  AuthenticatedAlunosAlunoIdRoute: typeof AuthenticatedAlunosAlunoIdRoute
-  AuthenticatedAlunosNovoRoute: typeof AuthenticatedAlunosNovoRoute
-}
-
-const AuthenticatedAlunosRouteChildren: AuthenticatedAlunosRouteChildren = {
-  AuthenticatedAlunosAlunoIdRoute: AuthenticatedAlunosAlunoIdRoute,
-  AuthenticatedAlunosNovoRoute: AuthenticatedAlunosNovoRoute,
-}
-
-const AuthenticatedAlunosRouteWithChildren =
-  AuthenticatedAlunosRoute._addFileChildren(AuthenticatedAlunosRouteChildren)
-
 interface AuthenticatedRouteChildren {
-  AuthenticatedAlunosRoute: typeof AuthenticatedAlunosRouteWithChildren
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedFinanceiroRoute: typeof AuthenticatedFinanceiroRoute
   AuthenticatedPresencaRoute: typeof AuthenticatedPresencaRoute
   AuthenticatedTurmasRoute: typeof AuthenticatedTurmasRoute
+  AuthenticatedAlunosAlunoIdRoute: typeof AuthenticatedAlunosAlunoIdRoute
+  AuthenticatedAlunosNovoRoute: typeof AuthenticatedAlunosNovoRoute
+  AuthenticatedAlunosIndexRoute: typeof AuthenticatedAlunosIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
-  AuthenticatedAlunosRoute: AuthenticatedAlunosRouteWithChildren,
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedFinanceiroRoute: AuthenticatedFinanceiroRoute,
   AuthenticatedPresencaRoute: AuthenticatedPresencaRoute,
   AuthenticatedTurmasRoute: AuthenticatedTurmasRoute,
+  AuthenticatedAlunosAlunoIdRoute: AuthenticatedAlunosAlunoIdRoute,
+  AuthenticatedAlunosNovoRoute: AuthenticatedAlunosNovoRoute,
+  AuthenticatedAlunosIndexRoute: AuthenticatedAlunosIndexRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
