@@ -829,6 +829,16 @@ function GraduacaoTab({
         onSaved={() => { setPastOpen(false); onChange(); }}
       />
 
+      <ConfirmModal
+        open={!!confirmDeleteHistory}
+        onOpenChange={(o) => !o && setConfirmDeleteHistory(null)}
+        title="Excluir graduação do histórico?"
+        description="Esta ação remove o registro de graduação do histórico. Não pode ser desfeita."
+        confirmLabel={deletingHistory ? "Excluindo..." : "Excluir"}
+        destructive
+        onConfirm={() => { if (confirmDeleteHistory) void handleDeleteHistory(confirmDeleteHistory); }}
+      />
+
       <PromotionModal
         open={modalOpen}
         onOpenChange={setModalOpen}
