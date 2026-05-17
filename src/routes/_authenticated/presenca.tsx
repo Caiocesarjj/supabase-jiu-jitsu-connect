@@ -33,7 +33,7 @@ function todayISO() {
 }
 
 function PresencaPage() {
-  const { organizationId, user } = useAuth();
+  const { organizationId } = useAuth();
   const saveAttendance = useServerFn(saveAttendanceRegistration);
   const [schedules, setSchedules] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
@@ -109,14 +109,15 @@ function PresencaPage() {
     const records = students.map((s) => ({ studentId: s.id, present: checked[s.id] ?? true }));
     const { data: sessionData } = await supabase.auth.getSession();
     const accessToken = sessionData.session?.access_token;
-    setSaving(false);
-    if (!accessToken) { toast.error("Sessão inválida. Faça login novamente."); return; }
+    if (!accessToken) { setSaving(false); toast.error("Sessão inválida. Faça login novamente."); return; }
     try {
       await saveAttendance({ data: { accessToken, organizationId, scheduleId: selectedScheduleId, classDate: selectedDate, records } });
     } catch (err) {
+      setSaving(false);
       toast.error(err instanceof Error ? err.message : "Erro ao registrar chamada");
       return;
     }
+    setSaving(false);
     const scheduleName = schedules.find((s) => s.id === selectedScheduleId)?.name ?? "turma";
     toast.success(`Chamada de ${scheduleName} registrada — ${presentCount} presentes de ${students.length} alunos.`);
     setAlreadyRegistered(true);
