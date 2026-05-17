@@ -116,6 +116,29 @@ function AlunoFichaPage() {
   const { alunoId } = Route.useParams();
   const { organizationId, userRole, user } = useAuth();
   const navigate = useNavigate();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!organizationId) return;
+    setDeleting(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const accessToken = session.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida");
+      const { deleteStudentRegistration } = await import("@/lib/registrations.functions");
+      await deleteStudentRegistration({
+        data: { accessToken, organizationId, studentId: alunoId },
+      });
+      toast.success("Aluno excluído");
+      navigate({ to: "/alunos" });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao excluir aluno");
+    } finally {
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
+  };
 
   const [loading, setLoading] = useState(true);
   const [student, setStudent] = useState<any>(null);
@@ -247,8 +270,28 @@ function AlunoFichaPage() {
                 .join(" · ")}
             </div>
           </div>
+          {(userRole === "admin" || userRole === "instructor") && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirmDelete(true)}
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 className="mr-1 h-4 w-4" /> Excluir aluno
+            </Button>
+          )}
         </div>
       </div>
+
+      <ConfirmModal
+        open={confirmDelete}
+        onOpenChange={(o) => !o && setConfirmDelete(false)}
+        title="Excluir aluno?"
+        description="Esta ação remove o aluno e todos os dados relacionados (presenças, financeiro, graduações). Não pode ser desfeita."
+        confirmLabel={deleting ? "Excluindo..." : "Excluir"}
+        destructive
+        onConfirm={handleDelete}
+      />
 
       <Tabs defaultValue="geral" className="space-y-4">
         <TabsList>
