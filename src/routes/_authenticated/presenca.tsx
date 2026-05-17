@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { saveAttendanceRegistration } from "@/lib/registrations.functions";
 import { Avatar } from "@/components/Avatar";
 import { BeltBadge } from "@/components/BeltBadge";
+import type { Belt } from "@/types/database";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Button } from "@/components/ui/button";
@@ -233,7 +234,7 @@ function PresencaPage() {
           <div className="divide-y">
             {students.map((s) => {
               const name = s.profiles?.full_name ?? "Sem nome";
-              const belt = s.graduations?.[0]?.belt ?? "branca";
+              const belt = (s.graduations?.[0]?.belt ?? "branca") as Belt;
               const isPresent = checked[s.id] ?? true;
               return (
                 <label
