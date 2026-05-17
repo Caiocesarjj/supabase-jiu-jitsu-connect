@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { CheckSquare } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
+import { saveAttendanceRegistration } from "@/lib/registrations.functions";
 import { Avatar } from "@/components/Avatar";
 import { BeltBadge } from "@/components/BeltBadge";
 import { EmptyState } from "@/components/EmptyState";
@@ -32,6 +34,7 @@ function todayISO() {
 
 function PresencaPage() {
   const { organizationId, user } = useAuth();
+  const saveAttendance = useServerFn(saveAttendanceRegistration);
   const [schedules, setSchedules] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,19 +106,17 @@ function PresencaPage() {
   const handleConfirm = async () => {
     if (!organizationId || !selectedScheduleId || !selectedDate) return;
     setSaving(true);
-    const records = students.map((s) => ({
-      organization_id: organizationId,
-      student_id: s.id,
-      schedule_id: selectedScheduleId,
-      class_date: selectedDate,
-      present: checked[s.id] ?? true,
-      checked_in_by: user?.id ?? null,
-    }));
-    const { error } = await supabase
-      .from("attendance")
-      .upsert(records, { onConflict: "student_id,class_date,schedule_id", ignoreDuplicates: false });
+    const records = students.map((s) => ({ studentId: s.id, present: checked[s.id] ?? true }));
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
     setSaving(false);
-    if (error) { toast.error("Erro ao registrar chamada"); return; }
+    if (!accessToken) { toast.error("Sessão inválida. Faça login novamente."); return; }
+    try {
+      await saveAttendance({ data: { accessToken, organizationId, scheduleId: selectedScheduleId, classDate: selectedDate, records } });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao registrar chamada");
+      return;
+    }
     const scheduleName = schedules.find((s) => s.id === selectedScheduleId)?.name ?? "turma";
     toast.success(`Chamada de ${scheduleName} registrada — ${presentCount} presentes de ${students.length} alunos.`);
     setAlreadyRegistered(true);
