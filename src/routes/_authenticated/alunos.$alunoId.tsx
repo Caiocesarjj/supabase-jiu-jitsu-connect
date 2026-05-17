@@ -736,19 +736,27 @@ function GraduacaoTab({
 
       {/* Histórico */}
       <div className="rounded-lg border bg-card p-4">
-        <h3 className="mb-3 text-sm font-semibold">Histórico de promoções</h3>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Histórico de promoções</h3>
+          {canPromote && (
+            <Button size="sm" variant="outline" onClick={() => setPastOpen(true)}>
+              Adicionar graduação anterior
+            </Button>
+          )}
+        </div>
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Data</TableHead>
               <TableHead>De → Para</TableHead>
+              <TableHead>Professor / Equipe anterior</TableHead>
               <TableHead>Observações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {history.length === 0 && (
               <TableRow>
-                <TableCell colSpan={3} className="text-center text-muted-foreground">Sem promoções registradas</TableCell>
+                <TableCell colSpan={4} className="text-center text-muted-foreground">Sem promoções registradas</TableCell>
               </TableRow>
             )}
             {history.map((h: any) => (
@@ -764,12 +772,23 @@ function GraduacaoTab({
                     </span>
                   </span>
                 </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {[h.previous_instructor, h.previous_team].filter(Boolean).join(" · ") || "—"}
+                </TableCell>
                 <TableCell className="text-sm text-muted-foreground">{h.notes ?? "—"}</TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
+
+      <PastGraduationModal
+        open={pastOpen}
+        onOpenChange={setPastOpen}
+        studentId={student.id}
+        organizationId={organizationId}
+        onSaved={() => { setPastOpen(false); onChange(); }}
+      />
 
       <PromotionModal
         open={modalOpen}
