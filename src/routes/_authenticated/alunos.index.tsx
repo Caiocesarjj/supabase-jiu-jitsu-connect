@@ -28,7 +28,7 @@ import {
 import type { Belt } from "@/types/database";
 import { getBeltLabel } from "@/lib/graduation";
 
-export const Route = createFileRoute("/_authenticated/alunos")({
+export const Route = createFileRoute("/_authenticated/alunos/")({
   component: AlunosListPage,
 });
 
