@@ -201,6 +201,101 @@ export const deleteStudentRegistration = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const promoteStudent = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema
+      .extend({
+        studentId: z.string().uuid(),
+        graduationId: z.string().uuid(),
+        newBelt: z.string().min(2).max(40),
+        newDegrees: z.number().int().min(0).max(10),
+        promotionDate: z.string().min(10).max(10),
+        minimumNextPromotionDate: z.string().min(10).max(10).nullable(),
+        oldBelt: z.string().min(2).max(40),
+        oldDegrees: z.number().int().min(0).max(10),
+        notes: z.string().max(2000).optional().nullable(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabase, user } = await requireStaff(data.accessToken, data.organizationId);
+
+    const { error: e1 } = await supabase
+      .from("graduations")
+      .update({
+        belt: data.newBelt,
+        degrees: data.newDegrees,
+        promotion_date: data.promotionDate,
+        minimum_next_promotion_date: data.minimumNextPromotionDate,
+        classes_since_promotion: 0,
+        updated_by: user.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", data.graduationId)
+      .eq("organization_id", data.organizationId);
+    if (e1) throw e1;
+
+    const { error: e2 } = await supabase.from("graduation_history").insert({
+      organization_id: data.organizationId,
+      student_id: data.studentId,
+      old_belt: data.oldBelt,
+      new_belt: data.newBelt,
+      old_degrees: data.oldDegrees,
+      new_degrees: data.newDegrees,
+      promotion_date: data.promotionDate,
+      notes: data.notes || null,
+      created_by: user.id,
+    });
+    if (e2) throw e2;
+
+    return { ok: true };
+  });
+
+export const updateStudentGraduation = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema
+      .extend({
+        graduationId: z.string().uuid(),
+        belt: z.string().min(2).max(40),
+        degrees: z.number().int().min(0).max(10),
+        promotionDate: z.string().min(10).max(10),
+        minimumNextPromotionDate: z.string().min(10).max(10).nullable(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabase, user } = await requireStaff(data.accessToken, data.organizationId);
+    const { error } = await supabase
+      .from("graduations")
+      .update({
+        belt: data.belt,
+        degrees: data.degrees,
+        promotion_date: data.promotionDate,
+        minimum_next_promotion_date: data.minimumNextPromotionDate,
+        updated_by: user.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", data.graduationId)
+      .eq("organization_id", data.organizationId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const deleteGraduationHistoryEntry = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema.extend({ historyId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
+    const { error } = await supabase
+      .from("graduation_history")
+      .delete()
+      .eq("id", data.historyId)
+      .eq("organization_id", data.organizationId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
 export const saveClassSchedules = createServerFn({ method: "POST" })
   .inputValidator((input) =>
     orgAuthSchema
