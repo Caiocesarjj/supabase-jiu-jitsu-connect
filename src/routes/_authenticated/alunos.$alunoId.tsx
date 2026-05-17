@@ -116,6 +116,29 @@ function AlunoFichaPage() {
   const { alunoId } = Route.useParams();
   const { organizationId, userRole, user } = useAuth();
   const navigate = useNavigate();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!organizationId) return;
+    setDeleting(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const accessToken = session.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida");
+      const { deleteStudentRegistration } = await import("@/lib/registrations.functions");
+      await deleteStudentRegistration({
+        data: { accessToken, organizationId, studentId: alunoId },
+      });
+      toast.success("Aluno excluído");
+      navigate({ to: "/alunos" });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao excluir aluno");
+    } finally {
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
+  };
 
   const [loading, setLoading] = useState(true);
   const [student, setStudent] = useState<any>(null);
