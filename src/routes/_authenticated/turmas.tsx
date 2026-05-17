@@ -41,8 +41,8 @@ interface Schedule {
   start_time: string;
   duration_min: number;
   active: boolean;
-  instructor_id?: string | null;
-  profiles?: { full_name: string } | null;
+  instructor_record_id?: string | null;
+  instructors?: { full_name: string } | null;
 }
 
 function TurmasPage() {
