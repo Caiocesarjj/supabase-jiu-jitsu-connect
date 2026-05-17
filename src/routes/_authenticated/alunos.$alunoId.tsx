@@ -645,6 +645,29 @@ function GraduacaoTab({
   const [modalOpen, setModalOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [pastOpen, setPastOpen] = useState(false);
+  const [confirmDeleteHistory, setConfirmDeleteHistory] = useState<string | null>(null);
+  const [deletingHistory, setDeletingHistory] = useState(false);
+
+  const handleDeleteHistory = async (historyId: string) => {
+    if (!organizationId) return;
+    setDeletingHistory(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const accessToken = session.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida");
+      const { deleteGraduationHistoryEntry } = await import("@/lib/registrations.functions");
+      await deleteGraduationHistoryEntry({
+        data: { accessToken, organizationId, historyId },
+      });
+      toast.success("Graduação removida do histórico");
+      onChange();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao excluir graduação");
+    } finally {
+      setDeletingHistory(false);
+      setConfirmDeleteHistory(null);
+    }
+  };
 
   const presencesSincePromotion = useMemo(() => {
     if (!grad?.promotion_date) return 0;
