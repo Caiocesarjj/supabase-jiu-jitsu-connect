@@ -644,6 +644,7 @@ function GraduacaoTab({
   const degrees: number = grad?.degrees ?? 0;
   const [modalOpen, setModalOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [pastOpen, setPastOpen] = useState(false);
 
   const presencesSincePromotion = useMemo(() => {
     if (!grad?.promotion_date) return 0;
