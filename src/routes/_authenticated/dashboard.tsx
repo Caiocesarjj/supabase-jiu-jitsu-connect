@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Users, DollarSign, Calendar, AlertCircle, Trophy } from "lucide-react";
+import { Users, DollarSign, Calendar, AlertCircle, Trophy, GraduationCap } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { formatBRL } from "@/lib/format";
