@@ -283,12 +283,80 @@ function DashboardPage() {
         </DialogContent>
       </Dialog>
 
+      <BeltDistribution organizationId={organizationId} />
+
       <div className="rounded-xl border border-dashed border-border bg-muted/30 p-6 text-sm text-muted-foreground">
         <p className="font-medium text-foreground">Próximas fases</p>
         <p className="mt-1">
           Esta é a Fase 1 (fundação). Nas próximas etapas vamos construir
           alunos, turmas, presença, financeiro e configurações.
         </p>
+      </div>
+    </div>
+  );
+}
+
+const ADULT_BELTS_FULL: Belt[] = [...ADULT_BELT_ORDER, "coral", "vermelha"];
+
+async function fetchBeltCounts(orgId: string) {
+  const { data, error } = await supabase
+    .from("graduations")
+    .select("belt, students!inner(id, status, organization_id)")
+    .eq("organization_id", orgId)
+    .eq("students.status", "active");
+  if (error) throw error;
+  const counts: Record<string, number> = {};
+  for (const row of (data ?? []) as Array<{ belt: string }>) {
+    counts[row.belt] = (counts[row.belt] ?? 0) + 1;
+  }
+  return counts;
+}
+
+function BeltDistribution({ organizationId }: { organizationId: string | null }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["belt-distribution", organizationId],
+    queryFn: () => fetchBeltCounts(organizationId!),
+    enabled: !!organizationId,
+  });
+
+  if (isLoading || !data) {
+    return (
+      <div className="rounded-xl border bg-card p-5">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  const renderRow = (belts: Belt[]) => (
+    <div className="flex flex-wrap gap-2">
+      {belts.map((b) => {
+        const count = data[b] ?? 0;
+        return (
+          <div
+            key={b}
+            className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${count > 0 ? "bg-background" : "bg-muted/30 opacity-60"}`}
+          >
+            <BeltBadge belt={b} size="sm" showLabel={false} />
+            <div className="flex flex-col leading-tight">
+              <span className="text-xs text-muted-foreground">{getBeltLabel(b)}</span>
+              <span className="text-base font-semibold">{count}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  return (
+    <div className="rounded-xl border bg-card p-5 space-y-4">
+      <h2 className="text-base font-semibold">Distribuição por faixa</h2>
+      <div>
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Adulto</p>
+        {renderRow(ADULT_BELTS_FULL)}
+      </div>
+      <div>
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Infantil</p>
+        {renderRow(JUNIOR_BELT_ORDER)}
       </div>
     </div>
   );
