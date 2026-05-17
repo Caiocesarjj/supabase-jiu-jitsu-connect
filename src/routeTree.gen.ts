@@ -20,6 +20,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedAlunosRouteImport } from './routes/_authenticated/alunos'
 import { Route as ApiPublicCheckGraduationAlertsRouteImport } from './routes/api/public/check-graduation-alerts'
+import { Route as AuthenticatedAlunosNovoRouteImport } from './routes/_authenticated/alunos.novo'
 import { Route as AuthenticatedAlunosAlunoIdRouteImport } from './routes/_authenticated/alunos.$alunoId'
 
 const LoginRoute = LoginRouteImport.update({
@@ -78,6 +79,11 @@ const ApiPublicCheckGraduationAlertsRoute =
     path: '/api/public/check-graduation-alerts',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AuthenticatedAlunosNovoRoute = AuthenticatedAlunosNovoRouteImport.update({
+  id: '/novo',
+  path: '/novo',
+  getParentRoute: () => AuthenticatedAlunosRoute,
+} as any)
 const AuthenticatedAlunosAlunoIdRoute =
   AuthenticatedAlunosAlunoIdRouteImport.update({
     id: '/$alunoId',
@@ -96,6 +102,7 @@ export interface FileRoutesByFullPath {
   '/presenca': typeof AuthenticatedPresencaRoute
   '/turmas': typeof AuthenticatedTurmasRoute
   '/alunos/$alunoId': typeof AuthenticatedAlunosAlunoIdRoute
+  '/alunos/novo': typeof AuthenticatedAlunosNovoRoute
   '/api/public/check-graduation-alerts': typeof ApiPublicCheckGraduationAlertsRoute
 }
 export interface FileRoutesByTo {
@@ -109,6 +116,7 @@ export interface FileRoutesByTo {
   '/presenca': typeof AuthenticatedPresencaRoute
   '/turmas': typeof AuthenticatedTurmasRoute
   '/alunos/$alunoId': typeof AuthenticatedAlunosAlunoIdRoute
+  '/alunos/novo': typeof AuthenticatedAlunosNovoRoute
   '/api/public/check-graduation-alerts': typeof ApiPublicCheckGraduationAlertsRoute
 }
 export interface FileRoutesById {
@@ -124,6 +132,7 @@ export interface FileRoutesById {
   '/_authenticated/presenca': typeof AuthenticatedPresencaRoute
   '/_authenticated/turmas': typeof AuthenticatedTurmasRoute
   '/_authenticated/alunos/$alunoId': typeof AuthenticatedAlunosAlunoIdRoute
+  '/_authenticated/alunos/novo': typeof AuthenticatedAlunosNovoRoute
   '/api/public/check-graduation-alerts': typeof ApiPublicCheckGraduationAlertsRoute
 }
 export interface FileRouteTypes {
@@ -139,6 +148,7 @@ export interface FileRouteTypes {
     | '/presenca'
     | '/turmas'
     | '/alunos/$alunoId'
+    | '/alunos/novo'
     | '/api/public/check-graduation-alerts'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -152,6 +162,7 @@ export interface FileRouteTypes {
     | '/presenca'
     | '/turmas'
     | '/alunos/$alunoId'
+    | '/alunos/novo'
     | '/api/public/check-graduation-alerts'
   id:
     | '__root__'
@@ -166,6 +177,7 @@ export interface FileRouteTypes {
     | '/_authenticated/presenca'
     | '/_authenticated/turmas'
     | '/_authenticated/alunos/$alunoId'
+    | '/_authenticated/alunos/novo'
     | '/api/public/check-graduation-alerts'
   fileRoutesById: FileRoutesById
 }
@@ -256,6 +268,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCheckGraduationAlertsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/alunos/novo': {
+      id: '/_authenticated/alunos/novo'
+      path: '/novo'
+      fullPath: '/alunos/novo'
+      preLoaderRoute: typeof AuthenticatedAlunosNovoRouteImport
+      parentRoute: typeof AuthenticatedAlunosRoute
+    }
     '/_authenticated/alunos/$alunoId': {
       id: '/_authenticated/alunos/$alunoId'
       path: '/$alunoId'
@@ -268,10 +287,12 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedAlunosRouteChildren {
   AuthenticatedAlunosAlunoIdRoute: typeof AuthenticatedAlunosAlunoIdRoute
+  AuthenticatedAlunosNovoRoute: typeof AuthenticatedAlunosNovoRoute
 }
 
 const AuthenticatedAlunosRouteChildren: AuthenticatedAlunosRouteChildren = {
   AuthenticatedAlunosAlunoIdRoute: AuthenticatedAlunosAlunoIdRoute,
+  AuthenticatedAlunosNovoRoute: AuthenticatedAlunosNovoRoute,
 }
 
 const AuthenticatedAlunosRouteWithChildren =
