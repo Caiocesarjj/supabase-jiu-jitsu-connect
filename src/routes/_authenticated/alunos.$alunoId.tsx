@@ -1541,3 +1541,133 @@ function EditStudentModal({
     </Dialog>
   );
 }
+
+const ALL_BELTS_PAST: Belt[] = [
+  "branca", "cinza_branco", "cinza", "cinza_preto",
+  "amarela_branco", "amarela", "amarela_preto",
+  "laranja_branco", "laranja", "laranja_preto",
+  "verde_branco", "verde", "verde_preto",
+  "azul", "roxa", "marrom", "preta",
+];
+
+function PastGraduationModal({
+  open, onOpenChange, studentId, organizationId, onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  studentId: string;
+  organizationId: string;
+  onSaved: () => void;
+}) {
+  const [oldBelt, setOldBelt] = useState<Belt>("branca");
+  const [oldDegrees, setOldDegrees] = useState(0);
+  const [newBelt, setNewBelt] = useState<Belt>("azul");
+  const [newDegrees, setNewDegrees] = useState(0);
+  const [promotionDate, setPromotionDate] = useState(todayISO());
+  const [previousInstructor, setPreviousInstructor] = useState("");
+  const [previousTeam, setPreviousTeam] = useState("");
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setOldBelt("branca"); setOldDegrees(0);
+      setNewBelt("azul"); setNewDegrees(0);
+      setPromotionDate(todayISO());
+      setPreviousInstructor(""); setPreviousTeam(""); setNotes("");
+    }
+  }, [open]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const accessToken = session.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida");
+      const { addPastGraduation } = await import("@/lib/registrations.functions");
+      await addPastGraduation({
+        data: {
+          accessToken, organizationId, studentId,
+          oldBelt, oldDegrees,
+          newBelt, newDegrees,
+          promotionDate,
+          previousInstructor: previousInstructor || null,
+          previousTeam: previousTeam || null,
+          notes: notes || null,
+        },
+      });
+      toast.success("Graduação anterior adicionada");
+      onSaved();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao adicionar graduação");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Adicionar graduação anterior</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Faixa anterior</Label>
+              <Select value={oldBelt} onValueChange={(v) => setOldBelt(v as Belt)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ALL_BELTS_PAST.map((b) => (
+                    <SelectItem key={b} value={b}>{getBeltLabel(b)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Grau anterior</Label>
+              <Input type="number" min={0} max={10} value={oldDegrees}
+                onChange={(e) => setOldDegrees(Number(e.target.value) || 0)} />
+            </div>
+            <div>
+              <Label>Nova faixa</Label>
+              <Select value={newBelt} onValueChange={(v) => setNewBelt(v as Belt)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ALL_BELTS_PAST.map((b) => (
+                    <SelectItem key={b} value={b}>{getBeltLabel(b)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Novo grau</Label>
+              <Input type="number" min={0} max={10} value={newDegrees}
+                onChange={(e) => setNewDegrees(Number(e.target.value) || 0)} />
+            </div>
+            <div className="col-span-2">
+              <Label>Data da promoção</Label>
+              <Input type="date" value={promotionDate} onChange={(e) => setPromotionDate(e.target.value)} />
+            </div>
+            <div>
+              <Label>Professor anterior</Label>
+              <Input value={previousInstructor} onChange={(e) => setPreviousInstructor(e.target.value)} />
+            </div>
+            <div>
+              <Label>Equipe anterior</Label>
+              <Input value={previousTeam} onChange={(e) => setPreviousTeam(e.target.value)} />
+            </div>
+            <div className="col-span-2">
+              <Label>Observações</Label>
+              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button onClick={save} disabled={saving}>{saving ? "Salvando..." : "Adicionar ao histórico"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
