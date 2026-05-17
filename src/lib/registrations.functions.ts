@@ -119,19 +119,10 @@ export const createStudentRegistration = createServerFn({ method: "POST" })
     const { supabase } = await requireStaff(data.accessToken, data.organizationId);
     const today = new Date().toISOString().split("T")[0];
 
-    const placeholderEmail = `aluno-${crypto.randomUUID()}@placeholder.local`;
-    const { data: created, error: createUserError } = await supabase.auth.admin.createUser({
-      email: data.email || placeholderEmail,
-      email_confirm: true,
-      user_metadata: { full_name: data.fullName, role: "aluno", organization_id: data.organizationId },
-    });
-    if (createUserError || !created.user) {
-      throw new Error(createUserError?.message || "Não foi possível criar o usuário do aluno.");
-    }
-    const studentId = created.user.id;
+    const profileId = crypto.randomUUID();
 
-    const { error: profileError } = await supabase.from("profiles").upsert({
-      id: studentId,
+    const { error: profileError } = await supabase.from("profiles").insert({
+      id: profileId,
       organization_id: data.organizationId,
       full_name: data.fullName,
       email: data.email || null,
@@ -141,15 +132,21 @@ export const createStudentRegistration = createServerFn({ method: "POST" })
     });
     if (profileError) throw profileError;
 
-    const { error: studentError } = await supabase.from("students").insert({
-      id: studentId,
-      organization_id: data.organizationId,
-      status: data.status,
-      birth_date: data.birthDate || null,
-      monthly_fee: data.monthlyFee ?? null,
-      enrollment_date: today,
-    });
+    const { data: studentRow, error: studentError } = await supabase
+      .from("students")
+      .insert({
+        profile_id: profileId,
+        organization_id: data.organizationId,
+        status: data.status,
+        birth_date: data.birthDate || null,
+        monthly_fee: data.monthlyFee ?? null,
+        enrollment_date: today,
+      })
+      .select("id")
+      .single();
     if (studentError) throw studentError;
+
+    const studentId = studentRow.id as string;
 
     const { error: graduationError } = await supabase.from("graduations").insert({
       organization_id: data.organizationId,
