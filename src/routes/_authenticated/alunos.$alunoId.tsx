@@ -748,7 +748,7 @@ function GraduacaoTab({
           <TableHeader>
             <TableRow>
               <TableHead>Data</TableHead>
-              <TableHead>De → Para</TableHead>
+              <TableHead>Faixa</TableHead>
               <TableHead>Professor / Equipe anterior</TableHead>
               <TableHead>Observações</TableHead>
             </TableRow>
@@ -764,12 +764,14 @@ function GraduacaoTab({
                 <TableCell>{formatDateBR(h.promotion_date)}</TableCell>
                 <TableCell>
                   <span className="inline-flex items-center gap-2">
-                    {h.old_belt ? <BeltBadge belt={h.old_belt} size="sm" /> : <span>—</span>}
-                    <span>→</span>
+                    {h.old_belt && h.old_belt !== h.new_belt ? (
+                      <>
+                        <BeltBadge belt={h.old_belt} size="sm" />
+                        <span>→</span>
+                      </>
+                    ) : null}
                     <BeltBadge belt={h.new_belt} size="sm" />
-                    <span className="text-xs text-muted-foreground">
-                      ({h.old_degrees ?? 0} → {h.new_degrees})
-                    </span>
+                    <DegreeDots degrees={h.new_degrees ?? 0} size={6} />
                   </span>
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
@@ -1585,7 +1587,7 @@ function PastGraduationModal({
       await addPastGraduation({
         data: {
           accessToken, organizationId, studentId,
-          oldBelt: null, oldDegrees: null,
+          oldBelt: belt, oldDegrees: degrees,
           newBelt: belt, newDegrees: degrees,
           promotionDate,
           previousInstructor: previousInstructor || null,
