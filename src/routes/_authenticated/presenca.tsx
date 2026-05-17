@@ -233,7 +233,7 @@ function PresencaPage() {
           <div className="divide-y">
             {students.map((s) => {
               const name = s.profiles?.full_name ?? "Sem nome";
-              const belt = s.graduations?.[0]?.belt ?? "branca";
+              const belt = (s.graduations?.[0]?.belt ?? "branca") as Belt;
               const isPresent = checked[s.id] ?? true;
               return (
                 <label
