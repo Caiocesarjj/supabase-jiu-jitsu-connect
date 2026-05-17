@@ -327,36 +327,38 @@ function BeltDistribution({ organizationId }: { organizationId: string | null })
     );
   }
 
-  const renderRow = (belts: Belt[]) => (
-    <div className="flex flex-wrap gap-2">
+  const renderList = (belts: Belt[], total: number) => (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Total {total}</span>
+      </div>
       {belts.map((b) => {
         const count = data[b] ?? 0;
         return (
           <div
             key={b}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${count > 0 ? "bg-background" : "bg-muted/30 opacity-60"}`}
+            className={`flex items-center justify-between rounded-md border px-3 py-2 gap-3 ${count > 0 ? "bg-background" : "bg-muted/30 opacity-50"}`}
           >
-            <BeltBadge belt={b} size="sm" showLabel={false} />
-            <div className="flex flex-col leading-tight">
-              <span className="text-xs text-muted-foreground">{getBeltLabel(b)}</span>
-              <span className="text-base font-semibold">{count}</span>
+            <div className="flex items-center gap-2">
+              <BeltBadge belt={b} size="sm" showLabel={false} />
+              <span className="text-sm text-muted-foreground">{getBeltLabel(b)}</span>
             </div>
+            <span className="text-base font-semibold">{count}</span>
           </div>
         );
       })}
     </div>
   );
 
+  const adultTotal = ADULT_BELTS_FULL.reduce((s, b) => s + (data[b] ?? 0), 0);
+  const kidTotal = JUNIOR_BELT_ORDER.reduce((s, b) => s + (data[b] ?? 0), 0);
+
   return (
     <div className="rounded-xl border bg-card p-5 space-y-4">
       <h2 className="text-base font-semibold">Distribuição por faixa</h2>
-      <div>
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Adulto</p>
-        {renderRow(ADULT_BELTS_FULL)}
-      </div>
-      <div>
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Infantil</p>
-        {renderRow(JUNIOR_BELT_ORDER)}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {renderList(ADULT_BELTS_FULL, adultTotal)}
+        {renderList(JUNIOR_BELT_ORDER, kidTotal)}
       </div>
     </div>
   );
