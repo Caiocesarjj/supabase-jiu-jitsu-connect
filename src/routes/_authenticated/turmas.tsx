@@ -247,7 +247,7 @@ function ScheduleModal({
       name: name.trim(),
       startTime,
       durationMin: Number(duration),
-      instructorId: instructorId === "none" ? null : instructorId,
+      instructorIds,
     };
     try {
       const { data: sessionData } = await supabase.auth.getSession();
