@@ -114,8 +114,8 @@ export function TurmasTab({
   }, [organizationId, studentId, reload, fetchStudentEnr, fetchSchedules]);
 
   const groups = useMemo(() => groupSchedules(allSchedules), [allSchedules]);
-  const isGroupEnrolled = (g: { representativeId: string }) =>
-    enrolledScheduleIds.has(g.representativeId);
+  const isGroupEnrolled = (g: { scheduleIds: string[] }) =>
+    g.scheduleIds.some((id) => enrolledScheduleIds.has(id));
   const enrolledGroups = groups.filter(isGroupEnrolled);
   const availableGroups = groups.filter((g) => !isGroupEnrolled(g));
   const term = search.trim().toLowerCase();
