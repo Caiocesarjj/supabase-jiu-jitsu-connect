@@ -636,3 +636,142 @@ export const updateWhatsappConfig = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true };
   });
+
+// ============================================================
+// Student × Class enrollments
+// ============================================================
+
+async function getGroupSiblings(
+  supabase: ReturnType<typeof getAdminClient>,
+  organizationId: string,
+  scheduleId: string,
+) {
+  const { data: ref, error: refErr } = await supabase
+    .from("class_schedules")
+    .select("name, start_time, duration_min")
+    .eq("id", scheduleId)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+  if (refErr) throw refErr;
+  if (!ref) throw new Error("Turma não encontrada.");
+  const { data: sibs, error: sibErr } = await supabase
+    .from("class_schedules")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .eq("name", ref.name)
+    .eq("start_time", ref.start_time)
+    .eq("duration_min", ref.duration_min)
+    .eq("active", true);
+  if (sibErr) throw sibErr;
+  return { ref, siblingIds: (sibs ?? []).map((s) => s.id) };
+}
+
+export const listStudentEnrollments = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema.extend({ studentId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
+    const { data: rows, error } = await supabase
+      .from("student_class_enrollments")
+      .select(
+        "id, schedule_id, class_schedules!inner(id, name, weekday, start_time, duration_min, active, organization_id)",
+      )
+      .eq("organization_id", data.organizationId)
+      .eq("student_id", data.studentId);
+    if (error) throw error;
+    return { enrollments: rows ?? [] };
+  });
+
+export const listClassEnrollments = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema.extend({ scheduleId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
+    const { siblingIds } = await getGroupSiblings(
+      supabase,
+      data.organizationId,
+      data.scheduleId,
+    );
+    if (siblingIds.length === 0) return { students: [] };
+    const { data: rows, error } = await supabase
+      .from("student_class_enrollments")
+      .select("student_id, students!inner(id, full_name, status, avatar_url, current_belt)")
+      .eq("organization_id", data.organizationId)
+      .in("schedule_id", siblingIds);
+    if (error) throw error;
+    const seen = new Set<string>();
+    const students: Array<{ id: string; full_name: string; status?: string; avatar_url?: string | null; current_belt?: string | null }> = [];
+    for (const r of rows ?? []) {
+      const s: any = (r as any).students;
+      if (s && !seen.has(s.id)) {
+        seen.add(s.id);
+        students.push(s);
+      }
+    }
+    return { students };
+  });
+
+export const listOrgStudents = createServerFn({ method: "POST" })
+  .inputValidator((input) => orgAuthSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
+    const { data: rows, error } = await supabase
+      .from("students")
+      .select("id, full_name, status, avatar_url, current_belt")
+      .eq("organization_id", data.organizationId)
+      .order("full_name");
+    if (error) throw error;
+    return { students: rows ?? [] };
+  });
+
+export const enrollStudentInClass = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema
+      .extend({ studentId: z.string().uuid(), scheduleId: z.string().uuid() })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
+    const { siblingIds } = await getGroupSiblings(
+      supabase,
+      data.organizationId,
+      data.scheduleId,
+    );
+    if (siblingIds.length === 0) throw new Error("Turma sem horários ativos.");
+    const rows = siblingIds.map((sid) => ({
+      organization_id: data.organizationId,
+      student_id: data.studentId,
+      schedule_id: sid,
+    }));
+    const { error } = await supabase
+      .from("student_class_enrollments")
+      .upsert(rows, { onConflict: "student_id,schedule_id", ignoreDuplicates: true });
+    if (error) throw error;
+    return { count: rows.length };
+  });
+
+export const unenrollStudentFromClass = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema
+      .extend({ studentId: z.string().uuid(), scheduleId: z.string().uuid() })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
+    const { siblingIds } = await getGroupSiblings(
+      supabase,
+      data.organizationId,
+      data.scheduleId,
+    );
+    if (siblingIds.length === 0) return { ok: true };
+    const { error } = await supabase
+      .from("student_class_enrollments")
+      .delete()
+      .eq("organization_id", data.organizationId)
+      .eq("student_id", data.studentId)
+      .in("schedule_id", siblingIds);
+    if (error) throw error;
+    return { ok: true };
+  });

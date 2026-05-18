@@ -52,6 +52,7 @@ import {
   BLACK_BELT_DEGREE_YEARS,
 } from "@/lib/graduation";
 import type { Belt } from "@/types/database";
+import { TurmasTab } from "@/components/EnrollmentPanels";
 
 export const Route = createFileRoute("/_authenticated/alunos/$alunoId")({
   component: AlunoFichaPage,
@@ -299,6 +300,7 @@ function AlunoFichaPage() {
         <TabsList>
           <TabsTrigger value="geral">Geral</TabsTrigger>
           <TabsTrigger value="graduacao">Graduação</TabsTrigger>
+          <TabsTrigger value="turmas">Turmas</TabsTrigger>
           <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
           <TabsTrigger value="presenca">Presença</TabsTrigger>
           <TabsTrigger value="observacoes">Observações</TabsTrigger>
@@ -316,6 +318,9 @@ function AlunoFichaPage() {
             userId={user?.id ?? null}
             onChange={reload}
           />
+        </TabsContent>
+        <TabsContent value="turmas">
+          <TurmasTab studentId={student.id} organizationId={organizationId!} />
         </TabsContent>
         <TabsContent value="financeiro">
           <FinanceiroTab financial={financial} onChange={reload} />

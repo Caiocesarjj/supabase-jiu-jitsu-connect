@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, CalendarDays } from "lucide-react";
+import { Plus, Pencil, Trash2, CalendarDays, Users } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,6 +14,7 @@ import {
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { EmptyState } from "@/components/EmptyState";
 import { ConfirmModal } from "@/components/ConfirmModal";
+import { ClassStudentsModal } from "@/components/EnrollmentPanels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -62,6 +63,7 @@ function TurmasPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Schedule | null>(null);
   const [confirmDel, setConfirmDel] = useState<Schedule | null>(null);
+  const [studentsModal, setStudentsModal] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     if (!organizationId) return;
@@ -167,6 +169,14 @@ function TurmasPage() {
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="font-semibold">{first.name}</h3>
                     <div className="flex gap-1">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        title="Alunos"
+                        onClick={() => setStudentsModal({ id: first.id, name: first.name })}
+                      >
+                        <Users className="h-4 w-4" />
+                      </Button>
                       <Button size="icon" variant="ghost" onClick={() => openEdit(first)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -213,6 +223,15 @@ function TurmasPage() {
           confirmLabel="Desativar"
           destructive
           onConfirm={handleDeactivate}
+        />
+      )}
+
+      {studentsModal && (
+        <ClassStudentsModal
+          scheduleId={studentsModal.id}
+          className={studentsModal.name}
+          organizationId={organizationId!}
+          onClose={() => setStudentsModal(null)}
         />
       )}
     </div>
