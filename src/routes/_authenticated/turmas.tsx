@@ -5,7 +5,12 @@ import { Plus, Pencil, Trash2, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
-import { deactivateClassSchedule, saveClassSchedules } from "@/lib/registrations.functions";
+import {
+  deactivateClassSchedule,
+  listClassSchedules,
+  listInstructors,
+  saveClassSchedules,
+} from "@/lib/registrations.functions";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { EmptyState } from "@/components/EmptyState";
 import { ConfirmModal } from "@/components/ConfirmModal";
