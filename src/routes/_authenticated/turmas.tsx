@@ -225,6 +225,15 @@ function TurmasPage() {
           onConfirm={handleDeactivate}
         />
       )}
+
+      {studentsModal && (
+        <ClassStudentsModal
+          scheduleId={studentsModal.id}
+          className={studentsModal.name}
+          organizationId={organizationId!}
+          onClose={() => setStudentsModal(null)}
+        />
+      )}
     </div>
   );
 }
