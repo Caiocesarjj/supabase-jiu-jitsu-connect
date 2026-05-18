@@ -310,7 +310,7 @@ function AfiliacoesPage() {
               <Label htmlFor="slug">Slug da matriz</Label>
               <Input
                 id="slug"
-                placeholder="ex: gracie-barra-sp"
+                placeholder="ex: CT Orelha Figth"
                 value={slug}
                 onChange={(e) => setSlug(e.target.value)}
               />
