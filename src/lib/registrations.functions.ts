@@ -432,11 +432,23 @@ export const deactivateClassSchedule = createServerFn({ method: "POST" })
   .inputValidator((input) => orgAuthSchema.extend({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     const { supabase } = await requireStaff(data.accessToken, data.organizationId);
+    // Fetch the row to know its group (name + start_time + duration_min)
+    const { data: original, error: fetchErr } = await supabase
+      .from("class_schedules")
+      .select("name, start_time, duration_min")
+      .eq("id", data.id)
+      .eq("organization_id", data.organizationId)
+      .single();
+    if (fetchErr) throw fetchErr;
+    // Deactivate the whole sibling group
     const { error } = await supabase
       .from("class_schedules")
       .update({ active: false })
-      .eq("id", data.id)
-      .eq("organization_id", data.organizationId);
+      .eq("organization_id", data.organizationId)
+      .eq("name", original.name)
+      .eq("start_time", original.start_time)
+      .eq("duration_min", original.duration_min)
+      .eq("active", true);
     if (error) throw error;
     return { ok: true };
   });
