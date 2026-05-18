@@ -697,17 +697,21 @@ export const listClassEnrollments = createServerFn({ method: "POST" })
     if (siblingIds.length === 0) return { students: [] };
     const { data: rows, error } = await supabase
       .from("student_class_enrollments")
-      .select("student_id, students!inner(id, full_name, status, avatar_url, current_belt)")
+      .select("student_id, students!inner(id, status, profiles ( full_name ))")
       .eq("organization_id", data.organizationId)
       .in("schedule_id", siblingIds);
     if (error) throw error;
     const seen = new Set<string>();
-    const students: Array<{ id: string; full_name: string; status?: string; avatar_url?: string | null; current_belt?: string | null }> = [];
+    const students: Array<{ id: string; full_name: string; status?: string }> = [];
     for (const r of rows ?? []) {
       const s: any = (r as any).students;
       if (s && !seen.has(s.id)) {
         seen.add(s.id);
-        students.push(s);
+        students.push({
+          id: s.id,
+          full_name: s.profiles?.full_name ?? "Sem nome",
+          status: s.status,
+        });
       }
     }
     return { students };
@@ -719,11 +723,17 @@ export const listOrgStudents = createServerFn({ method: "POST" })
     const { supabase } = await requireStaff(data.accessToken, data.organizationId);
     const { data: rows, error } = await supabase
       .from("students")
-      .select("id, full_name, status, avatar_url, current_belt")
-      .eq("organization_id", data.organizationId)
-      .order("full_name");
+      .select("id, status, profiles ( full_name )")
+      .eq("organization_id", data.organizationId);
     if (error) throw error;
-    return { students: rows ?? [] };
+    const students = ((rows ?? []) as any[])
+      .map((r) => ({
+        id: r.id as string,
+        full_name: (r.profiles?.full_name as string) ?? "Sem nome",
+        status: r.status as string | undefined,
+      }))
+      .sort((a, b) => a.full_name.localeCompare(b.full_name));
+    return { students };
   });
 
 export const enrollStudentInClass = createServerFn({ method: "POST" })
