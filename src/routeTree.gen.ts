@@ -19,6 +19,7 @@ import { Route as AuthenticatedInstrutoresRouteImport } from './routes/_authenti
 import { Route as AuthenticatedFinanceiroRouteImport } from './routes/_authenticated/financeiro'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
+import { Route as AuthenticatedAfiliacoesRouteImport } from './routes/_authenticated/afiliacoes'
 import { Route as AuthenticatedRelatoriosIndexRouteImport } from './routes/_authenticated/relatorios/index'
 import { Route as AuthenticatedAlunosIndexRouteImport } from './routes/_authenticated/alunos.index'
 import { Route as ApiPublicCheckGraduationAlertsRouteImport } from './routes/api/public/check-graduation-alerts'
@@ -76,6 +77,11 @@ const AuthenticatedConfiguracoesRoute =
     path: '/configuracoes',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAfiliacoesRoute = AuthenticatedAfiliacoesRouteImport.update({
+  id: '/afiliacoes',
+  path: '/afiliacoes',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedRelatoriosIndexRoute =
   AuthenticatedRelatoriosIndexRouteImport.update({
     id: '/relatorios/',
@@ -110,6 +116,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/cadastro-academia': typeof CadastroAcademiaRoute
   '/login': typeof LoginRoute
+  '/afiliacoes': typeof AuthenticatedAfiliacoesRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/financeiro': typeof AuthenticatedFinanceiroRoute
@@ -126,6 +133,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/cadastro-academia': typeof CadastroAcademiaRoute
   '/login': typeof LoginRoute
+  '/afiliacoes': typeof AuthenticatedAfiliacoesRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/financeiro': typeof AuthenticatedFinanceiroRoute
@@ -144,6 +152,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/cadastro-academia': typeof CadastroAcademiaRoute
   '/login': typeof LoginRoute
+  '/_authenticated/afiliacoes': typeof AuthenticatedAfiliacoesRoute
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/financeiro': typeof AuthenticatedFinanceiroRoute
@@ -162,6 +171,7 @@ export interface FileRouteTypes {
     | '/'
     | '/cadastro-academia'
     | '/login'
+    | '/afiliacoes'
     | '/configuracoes'
     | '/dashboard'
     | '/financeiro'
@@ -178,6 +188,7 @@ export interface FileRouteTypes {
     | '/'
     | '/cadastro-academia'
     | '/login'
+    | '/afiliacoes'
     | '/configuracoes'
     | '/dashboard'
     | '/financeiro'
@@ -195,6 +206,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/cadastro-academia'
     | '/login'
+    | '/_authenticated/afiliacoes'
     | '/_authenticated/configuracoes'
     | '/_authenticated/dashboard'
     | '/_authenticated/financeiro'
@@ -288,6 +300,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedConfiguracoesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/afiliacoes': {
+      id: '/_authenticated/afiliacoes'
+      path: '/afiliacoes'
+      fullPath: '/afiliacoes'
+      preLoaderRoute: typeof AuthenticatedAfiliacoesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/relatorios/': {
       id: '/_authenticated/relatorios/'
       path: '/relatorios'
@@ -327,6 +346,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedAfiliacoesRoute: typeof AuthenticatedAfiliacoesRoute
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedFinanceiroRoute: typeof AuthenticatedFinanceiroRoute
@@ -340,6 +360,7 @@ interface AuthenticatedRouteChildren {
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedAfiliacoesRoute: AuthenticatedAfiliacoesRoute,
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedFinanceiroRoute: AuthenticatedFinanceiroRoute,

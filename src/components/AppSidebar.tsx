@@ -8,6 +8,7 @@ import {
   DollarSign,
   BarChart3,
   Settings,
+  Network,
   LogOut,
 } from "lucide-react";
 import {
@@ -33,6 +34,7 @@ const items = [
   { title: "Presença", url: "/presenca", icon: CheckSquare },
   { title: "Financeiro", url: "/financeiro", icon: DollarSign },
   { title: "Relatórios", url: "/relatorios", icon: BarChart3 },
+  { title: "Afiliações", url: "/afiliacoes", icon: Network },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
 ];
 
