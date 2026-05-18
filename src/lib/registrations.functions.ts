@@ -327,6 +327,36 @@ export const deleteGraduationHistoryEntry = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const listClassSchedules = createServerFn({ method: "POST" })
+  .inputValidator((input) => orgAuthSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
+    const { data: rows, error } = await supabase
+      .from("class_schedules")
+      .select(
+        `id, name, weekday, start_time, duration_min, active, instructor_record_id, instructors ( id, full_name )`,
+      )
+      .eq("organization_id", data.organizationId)
+      .eq("active", true)
+      .order("weekday")
+      .order("start_time");
+    if (error) throw error;
+    return { schedules: rows ?? [] };
+  });
+
+export const listInstructors = createServerFn({ method: "POST" })
+  .inputValidator((input) => orgAuthSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
+    const { data: rows, error } = await supabase
+      .from("instructors")
+      .select("id, full_name")
+      .eq("organization_id", data.organizationId)
+      .order("full_name");
+    if (error) throw error;
+    return { instructors: rows ?? [] };
+  });
+
 export const saveClassSchedules = createServerFn({ method: "POST" })
   .inputValidator((input) =>
     orgAuthSchema
@@ -336,32 +366,43 @@ export const saveClassSchedules = createServerFn({ method: "POST" })
         days: z.array(z.number().int().min(0).max(6)).min(1).max(7),
         startTime: z.string().min(4).max(8),
         durationMin: z.number().int().min(15).max(240),
-        instructorId: z.string().uuid().nullable().optional(),
+        instructorIds: z.array(z.string().uuid()).max(20).optional(),
       })
       .parse(input),
   )
   .handler(async ({ data }) => {
     const { supabase } = await requireStaff(data.accessToken, data.organizationId);
+    const instructorIds =
+      data.instructorIds && data.instructorIds.length > 0 ? data.instructorIds : [null];
+
     const base = {
       organization_id: data.organizationId,
       name: data.name,
       start_time: data.startTime,
       duration_min: data.durationMin,
-      instructor_record_id: data.instructorId ?? null,
       active: true,
     };
 
     if (data.id) {
       const { error } = await supabase
         .from("class_schedules")
-        .update({ ...base, weekday: data.days[0] })
+        .update({
+          ...base,
+          weekday: data.days[0],
+          instructor_record_id: instructorIds[0],
+        })
         .eq("id", data.id)
         .eq("organization_id", data.organizationId);
       if (error) throw error;
       return { count: 1 };
     }
 
-    const rows = data.days.map((weekday) => ({ ...base, weekday }));
+    const rows: Array<typeof base & { weekday: number; instructor_record_id: string | null }> = [];
+    for (const weekday of data.days) {
+      for (const instructorId of instructorIds) {
+        rows.push({ ...base, weekday, instructor_record_id: instructorId });
+      }
+    }
     const { error } = await supabase.from("class_schedules").insert(rows);
     if (error) throw error;
     return { count: rows.length };
