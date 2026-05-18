@@ -174,6 +174,7 @@ function TurmasPage() {
           open={modalOpen}
           onClose={() => setModalOpen(false)}
           schedule={editing}
+          allSchedules={schedules}
           instructors={instructors}
           organizationId={organizationId!}
           onSaved={() => {
@@ -202,6 +203,7 @@ function ScheduleModal({
   open,
   onClose,
   schedule,
+  allSchedules,
   instructors,
   organizationId,
   onSaved,
@@ -209,18 +211,46 @@ function ScheduleModal({
   open: boolean;
   onClose: () => void;
   schedule: Schedule | null;
+  allSchedules: Schedule[];
   instructors: { id: string; full_name: string }[];
   organizationId: string;
   onSaved: () => void;
 }) {
   const isEdit = !!schedule;
   const saveSchedules = useServerFn(saveClassSchedules);
+
+  // In edit mode, group siblings = same name + start_time + duration_min
+  const siblings = schedule
+    ? allSchedules.filter(
+        (s) =>
+          s.name === schedule.name &&
+          s.start_time === schedule.start_time &&
+          s.duration_min === schedule.duration_min,
+      )
+    : [];
+
   const [name, setName] = useState(schedule?.name ?? "");
-  const [days, setDays] = useState<number[]>(schedule ? [schedule.weekday] : []);
+  const [days, setDays] = useState<number[]>(
+    siblings.length > 0
+      ? Array.from(new Set(siblings.map((s) => s.weekday))).sort()
+      : schedule
+        ? [schedule.weekday]
+        : [],
+  );
   const [startTime, setStartTime] = useState(schedule?.start_time?.slice(0, 5) ?? "19:00");
   const [duration, setDuration] = useState(String(schedule?.duration_min ?? 60));
   const [instructorIds, setInstructorIds] = useState<string[]>(
-    schedule?.instructor_record_id ? [schedule.instructor_record_id] : [],
+    siblings.length > 0
+      ? Array.from(
+          new Set(
+            siblings
+              .map((s) => s.instructor_record_id)
+              .filter((v): v is string => !!v),
+          ),
+        )
+      : schedule?.instructor_record_id
+        ? [schedule.instructor_record_id]
+        : [],
   );
   const toggleInstructor = (id: string) => {
     setInstructorIds((prev) =>
@@ -302,7 +332,6 @@ function ScheduleModal({
                   <Checkbox
                     checked={days.includes(idx)}
                     onCheckedChange={() => toggleDay(idx)}
-                    disabled={isEdit && days.includes(idx) && days.length === 1}
                   />
                   <span className="text-sm">{label}</span>
                 </label>
@@ -310,7 +339,7 @@ function ScheduleModal({
             </div>
             {isEdit && (
               <p className="text-xs text-muted-foreground mt-1">
-                Na edição, apenas o primeiro dia é atualizado.
+                Editar substitui todas as turmas deste grupo (mesmo nome + horário).
               </p>
             )}
           </div>
