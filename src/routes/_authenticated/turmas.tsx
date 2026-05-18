@@ -63,6 +63,7 @@ function TurmasPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Schedule | null>(null);
   const [confirmDel, setConfirmDel] = useState<Schedule | null>(null);
+  const [studentsModal, setStudentsModal] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     if (!organizationId) return;
