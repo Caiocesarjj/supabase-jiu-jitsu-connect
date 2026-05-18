@@ -14,6 +14,7 @@ import {
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { EmptyState } from "@/components/EmptyState";
 import { ConfirmModal } from "@/components/ConfirmModal";
+import { ClassStudentsModal } from "@/components/EnrollmentPanels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
