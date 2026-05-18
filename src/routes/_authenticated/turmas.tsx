@@ -52,6 +52,8 @@ interface Schedule {
 function TurmasPage() {
   const { organizationId } = useAuth();
   const deactivateSchedule = useServerFn(deactivateClassSchedule);
+  const fetchSchedules = useServerFn(listClassSchedules);
+  const fetchInstructors = useServerFn(listInstructors);
   const [loading, setLoading] = useState(true);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [instructors, setInstructors] = useState<{ id: string; full_name: string }[]>([]);
@@ -66,33 +68,27 @@ function TurmasPage() {
     let cancelled = false;
     setLoading(true);
     (async () => {
-      const [sch, ins] = await Promise.all([
-        supabase
-          .from("class_schedules")
-          .select(
-            `id, name, weekday, start_time, duration_min, active, instructor_record_id, instructors ( full_name )`,
-          )
-          .eq("organization_id", organizationId)
-          .eq("active", true)
-          .order("weekday")
-          .order("start_time"),
-        supabase
-          .from("instructors")
-          .select("id, full_name")
-          .eq("organization_id", organizationId)
-          .order("full_name"),
-      ]);
-      if (cancelled) return;
-      if (sch.error) toast.error("Erro ao carregar turmas");
-      if (ins.error) toast.error("Erro ao carregar instrutores");
-      setSchedules((sch.data as any) ?? []);
-      setInstructors((ins.data as any) ?? []);
-      setLoading(false);
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (!accessToken) throw new Error("Sessão inválida.");
+        const [schRes, insRes] = await Promise.all([
+          fetchSchedules({ data: { accessToken, organizationId } }),
+          fetchInstructors({ data: { accessToken, organizationId } }),
+        ]);
+        if (cancelled) return;
+        setSchedules((schRes.schedules as any) ?? []);
+        setInstructors((insRes.instructors as any) ?? []);
+      } catch (err) {
+        if (!cancelled) toast.error(err instanceof Error ? err.message : "Erro ao carregar");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [organizationId, reload]);
+  }, [organizationId, reload, fetchSchedules, fetchInstructors]);
 
   const openCreate = () => {
     setEditing(null);
