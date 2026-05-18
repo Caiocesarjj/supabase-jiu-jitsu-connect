@@ -101,13 +101,10 @@ export function TurmasTab({
   }, [organizationId, studentId, reload, fetchStudentEnr, fetchSchedules]);
 
   const groups = useMemo(() => groupSchedules(allSchedules), [allSchedules]);
-  const enrolledGroups = groups.filter((g) => enrolledScheduleIds.has(g.representativeId) || g.days.some(() => {
-    // any sibling id present? we only track schedule ids; if rep matches => enrolled
-    return enrolledScheduleIds.has(g.representativeId);
-  }));
-  // Better: a group is enrolled if any of its (rep + future siblings) sched id is in set.
-  // Since enrollment inserts ALL siblings, checking representativeId is enough.
-  const availableGroups = groups.filter((g) => !enrolledScheduleIds.has(g.representativeId));
+  const isGroupEnrolled = (g: { representativeId: string }) =>
+    enrolledScheduleIds.has(g.representativeId);
+  const enrolledGroups = groups.filter(isGroupEnrolled);
+  const availableGroups = groups.filter((g) => !isGroupEnrolled(g));
   const term = search.trim().toLowerCase();
   const filtered = term
     ? availableGroups.filter((g) => g.name.toLowerCase().includes(term))
