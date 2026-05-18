@@ -384,17 +384,37 @@ export const saveClassSchedules = createServerFn({ method: "POST" })
     };
 
     if (data.id) {
-      const { error } = await supabase
+      // Fetch the original row to identify the "group" (same name + start_time + duration_min)
+      const { data: original, error: fetchErr } = await supabase
         .from("class_schedules")
-        .update({
-          ...base,
-          weekday: data.days[0],
-          instructor_record_id: instructorIds[0],
-        })
+        .select("name, start_time, duration_min")
         .eq("id", data.id)
-        .eq("organization_id", data.organizationId);
-      if (error) throw error;
-      return { count: 1 };
+        .eq("organization_id", data.organizationId)
+        .maybeSingle();
+      if (fetchErr) throw fetchErr;
+      if (!original) throw new Error("Turma não encontrada.");
+
+      // Deactivate every sibling row in the same group so the edit fully replaces it
+      const { error: deactErr } = await supabase
+        .from("class_schedules")
+        .update({ active: false })
+        .eq("organization_id", data.organizationId)
+        .eq("name", original.name)
+        .eq("start_time", original.start_time)
+        .eq("duration_min", original.duration_min)
+        .eq("active", true);
+      if (deactErr) throw deactErr;
+
+      // Re-insert one active row per (day × instructor) using the new values
+      const rows: Array<typeof base & { weekday: number; instructor_record_id: string | null }> = [];
+      for (const weekday of data.days) {
+        for (const instructorId of instructorIds) {
+          rows.push({ ...base, weekday, instructor_record_id: instructorId });
+        }
+      }
+      const { error: insErr } = await supabase.from("class_schedules").insert(rows);
+      if (insErr) throw insErr;
+      return { count: rows.length };
     }
 
     const rows: Array<typeof base & { weekday: number; instructor_record_id: string | null }> = [];
