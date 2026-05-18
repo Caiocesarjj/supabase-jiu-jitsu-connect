@@ -25,14 +25,19 @@ function AuthenticatedLayout() {
 
   useEffect(() => {
     if (!organizationId) return;
+    let cancelled = false;
     supabase
       .from("organizations")
       .select("trial_ends_at")
       .eq("id", organizationId)
-      .single()
+      .maybeSingle()
       .then(({ data }) => {
-        if (data) setTrialEndsAt((data as { trial_ends_at: string | null }).trial_ends_at);
+        if (cancelled || !data) return;
+        setTrialEndsAt((data as { trial_ends_at: string | null }).trial_ends_at);
       });
+    return () => {
+      cancelled = true;
+    };
   }, [organizationId]);
 
   if (loading || !user || !profile) {
