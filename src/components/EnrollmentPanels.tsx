@@ -34,7 +34,18 @@ type Schedule = {
 };
 
 function groupSchedules(list: Schedule[]) {
-  const map = new Map<string, { key: string; name: string; start_time: string; duration_min: number; representativeId: string; days: number[] }>();
+  const map = new Map<
+    string,
+    {
+      key: string;
+      name: string;
+      start_time: string;
+      duration_min: number;
+      representativeId: string;
+      scheduleIds: string[];
+      days: number[];
+    }
+  >();
   for (const s of list) {
     if (!s.active) continue;
     const key = `${s.name}|${s.start_time}|${s.duration_min}`;
@@ -46,10 +57,12 @@ function groupSchedules(list: Schedule[]) {
         start_time: s.start_time,
         duration_min: s.duration_min,
         representativeId: s.id,
+        scheduleIds: [s.id],
         days: [s.weekday],
       });
-    } else if (!g.days.includes(s.weekday)) {
-      g.days.push(s.weekday);
+    } else {
+      g.scheduleIds.push(s.id);
+      if (!g.days.includes(s.weekday)) g.days.push(s.weekday);
     }
   }
   return Array.from(map.values()).map((g) => ({ ...g, days: g.days.sort() }));
