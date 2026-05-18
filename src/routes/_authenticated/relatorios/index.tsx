@@ -42,6 +42,7 @@ import {
 
 export const Route = createFileRoute("/_authenticated/relatorios/")({
   component: RelatoriosPage,
+  ssr: false,
   head: () => ({ meta: [{ title: "Relatórios — JJ Manager" }] }),
 });
 
