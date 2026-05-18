@@ -5,7 +5,12 @@ import { Plus, Pencil, Trash2, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
-import { deactivateClassSchedule, saveClassSchedules } from "@/lib/registrations.functions";
+import {
+  deactivateClassSchedule,
+  listClassSchedules,
+  listInstructors,
+  saveClassSchedules,
+} from "@/lib/registrations.functions";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { EmptyState } from "@/components/EmptyState";
 import { ConfirmModal } from "@/components/ConfirmModal";
@@ -27,7 +32,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
 export const Route = createFileRoute("/_authenticated/turmas")({
   component: TurmasPage,
 });
@@ -48,6 +52,8 @@ interface Schedule {
 function TurmasPage() {
   const { organizationId } = useAuth();
   const deactivateSchedule = useServerFn(deactivateClassSchedule);
+  const fetchSchedules = useServerFn(listClassSchedules);
+  const fetchInstructors = useServerFn(listInstructors);
   const [loading, setLoading] = useState(true);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [instructors, setInstructors] = useState<{ id: string; full_name: string }[]>([]);
@@ -62,33 +68,27 @@ function TurmasPage() {
     let cancelled = false;
     setLoading(true);
     (async () => {
-      const [sch, ins] = await Promise.all([
-        supabase
-          .from("class_schedules")
-          .select(
-            `id, name, weekday, start_time, duration_min, active, instructor_record_id, instructors ( full_name )`,
-          )
-          .eq("organization_id", organizationId)
-          .eq("active", true)
-          .order("weekday")
-          .order("start_time"),
-        supabase
-          .from("instructors")
-          .select("id, full_name")
-          .eq("organization_id", organizationId)
-          .order("full_name"),
-      ]);
-      if (cancelled) return;
-      if (sch.error) toast.error("Erro ao carregar turmas");
-      if (ins.error) toast.error("Erro ao carregar instrutores");
-      setSchedules((sch.data as any) ?? []);
-      setInstructors((ins.data as any) ?? []);
-      setLoading(false);
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (!accessToken) throw new Error("Sessão inválida.");
+        const [schRes, insRes] = await Promise.all([
+          fetchSchedules({ data: { accessToken, organizationId } }),
+          fetchInstructors({ data: { accessToken, organizationId } }),
+        ]);
+        if (cancelled) return;
+        setSchedules((schRes.schedules as any) ?? []);
+        setInstructors((insRes.instructors as any) ?? []);
+      } catch (err) {
+        if (!cancelled) toast.error(err instanceof Error ? err.message : "Erro ao carregar");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [organizationId, reload]);
+  }, [organizationId, reload, fetchSchedules, fetchInstructors]);
 
   const openCreate = () => {
     setEditing(null);
@@ -219,7 +219,14 @@ function ScheduleModal({
   const [days, setDays] = useState<number[]>(schedule ? [schedule.weekday] : []);
   const [startTime, setStartTime] = useState(schedule?.start_time?.slice(0, 5) ?? "19:00");
   const [duration, setDuration] = useState(String(schedule?.duration_min ?? 60));
-  const [instructorId, setInstructorId] = useState<string>(schedule?.instructor_record_id ?? "none");
+  const [instructorIds, setInstructorIds] = useState<string[]>(
+    schedule?.instructor_record_id ? [schedule.instructor_record_id] : [],
+  );
+  const toggleInstructor = (id: string) => {
+    setInstructorIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
   const [saving, setSaving] = useState(false);
 
   const toggleDay = (d: number) => {
@@ -240,7 +247,7 @@ function ScheduleModal({
       name: name.trim(),
       startTime,
       durationMin: Number(duration),
-      instructorId: instructorId === "none" ? null : instructorId,
+      instructorIds,
     };
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -328,20 +335,30 @@ function ScheduleModal({
             </div>
           </div>
           <div>
-            <Label>Instrutor</Label>
-            <Select value={instructorId} onValueChange={setInstructorId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Sem instrutor" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Sem instrutor</SelectItem>
+            <Label>Instrutores</Label>
+            {instructors.length === 0 ? (
+              <p className="text-xs text-muted-foreground mt-1">
+                Nenhum instrutor cadastrado. Cadastre em "Instrutores".
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2 mt-2">
                 {instructors.map((i) => (
-                  <SelectItem key={i.id} value={i.id}>
-                    {i.full_name}
-                  </SelectItem>
+                  <label
+                    key={i.id}
+                    className="flex items-center gap-1 rounded border px-2 py-1 cursor-pointer"
+                  >
+                    <Checkbox
+                      checked={instructorIds.includes(i.id)}
+                      onCheckedChange={() => toggleInstructor(i.id)}
+                    />
+                    <span className="text-sm">{i.full_name}</span>
+                  </label>
                 ))}
-              </SelectContent>
-            </Select>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground mt-1">
+              Selecionar mais de um cria uma turma para cada combinação dia × instrutor.
+            </p>
           </div>
         </div>
         <DialogFooter>
