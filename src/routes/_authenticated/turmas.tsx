@@ -144,28 +144,48 @@ function TurmasPage() {
         />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {schedules.map((s) => (
-            <div key={s.id} className="rounded-lg border bg-card p-4 space-y-2">
-              <div className="flex items-start justify-between gap-2">
-                <h3 className="font-semibold">{s.name}</h3>
-                <div className="flex gap-1">
-                  <Button size="icon" variant="ghost" onClick={() => openEdit(s)}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button size="icon" variant="ghost" onClick={() => setConfirmDel(s)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+          {(() => {
+            const groups = new Map<string, Schedule[]>();
+            for (const s of schedules) {
+              const key = `${s.name}|${s.start_time}|${s.duration_min}`;
+              const arr = groups.get(key) ?? [];
+              arr.push(s);
+              groups.set(key, arr);
+            }
+            return Array.from(groups.values()).map((group) => {
+              const first = group[0];
+              const days = Array.from(new Set(group.map((g) => g.weekday))).sort();
+              const insNames = Array.from(
+                new Set(
+                  group
+                    .map((g) => g.instructors?.full_name)
+                    .filter((n): n is string => !!n),
+                ),
+              );
+              return (
+                <div key={first.id} className="rounded-lg border bg-card p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-semibold">{first.name}</h3>
+                    <div className="flex gap-1">
+                      <Button size="icon" variant="ghost" onClick={() => openEdit(first)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button size="icon" variant="ghost" onClick={() => setConfirmDel(first)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="text-sm text-muted-foreground space-y-1">
+                    <div>{days.map((d) => WEEKDAYS[d]).join(", ")}</div>
+                    <div>
+                      {first.start_time?.slice(0, 5)} ({first.duration_min} min)
+                    </div>
+                    <div>{insNames.length > 0 ? insNames.join(", ") : "Sem instrutor"}</div>
+                  </div>
                 </div>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                <div>{WEEKDAYS[s.weekday]}</div>
-                <div>
-                  {s.start_time?.slice(0, 5)} ({s.duration_min} min)
-                </div>
-                <div>{s.instructors?.full_name ?? "Sem instrutor"}</div>
-              </div>
-            </div>
-          ))}
+              );
+            });
+          })()}
         </div>
       )}
 
