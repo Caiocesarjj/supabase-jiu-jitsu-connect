@@ -335,20 +335,30 @@ function ScheduleModal({
             </div>
           </div>
           <div>
-            <Label>Instrutor</Label>
-            <Select value={instructorId} onValueChange={setInstructorId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Sem instrutor" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Sem instrutor</SelectItem>
+            <Label>Instrutores</Label>
+            {instructors.length === 0 ? (
+              <p className="text-xs text-muted-foreground mt-1">
+                Nenhum instrutor cadastrado. Cadastre em "Instrutores".
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2 mt-2">
                 {instructors.map((i) => (
-                  <SelectItem key={i.id} value={i.id}>
-                    {i.full_name}
-                  </SelectItem>
+                  <label
+                    key={i.id}
+                    className="flex items-center gap-1 rounded border px-2 py-1 cursor-pointer"
+                  >
+                    <Checkbox
+                      checked={instructorIds.includes(i.id)}
+                      onCheckedChange={() => toggleInstructor(i.id)}
+                    />
+                    <span className="text-sm">{i.full_name}</span>
+                  </label>
                 ))}
-              </SelectContent>
-            </Select>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground mt-1">
+              Selecionar mais de um cria uma turma para cada combinação dia × instrutor.
+            </p>
           </div>
         </div>
         <DialogFooter>
