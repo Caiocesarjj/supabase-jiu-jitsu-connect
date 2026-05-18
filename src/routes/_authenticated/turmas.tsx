@@ -332,7 +332,6 @@ function ScheduleModal({
                   <Checkbox
                     checked={days.includes(idx)}
                     onCheckedChange={() => toggleDay(idx)}
-                    disabled={isEdit && days.includes(idx) && days.length === 1}
                   />
                   <span className="text-sm">{label}</span>
                 </label>
@@ -340,7 +339,7 @@ function ScheduleModal({
             </div>
             {isEdit && (
               <p className="text-xs text-muted-foreground mt-1">
-                Na edição, apenas o primeiro dia é atualizado.
+                Editar substitui todas as turmas deste grupo (mesmo nome + horário).
               </p>
             )}
           </div>
