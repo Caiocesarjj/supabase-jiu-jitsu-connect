@@ -174,6 +174,7 @@ function TurmasPage() {
           open={modalOpen}
           onClose={() => setModalOpen(false)}
           schedule={editing}
+          allSchedules={schedules}
           instructors={instructors}
           organizationId={organizationId!}
           onSaved={() => {
