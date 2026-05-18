@@ -169,6 +169,14 @@ function TurmasPage() {
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="font-semibold">{first.name}</h3>
                     <div className="flex gap-1">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        title="Alunos"
+                        onClick={() => setStudentsModal({ id: first.id, name: first.name })}
+                      >
+                        <Users className="h-4 w-4" />
+                      </Button>
                       <Button size="icon" variant="ghost" onClick={() => openEdit(first)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
