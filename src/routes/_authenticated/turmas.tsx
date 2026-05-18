@@ -238,7 +238,7 @@ function ScheduleModal({
     setSaving(true);
     const base = {
       name: name.trim(),
-      start_time: startTime,
+      startTime,
       durationMin: Number(duration),
       instructorId: instructorId === "none" ? null : instructorId,
     };
