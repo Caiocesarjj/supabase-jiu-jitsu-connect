@@ -52,6 +52,7 @@ import {
   BLACK_BELT_DEGREE_YEARS,
 } from "@/lib/graduation";
 import type { Belt } from "@/types/database";
+import { TurmasTab } from "@/components/EnrollmentPanels";
 
 export const Route = createFileRoute("/_authenticated/alunos/$alunoId")({
   component: AlunoFichaPage,
