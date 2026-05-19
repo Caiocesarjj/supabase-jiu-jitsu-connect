@@ -93,10 +93,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const safetyTimer = setTimeout(() => {
       if (mounted) setLoading(false);
     }, 5000);
-    void safetyTimer;
 
     return () => {
       mounted = false;
+      clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
   }, []);
