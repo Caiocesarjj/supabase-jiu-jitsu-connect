@@ -71,20 +71,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    supabase.auth.getSession().then(({ data: { session: existing } }) => {
-      if (!mounted) return;
-      setSession(existing);
-      if (existing?.user) {
-        loadProfile(existing.user.id).finally(() => {
-          if (mounted) setLoading(false);
-        });
-      } else {
-        setLoading(false);
-      }
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data: { session: existing } }) => {
+        if (!mounted) return;
+        setSession(existing);
+        if (existing?.user) {
+          loadProfile(existing.user.id).finally(() => {
+            if (mounted) setLoading(false);
+          });
+        } else {
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.error("getSession failed", err);
+        if (mounted) setLoading(false);
+      });
+
+    // Safety net: never leave the app stuck on the loading spinner
+    const safetyTimer = setTimeout(() => {
+      if (mounted) setLoading(false);
+    }, 5000);
 
     return () => {
       mounted = false;
+      clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
   }, []);
