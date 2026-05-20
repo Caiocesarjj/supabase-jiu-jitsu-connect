@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatBRL } from "@/lib/format";
+import { getBeltLabel } from "@/lib/graduation";
 
 export const Route = createFileRoute("/_authenticated/afiliacoes")({
   component: AfiliacoesPage,
@@ -379,6 +380,53 @@ function AfiliacoesPage() {
               {submitting ? "Enviando..." : "Enviar pedido"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!studentsDialog} onOpenChange={(o) => !o && setStudentsDialog(null)}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Alunos · {studentsDialog?.orgName}</DialogTitle>
+          </DialogHeader>
+          {studentsLoading ? (
+            <div className="flex h-32 items-center justify-center">
+              <LoadingSpinner label="Carregando alunos..." />
+            </div>
+          ) : studentsList.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum aluno cadastrado.</p>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Total: <span className="font-medium text-foreground">{studentsList.length}</span> aluno{studentsList.length === 1 ? "" : "s"}
+              </p>
+              <div className="rounded-lg border overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="text-left p-2">Nome</th>
+                      <th className="text-right p-2">Idade</th>
+                      <th className="text-right p-2">Peso (kg)</th>
+                      <th className="text-left p-2">Graduação</th>
+                      <th className="text-left p-2">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {studentsList.map((s) => (
+                      <tr key={s.id} className="border-t">
+                        <td className="p-2 font-medium">{s.fullName}</td>
+                        <td className="p-2 text-right">{s.age ?? "—"}</td>
+                        <td className="p-2 text-right">{s.weightKg ?? "—"}</td>
+                        <td className="p-2">
+                          {s.belt ? `${getBeltLabel(s.belt as any)}${s.degrees ? ` · ${s.degrees}º` : ""}` : "—"}
+                        </td>
+                        <td className="p-2 capitalize text-xs">{s.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
