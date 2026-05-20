@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Check, X, Trash2, Plus, Network, Users, DollarSign, AlertCircle } from "lucide-react";
+import { Check, X, Trash2, Plus, Network, Users, DollarSign, AlertCircle, Eye } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -11,6 +11,7 @@ import {
   reviewAffiliation,
   cancelAffiliation,
   getConsolidatedStats,
+  listAffiliateStudents,
 } from "@/lib/affiliations.functions";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatBRL } from "@/lib/format";
+import { getBeltLabel } from "@/lib/graduation";
 
 export const Route = createFileRoute("/_authenticated/afiliacoes")({
   component: AfiliacoesPage,
@@ -75,6 +77,7 @@ function AfiliacoesPage() {
   const reviewFn = useServerFn(reviewAffiliation);
   const cancelFn = useServerFn(cancelAffiliation);
   const statsFn = useServerFn(getConsolidatedStats);
+  const studentsFn = useServerFn(listAffiliateStudents);
 
   const [loading, setLoading] = useState(true);
   const [sent, setSent] = useState<Item[]>([]);
@@ -87,6 +90,26 @@ function AfiliacoesPage() {
   const [notes, setNotes] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
+
+  const [studentsDialog, setStudentsDialog] = useState<{ orgName: string; orgId: string } | null>(null);
+  const [studentsLoading, setStudentsLoading] = useState(false);
+  const [studentsList, setStudentsList] = useState<Awaited<ReturnType<typeof listAffiliateStudents>>["students"]>([]);
+
+  const openStudents = async (orgId: string, orgName: string) => {
+    if (!organizationId) return;
+    setStudentsDialog({ orgId, orgName });
+    setStudentsLoading(true);
+    setStudentsList([]);
+    try {
+      const accessToken = await getToken();
+      const res = await studentsFn({ data: { accessToken, organizationId, affiliateOrgId: orgId } });
+      setStudentsList(res.students);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao carregar alunos");
+    } finally {
+      setStudentsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!organizationId) return;
@@ -203,13 +226,13 @@ function AfiliacoesPage() {
             </div>
             <div className="rounded-lg border p-4">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <DollarSign className="h-4 w-4" /> Recebido no mês
+                <DollarSign className="h-4 w-4" /> Recebido no mês <span className="text-[10px] uppercase">(matriz)</span>
               </div>
               <div className="text-2xl font-bold">{formatBRL(stats.totals.receivedThisMonth)}</div>
             </div>
             <div className="rounded-lg border p-4">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <AlertCircle className="h-4 w-4" /> Inadimplentes
+                <AlertCircle className="h-4 w-4" /> Inadimplentes <span className="text-[10px] uppercase">(matriz)</span>
               </div>
               <div className="text-2xl font-bold">{stats.totals.overdueCount}</div>
             </div>
@@ -223,6 +246,7 @@ function AfiliacoesPage() {
                   <th className="text-right p-2">Alunos</th>
                   <th className="text-right p-2">Recebido (mês)</th>
                   <th className="text-right p-2">Inadimplentes</th>
+                  <th className="text-right p-2">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -234,8 +258,19 @@ function AfiliacoesPage() {
                     </td>
                     <td className="p-2">{r.depth === 0 ? "Matriz" : `N${r.depth}`}</td>
                     <td className="p-2 text-right">{r.activeStudents}</td>
-                    <td className="p-2 text-right">{formatBRL(r.receivedThisMonth)}</td>
-                    <td className="p-2 text-right">{r.overdueCount}</td>
+                    <td className="p-2 text-right">
+                      {r.receivedThisMonth == null ? <span className="text-muted-foreground">—</span> : formatBRL(r.receivedThisMonth)}
+                    </td>
+                    <td className="p-2 text-right">
+                      {r.overdueCount == null ? <span className="text-muted-foreground">—</span> : r.overdueCount}
+                    </td>
+                    <td className="p-2 text-right">
+                      {r.depth > 0 && (
+                        <Button size="sm" variant="ghost" onClick={() => openStudents(r.org.id, r.org.name)}>
+                          <Eye className="h-4 w-4 mr-1" /> Alunos
+                        </Button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -345,6 +380,53 @@ function AfiliacoesPage() {
               {submitting ? "Enviando..." : "Enviar pedido"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!studentsDialog} onOpenChange={(o) => !o && setStudentsDialog(null)}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Alunos · {studentsDialog?.orgName}</DialogTitle>
+          </DialogHeader>
+          {studentsLoading ? (
+            <div className="flex h-32 items-center justify-center">
+              <LoadingSpinner label="Carregando alunos..." />
+            </div>
+          ) : studentsList.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum aluno cadastrado.</p>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Total: <span className="font-medium text-foreground">{studentsList.length}</span> aluno{studentsList.length === 1 ? "" : "s"}
+              </p>
+              <div className="rounded-lg border overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="text-left p-2">Nome</th>
+                      <th className="text-right p-2">Idade</th>
+                      <th className="text-right p-2">Peso (kg)</th>
+                      <th className="text-left p-2">Graduação</th>
+                      <th className="text-left p-2">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {studentsList.map((s) => (
+                      <tr key={s.id} className="border-t">
+                        <td className="p-2 font-medium">{s.fullName}</td>
+                        <td className="p-2 text-right">{s.age ?? "—"}</td>
+                        <td className="p-2 text-right">{s.weightKg ?? "—"}</td>
+                        <td className="p-2">
+                          {s.belt ? `${getBeltLabel(s.belt as any)}${s.degrees ? ` · ${s.degrees}º` : ""}` : "—"}
+                        </td>
+                        <td className="p-2 capitalize text-xs">{s.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

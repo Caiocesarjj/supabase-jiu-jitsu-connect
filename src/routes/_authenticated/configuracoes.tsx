@@ -15,6 +15,7 @@ import { formatDateBR } from "@/lib/format";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -591,11 +592,11 @@ function AccountSection({ userEmail, userName }: { userEmail: string; userName: 
           <div className="space-y-3">
             <div className="space-y-1">
               <Label>Nova senha</Label>
-              <Input type="password" value={pwd} onChange={(e) => setPwd(e.target.value)} />
+              <PasswordInput value={pwd} onChange={(e) => setPwd(e.target.value)} />
             </div>
             <div className="space-y-1">
               <Label>Confirmar nova senha</Label>
-              <Input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+              <PasswordInput value={confirm} onChange={(e) => setConfirm(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
