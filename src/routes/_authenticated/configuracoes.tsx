@@ -49,7 +49,9 @@ interface Org {
   logo_url: string | null;
   plan: string | null;
   trial_ends_at: string | null;
+  public_code: string | null;
 }
+
 
 interface Settings {
   organization_id: string;
