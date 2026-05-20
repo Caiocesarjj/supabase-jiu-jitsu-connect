@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Separator } from "@/components/ui/separator";
+
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -34,6 +34,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
   component: ConfiguracoesPage,
@@ -120,26 +121,64 @@ function ConfiguracoesPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6 max-w-4xl">
       <h1 className="text-2xl font-semibold">Configurações</h1>
 
-      <AcademySection
-        org={org}
-        onSaved={async () => {
-          await refreshProfile();
-          await load();
-        }}
-      />
-      <Separator />
-      <PlanSection org={org} />
-      <Separator />
-      <FinancialSection settings={settings} organizationId={organizationId!} onSaved={load} />
-      <Separator />
-      <WhatsappSection settings={settings} organizationId={organizationId!} onSaved={load} />
-      <Separator />
-      <IntegrationsSection settings={settings} organizationId={organizationId!} onSaved={load} />
-      <Separator />
-      <AccountSection userEmail={user?.email ?? ""} userName={profile?.full_name ?? ""} />
+      <Tabs defaultValue="academia" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6">
+          <TabsTrigger value="academia">Academia</TabsTrigger>
+          <TabsTrigger value="plano">Plano</TabsTrigger>
+          <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
+          <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
+          <TabsTrigger value="integracoes">Integrações</TabsTrigger>
+          <TabsTrigger value="conta">Conta</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="academia" className="mt-6">
+          <AcademySection
+            org={org}
+            onSaved={async () => {
+              await refreshProfile();
+              await load();
+            }}
+          />
+        </TabsContent>
+
+        <TabsContent value="plano" className="mt-6">
+          <PlanSection org={org} />
+        </TabsContent>
+
+        <TabsContent value="financeiro" className="mt-6">
+          <FinancialSection
+            settings={settings}
+            organizationId={organizationId!}
+            onSaved={load}
+          />
+        </TabsContent>
+
+        <TabsContent value="whatsapp" className="mt-6">
+          <WhatsappSection
+            settings={settings}
+            organizationId={organizationId!}
+            onSaved={load}
+          />
+        </TabsContent>
+
+        <TabsContent value="integracoes" className="mt-6">
+          <IntegrationsSection
+            settings={settings}
+            organizationId={organizationId!}
+            onSaved={load}
+          />
+        </TabsContent>
+
+        <TabsContent value="conta" className="mt-6">
+          <AccountSection
+            userEmail={user?.email ?? ""}
+            userName={profile?.full_name ?? ""}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
