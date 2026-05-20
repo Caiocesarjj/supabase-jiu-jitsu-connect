@@ -36,31 +36,38 @@ async function requireAdmin(accessToken: string, organizationId: string) {
 // ----- Solicitar afiliação por slug -----
 export const requestAffiliation = createServerFn({ method: "POST" })
   .inputValidator((input) =>
-    orgAuthSchema
-      .extend({
-        matrixSlug: z
-          .string()
-          .trim()
-          .toLowerCase()
-          .min(2)
-          .max(80)
-          .regex(/^[a-z0-9-_]+$/, "Slug inválido"),
+    z
+      .object({
+        accessToken: z.string().min(10),
+        organizationId: z.string().uuid(),
+        identifier: z.string().trim().min(2).max(255),
         notes: z.string().trim().max(500).optional().nullable(),
       })
       .parse(input),
   )
   .handler(async ({ data }) => {
     const { supabase } = await requireAdmin(data.accessToken, data.organizationId);
-    const { data: matrix, error: mErr } = await supabase
-      .from("organizations")
-      .select("id, name, slug")
-      .eq("slug", data.matrixSlug)
-      .maybeSingle();
+
+    const raw = data.identifier.trim();
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw);
+
+    let query = supabase.from("organizations").select("id, name, slug, public_code, email");
+    if (isEmail) {
+      query = query.ilike("email", raw);
+    } else {
+      // tenta como public_code (case-insensitive) OU slug legado
+      const code = raw.toUpperCase();
+      const slug = raw.toLowerCase();
+      query = query.or(`public_code.eq.${code},slug.eq.${slug}`);
+    }
+    const { data: matrix, error: mErr } = await query.maybeSingle();
+
     if (mErr) return { ok: false as const, error: mErr.message };
     if (!matrix)
-      return { ok: false as const, error: "Matriz não encontrada com esse slug." };
+      return { ok: false as const, error: "Academia não encontrada com esse código ou e-mail." };
     if (matrix.id === data.organizationId)
       return { ok: false as const, error: "Você não pode se afiliar à própria organização." };
+
     const { error } = await supabase.from("affiliations").insert({
       matrix_org_id: matrix.id,
       affiliate_org_id: data.organizationId,
@@ -74,6 +81,7 @@ export const requestAffiliation = createServerFn({ method: "POST" })
     }
     return { ok: true as const, matrix: { id: matrix.id, name: matrix.name, slug: matrix.slug } };
   });
+
 
 
 // ----- Listar afiliações (enviadas + recebidas) -----
