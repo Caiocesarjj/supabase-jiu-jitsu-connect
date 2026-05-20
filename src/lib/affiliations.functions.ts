@@ -212,7 +212,7 @@ export const getConsolidatedStats = createServerFn({ method: "POST" })
     const perOrg = await Promise.all(
       orgIds.map(async (id) => {
         const isSelf = id === data.organizationId;
-        const promises: Array<Promise<any>> = [
+        const promises: Array<PromiseLike<any>> = [
           supabase
             .from("students")
             .select("id", { count: "exact", head: true })
