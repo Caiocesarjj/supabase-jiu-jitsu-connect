@@ -225,13 +225,13 @@ function AfiliacoesPage() {
             </div>
             <div className="rounded-lg border p-4">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <DollarSign className="h-4 w-4" /> Recebido no mês
+                <DollarSign className="h-4 w-4" /> Recebido no mês <span className="text-[10px] uppercase">(matriz)</span>
               </div>
               <div className="text-2xl font-bold">{formatBRL(stats.totals.receivedThisMonth)}</div>
             </div>
             <div className="rounded-lg border p-4">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <AlertCircle className="h-4 w-4" /> Inadimplentes
+                <AlertCircle className="h-4 w-4" /> Inadimplentes <span className="text-[10px] uppercase">(matriz)</span>
               </div>
               <div className="text-2xl font-bold">{stats.totals.overdueCount}</div>
             </div>
@@ -245,6 +245,7 @@ function AfiliacoesPage() {
                   <th className="text-right p-2">Alunos</th>
                   <th className="text-right p-2">Recebido (mês)</th>
                   <th className="text-right p-2">Inadimplentes</th>
+                  <th className="text-right p-2">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -256,8 +257,19 @@ function AfiliacoesPage() {
                     </td>
                     <td className="p-2">{r.depth === 0 ? "Matriz" : `N${r.depth}`}</td>
                     <td className="p-2 text-right">{r.activeStudents}</td>
-                    <td className="p-2 text-right">{formatBRL(r.receivedThisMonth)}</td>
-                    <td className="p-2 text-right">{r.overdueCount}</td>
+                    <td className="p-2 text-right">
+                      {r.receivedThisMonth == null ? <span className="text-muted-foreground">—</span> : formatBRL(r.receivedThisMonth)}
+                    </td>
+                    <td className="p-2 text-right">
+                      {r.overdueCount == null ? <span className="text-muted-foreground">—</span> : r.overdueCount}
+                    </td>
+                    <td className="p-2 text-right">
+                      {r.depth > 0 && (
+                        <Button size="sm" variant="ghost" onClick={() => openStudents(r.org.id, r.org.name)}>
+                          <Eye className="h-4 w-4 mr-1" /> Alunos
+                        </Button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
