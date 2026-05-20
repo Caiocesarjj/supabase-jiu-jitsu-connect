@@ -5,7 +5,7 @@ import { Users, DollarSign, Calendar, AlertCircle, Trophy, GraduationCap } from 
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { formatBRL } from "@/lib/format";
-import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar } from "@/components/Avatar";
 import { BeltBadge } from "@/components/BeltBadge";
 import { JUNIOR_BELT_ORDER, ADULT_BELT_ORDER, getBeltLabel } from "@/lib/graduation";
