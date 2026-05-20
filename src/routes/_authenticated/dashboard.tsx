@@ -5,7 +5,7 @@ import { Users, DollarSign, Calendar, AlertCircle, Trophy, GraduationCap } from 
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { formatBRL } from "@/lib/format";
-import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar } from "@/components/Avatar";
 import { BeltBadge } from "@/components/BeltBadge";
 import { JUNIOR_BELT_ORDER, ADULT_BELT_ORDER, getBeltLabel } from "@/lib/graduation";
@@ -186,42 +186,53 @@ function DashboardPage() {
         </div>
       )}
 
-      {isLoading ? (
-        <LoadingSpinner />
-      ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          <KpiCard
-            title="Alunos ativos"
-            value={data?.activeStudents ?? 0}
-            icon={<Users className="h-4 w-4" />}
-          />
-          <KpiCard
-            title="Novos este mês"
-            value={data?.newThisMonth ?? 0}
-            icon={<Calendar className="h-4 w-4" />}
-          />
-          <KpiCard
-            title="Recebido no mês"
-            value={formatBRL(data?.receivedThisMonth ?? 0)}
-            icon={<DollarSign className="h-4 w-4" />}
-            tone="success"
-          />
-          <KpiCard
-            title="Mensalidades atrasadas"
-            value={data?.overdueCount ?? 0}
-            icon={<AlertCircle className="h-4 w-4" />}
-            tone={data && data.overdueCount > 0 ? "danger" : "default"}
-            onClick={() => navigate({ to: "/financeiro", search: { status: "overdue" } })}
-          />
-          <KpiCard
-            title="Prontos para promover"
-            value={data?.pendingGraduationsCount ?? 0}
-            icon={<Trophy className="h-4 w-4" />}
-            tone={data && data.pendingGraduationsCount > 0 ? "success" : "default"}
-            onClick={() => setGradModalOpen(true)}
-          />
-        </div>
-      )}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        {isLoading ? (
+          Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="rounded-xl border border-border bg-card p-5 shadow-sm">
+              <div className="flex items-center justify-between">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-4 rounded-full" />
+              </div>
+              <Skeleton className="mt-3 h-7 w-20" />
+            </div>
+          ))
+        ) : (
+          <>
+            <KpiCard
+              title="Alunos ativos"
+              value={data?.activeStudents ?? 0}
+              icon={<Users className="h-4 w-4" />}
+            />
+            <KpiCard
+              title="Novos este mês"
+              value={data?.newThisMonth ?? 0}
+              icon={<Calendar className="h-4 w-4" />}
+            />
+            <KpiCard
+              title="Recebido no mês"
+              value={formatBRL(data?.receivedThisMonth ?? 0)}
+              icon={<DollarSign className="h-4 w-4" />}
+              tone="success"
+            />
+            <KpiCard
+              title="Mensalidades atrasadas"
+              value={data?.overdueCount ?? 0}
+              icon={<AlertCircle className="h-4 w-4" />}
+              tone={data && data.overdueCount > 0 ? "danger" : "default"}
+              onClick={() => navigate({ to: "/financeiro", search: { status: "overdue" } })}
+            />
+            <KpiCard
+              title="Prontos para promover"
+              value={data?.pendingGraduationsCount ?? 0}
+              icon={<Trophy className="h-4 w-4" />}
+              tone={data && data.pendingGraduationsCount > 0 ? "success" : "default"}
+              onClick={() => setGradModalOpen(true)}
+            />
+          </>
+        )}
+      </div>
+
 
       {/* Modal de graduações pendentes */}
       <Dialog open={gradModalOpen} onOpenChange={setGradModalOpen}>
@@ -325,11 +336,13 @@ function InstructorsPanel({ organizationId }: { organizationId: string | null })
 
   if (isLoading || !data) {
     return (
-      <div className="rounded-xl border bg-card p-5">
-        <LoadingSpinner />
+      <div className="rounded-xl border bg-card p-5 space-y-3">
+        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-16 w-full" />
       </div>
     );
   }
+
 
   return (
     <div className="rounded-xl border bg-card p-5 space-y-4">
@@ -396,11 +409,13 @@ function BeltDistribution({ organizationId }: { organizationId: string | null })
 
   if (isLoading || !data) {
     return (
-      <div className="rounded-xl border bg-card p-5">
-        <LoadingSpinner />
+      <div className="rounded-xl border bg-card p-5 space-y-3">
+        <Skeleton className="h-5 w-48" />
+        <Skeleton className="h-40 w-full" />
       </div>
     );
   }
+
 
   const renderList = (belts: Belt[], total: number) => (
     <div className="space-y-1.5">
