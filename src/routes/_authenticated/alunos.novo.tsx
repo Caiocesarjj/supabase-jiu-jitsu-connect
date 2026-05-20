@@ -53,6 +53,7 @@ function NovoAlunoPage() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [birthDate, setBirthDate] = useState("");
+  const [weightKg, setWeightKg] = useState("");
   const [monthlyFee, setMonthlyFee] = useState("");
   const [belt, setBelt] = useState<Belt>("branca");
   const [degrees, setDegrees] = useState("0");
@@ -82,6 +83,7 @@ function NovoAlunoPage() {
           phone: phone.trim() || undefined,
           email: email.trim() || undefined,
           birthDate: birthDate || undefined,
+          weightKg: weightKg ? Number(weightKg) : null,
           monthlyFee: monthlyFee ? Number(monthlyFee) : null,
           status: status as "active" | "trial" | "inactive",
           belt,
@@ -140,6 +142,17 @@ function NovoAlunoPage() {
             <div>
               <Label>E-mail</Label>
               <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div>
+              <Label>Peso (kg)</Label>
+              <Input
+                type="number"
+                step="0.1"
+                inputMode="decimal"
+                value={weightKg}
+                onChange={(e) => setWeightKg(e.target.value)}
+                placeholder="ex: 72.5"
+              />
             </div>
           </div>
         </section>
