@@ -409,11 +409,13 @@ function BeltDistribution({ organizationId }: { organizationId: string | null })
 
   if (isLoading || !data) {
     return (
-      <div className="rounded-xl border bg-card p-5">
-        <LoadingSpinner />
+      <div className="rounded-xl border bg-card p-5 space-y-3">
+        <Skeleton className="h-5 w-48" />
+        <Skeleton className="h-40 w-full" />
       </div>
     );
   }
+
 
   const renderList = (belts: Belt[], total: number) => (
     <div className="space-y-1.5">
