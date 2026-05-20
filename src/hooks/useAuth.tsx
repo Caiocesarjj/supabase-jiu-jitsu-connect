@@ -4,7 +4,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -27,67 +26,76 @@ interface AuthState {
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
 async function fetchProfile(userId: string): Promise<Profile | null> {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", userId)
-    .maybeSingle();
-  if (error) {
-    console.error("fetchProfile error", error);
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .maybeSingle();
+    if (error) {
+      console.error("fetchProfile error", error);
+      return null;
+    }
+    return (data as Profile | null) ?? null;
+  } catch (err) {
+    console.error("fetchProfile threw", err);
     return null;
   }
-  return (data as Profile | null) ?? null;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const lastFetchedUserId = useRef<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
 
-    const loadProfile = async (userId: string) => {
-      if (lastFetchedUserId.current === userId) return;
-      lastFetchedUserId.current = userId;
-      const p = await fetchProfile(userId);
-      if (!mounted) return;
-      setProfile(p);
-    };
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession((prev) =>
-        prev?.access_token === newSession?.access_token ? prev : newSession,
-      );
-      if (newSession?.user) {
-        // Only fetch when the user id actually changes (skip TOKEN_REFRESHED, etc.)
-        void loadProfile(newSession.user.id);
-      } else {
-        lastFetchedUserId.current = null;
-        setProfile(null);
-      }
-    });
-
-    supabase.auth
-      .getSession()
-      .then(({ data: { session: existing } }) => {
+    const initAuth = async () => {
+      try {
+        const {
+          data: { session: existing },
+        } = await supabase.auth.getSession();
         if (!mounted) return;
         setSession(existing);
         if (existing?.user) {
-          loadProfile(existing.user.id).finally(() => {
-            if (mounted) setLoading(false);
-          });
-        } else {
-          setLoading(false);
+          const p = await fetchProfile(existing.user.id);
+          if (mounted) setProfile(p);
         }
-      })
-      .catch((err) => {
-        console.error("getSession failed", err);
+      } catch (err) {
+        console.error("Auth init error:", err);
+      } finally {
         if (mounted) setLoading(false);
-      });
+      }
+    };
+
+    void initAuth();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, newSession) => {
+      if (!mounted) return;
+
+      if (event === "SIGNED_OUT" || !newSession) {
+        setSession(null);
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      setSession(newSession);
+
+      if (newSession.user) {
+        // Fire-and-forget: never await inside onAuthStateChange
+        void fetchProfile(newSession.user.id).then((p) => {
+          if (!mounted) return;
+          setProfile(p);
+          setLoading(false);
+        });
+      } else {
+        setLoading(false);
+      }
+    });
 
     // Safety net: never leave the app stuck on the loading spinner
     const safetyTimer = setTimeout(() => {
@@ -108,7 +116,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
-    lastFetchedUserId.current = null;
     setProfile(null);
     setSession(null);
   }, []);
@@ -143,4 +150,3 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 }
-
