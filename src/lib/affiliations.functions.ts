@@ -56,10 +56,11 @@ export const requestAffiliation = createServerFn({ method: "POST" })
       .select("id, name, slug")
       .eq("slug", data.matrixSlug)
       .maybeSingle();
-    if (mErr) throw mErr;
-    if (!matrix) throw new Error("Matriz não encontrada com esse slug.");
+    if (mErr) return { ok: false as const, error: mErr.message };
+    if (!matrix)
+      return { ok: false as const, error: "Matriz não encontrada com esse slug." };
     if (matrix.id === data.organizationId)
-      throw new Error("Você não pode se afiliar à própria organização.");
+      return { ok: false as const, error: "Você não pode se afiliar à própria organização." };
     const { error } = await supabase.from("affiliations").insert({
       matrix_org_id: matrix.id,
       affiliate_org_id: data.organizationId,
@@ -68,11 +69,12 @@ export const requestAffiliation = createServerFn({ method: "POST" })
     });
     if (error) {
       if (String(error.message).includes("duplicate"))
-        throw new Error("Já existe um pedido para essa matriz.");
-      throw error;
+        return { ok: false as const, error: "Já existe um pedido para essa matriz." };
+      return { ok: false as const, error: error.message };
     }
-    return { ok: true, matrix: { id: matrix.id, name: matrix.name, slug: matrix.slug } };
+    return { ok: true as const, matrix: { id: matrix.id, name: matrix.name, slug: matrix.slug } };
   });
+
 
 // ----- Listar afiliações (enviadas + recebidas) -----
 export const listAffiliations = createServerFn({ method: "POST" })
