@@ -14,33 +14,54 @@ function AuthenticatedLayout() {
   const { user, loading, profile, organizationId } = useAuth();
   const navigate = useNavigate();
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
+  const [loadingOverride, setLoadingOverride] = useState(true);
+
+  // Safety timeout: if loading drags on for >5s, force-resolve the spinner
+  useEffect(() => {
+    if (!loading) {
+      setLoadingOverride(true);
+      return;
+    }
+    const timeout = setTimeout(() => {
+      console.warn("Auth loading timeout — forçando false");
+      setLoadingOverride(false);
+    }, 5000);
+    return () => clearTimeout(timeout);
+  }, [loading]);
+
+  const isLoading = loading && loadingOverride;
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!isLoading && !user) {
       navigate({ to: "/login" });
-    } else if (!loading && user && !profile) {
+    } else if (!isLoading && user && !profile) {
       navigate({ to: "/cadastro-academia" });
     }
-  }, [loading, user, profile, navigate]);
+  }, [isLoading, user, profile, navigate]);
 
   useEffect(() => {
     if (!organizationId) return;
     let cancelled = false;
-    supabase
-      .from("organizations")
-      .select("trial_ends_at")
-      .eq("id", organizationId)
-      .maybeSingle()
-      .then(({ data }) => {
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("organizations")
+          .select("trial_ends_at")
+          .eq("id", organizationId)
+          .maybeSingle();
         if (cancelled || !data) return;
         setTrialEndsAt((data as { trial_ends_at: string | null }).trial_ends_at);
-      });
+      } catch (err) {
+        console.error("organizations fetch failed", err);
+        if (!cancelled) setTrialEndsAt(null);
+      }
+    })();
     return () => {
       cancelled = true;
     };
   }, [organizationId]);
 
-  if (loading || !user || !profile) {
+  if (isLoading || !user || !profile) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <LoadingSpinner label="Carregando..." />
