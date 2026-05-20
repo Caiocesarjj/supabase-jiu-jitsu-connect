@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Check, X, Trash2, Plus, Network, Users, DollarSign, AlertCircle } from "lucide-react";
+import { Check, X, Trash2, Plus, Network, Users, DollarSign, AlertCircle, Eye } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -11,6 +11,7 @@ import {
   reviewAffiliation,
   cancelAffiliation,
   getConsolidatedStats,
+  listAffiliateStudents,
 } from "@/lib/affiliations.functions";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Button } from "@/components/ui/button";
