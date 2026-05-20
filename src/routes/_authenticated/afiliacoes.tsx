@@ -115,12 +115,19 @@ function AfiliacoesPage() {
 
   const handleRequest = async () => {
     if (!organizationId) return;
-    if (!slug.trim()) return toast.error("Informe o slug da matriz.");
+    const normalized = slug
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    if (!normalized) return toast.error("Informe o slug da matriz.");
     setSubmitting(true);
     try {
       const accessToken = await getToken();
       const res = await reqFn({
-        data: { accessToken, organizationId, matrixSlug: slug.trim(), notes: notes || null },
+        data: { accessToken, organizationId, matrixSlug: normalized, notes: notes || null },
       });
       toast.success(`Pedido enviado para ${res.matrix.name}`);
       setOpen(false);
