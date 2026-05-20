@@ -183,6 +183,7 @@ export const cancelAffiliation = createServerFn({ method: "POST" })
   });
 
 // ----- Dashboard consolidado (matriz + descendentes) -----
+// Regra: financeiro só da própria matriz. Das filiais, só contagens/lista de alunos.
 export const getConsolidatedStats = createServerFn({ method: "POST" })
   .inputValidator((input) => orgAuthSchema.parse(input))
   .handler(async ({ data }) => {
@@ -210,51 +211,130 @@ export const getConsolidatedStats = createServerFn({ method: "POST" })
 
     const perOrg = await Promise.all(
       orgIds.map(async (id) => {
-        const [activeRes, paidRes, overdueRes] = await Promise.all([
+        const isSelf = id === data.organizationId;
+        const promises: Array<Promise<any>> = [
           supabase
             .from("students")
             .select("id", { count: "exact", head: true })
             .eq("organization_id", id)
             .eq("status", "active"),
-          supabase
-            .from("financial_records")
-            .select("amount")
-            .eq("organization_id", id)
-            .eq("status", "paid")
-            .gte("paid_at", startMonth),
-          supabase
-            .from("financial_records")
-            .select("id", { count: "exact", head: true })
-            .eq("organization_id", id)
-            .eq("status", "overdue"),
-        ]);
-        const received =
-          (paidRes.data ?? []).reduce(
-            (acc: number, r: any) => acc + Number(r.amount ?? 0),
-            0,
-          ) ?? 0;
-        const depth =
-          id === data.organizationId
-            ? 0
-            : Number((tree ?? []).find((t: any) => t.descendant_id === id)?.depth ?? 1);
+        ];
+        if (isSelf) {
+          promises.push(
+            supabase
+              .from("financial_records")
+              .select("amount")
+              .eq("organization_id", id)
+              .eq("status", "paid")
+              .gte("paid_at", startMonth),
+            supabase
+              .from("financial_records")
+              .select("id", { count: "exact", head: true })
+              .eq("organization_id", id)
+              .eq("status", "overdue"),
+          );
+        }
+        const results = await Promise.all(promises);
+        const activeRes = results[0];
+        const received = isSelf
+          ? (results[1]?.data ?? []).reduce(
+              (acc: number, r: any) => acc + Number(r.amount ?? 0),
+              0,
+            )
+          : null;
+        const overdueCount = isSelf ? (results[2]?.count ?? 0) : null;
+        const depth = isSelf
+          ? 0
+          : Number((tree ?? []).find((t: any) => t.descendant_id === id)?.depth ?? 1);
         return {
           org: orgsMap.get(id) ?? { id, name: "—", slug: "" },
           depth,
           activeStudents: activeRes.count ?? 0,
           receivedThisMonth: received,
-          overdueCount: overdueRes.count ?? 0,
+          overdueCount,
         };
       }),
     );
 
-    const totals = perOrg.reduce(
-      (acc, r) => ({
-        activeStudents: acc.activeStudents + r.activeStudents,
-        receivedThisMonth: acc.receivedThisMonth + r.receivedThisMonth,
-        overdueCount: acc.overdueCount + r.overdueCount,
-      }),
-      { activeStudents: 0, receivedThisMonth: 0, overdueCount: 0 },
-    );
+    const totals = {
+      activeStudents: perOrg.reduce((a, r) => a + r.activeStudents, 0),
+      // Financeiro consolidado = somente da própria matriz.
+      receivedThisMonth: perOrg.find((r) => r.depth === 0)?.receivedThisMonth ?? 0,
+      overdueCount: perOrg.find((r) => r.depth === 0)?.overdueCount ?? 0,
+    };
 
     return { perOrg, totals, affiliateCount: descendantIds.length };
+  });
+
+// ----- Listar alunos de uma filial (somente matriz/ancestral pode ver) -----
+export const listAffiliateStudents = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema.extend({ affiliateOrgId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabase } = await requireAdmin(data.accessToken, data.organizationId);
+
+    // Confirma que o affiliateOrgId é descendente da matriz solicitante.
+    if (data.affiliateOrgId !== data.organizationId) {
+      const { data: tree, error: tErr } = await supabase
+        .from("affiliation_tree")
+        .select("descendant_id")
+        .eq("root_id", data.organizationId)
+        .eq("descendant_id", data.affiliateOrgId)
+        .maybeSingle();
+      if (tErr) throw tErr;
+      if (!tree) throw new Error("Sem acesso a essa filial.");
+    }
+
+    const { data: students, error: sErr } = await supabase
+      .from("students")
+      .select("id, profile_id, birth_date, weight_kg, status")
+      .eq("organization_id", data.affiliateOrgId)
+      .order("status", { ascending: true });
+    if (sErr) throw sErr;
+
+    const profileIds = (students ?? []).map((s: any) => s.profile_id).filter(Boolean);
+    const studentIds = (students ?? []).map((s: any) => s.id);
+
+    const [profilesRes, gradsRes] = await Promise.all([
+      profileIds.length
+        ? supabase.from("profiles").select("id, full_name").in("id", profileIds)
+        : Promise.resolve({ data: [] as any[], error: null }),
+      studentIds.length
+        ? supabase
+            .from("graduations")
+            .select("student_id, belt, degrees")
+            .in("student_id", studentIds)
+        : Promise.resolve({ data: [] as any[], error: null }),
+    ]);
+    if ((profilesRes as any).error) throw (profilesRes as any).error;
+    if ((gradsRes as any).error) throw (gradsRes as any).error;
+
+    const nameMap = new Map<string, string>();
+    for (const p of (profilesRes.data ?? []) as any[]) nameMap.set(p.id, p.full_name);
+    const gradMap = new Map<string, { belt: string; degrees: number }>();
+    for (const g of (gradsRes.data ?? []) as any[])
+      gradMap.set(g.student_id, { belt: g.belt, degrees: g.degrees });
+
+    const calcAge = (d: string | null) => {
+      if (!d) return null;
+      const b = new Date(d);
+      const now = new Date();
+      let age = now.getFullYear() - b.getFullYear();
+      const m = now.getMonth() - b.getMonth();
+      if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age--;
+      return age;
+    };
+
+    return {
+      students: (students ?? []).map((s: any) => ({
+        id: s.id,
+        fullName: nameMap.get(s.profile_id) ?? "—",
+        age: calcAge(s.birth_date),
+        weightKg: s.weight_kg ?? null,
+        status: s.status,
+        belt: gradMap.get(s.id)?.belt ?? null,
+        degrees: gradMap.get(s.id)?.degrees ?? null,
+      })),
+    };
   });
