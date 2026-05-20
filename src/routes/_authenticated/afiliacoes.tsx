@@ -83,8 +83,9 @@ function AfiliacoesPage() {
   const [reload, setReload] = useState(0);
 
   const [open, setOpen] = useState(false);
-  const [slug, setSlug] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [notes, setNotes] = useState("");
+
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
