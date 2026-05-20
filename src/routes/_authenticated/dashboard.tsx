@@ -336,11 +336,13 @@ function InstructorsPanel({ organizationId }: { organizationId: string | null })
 
   if (isLoading || !data) {
     return (
-      <div className="rounded-xl border bg-card p-5">
-        <LoadingSpinner />
+      <div className="rounded-xl border bg-card p-5 space-y-3">
+        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-16 w-full" />
       </div>
     );
   }
+
 
   return (
     <div className="rounded-xl border bg-card p-5 space-y-4">
