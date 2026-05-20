@@ -116,19 +116,13 @@ function AfiliacoesPage() {
 
   const handleRequest = async () => {
     if (!organizationId) return;
-    const normalized = slug
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-    if (!normalized) return toast.error("Informe o slug da matriz.");
+    const value = identifier.trim();
+    if (!value) return toast.error("Informe o código ou e-mail da matriz.");
     setSubmitting(true);
     try {
       const accessToken = await getToken();
       const res = await reqFn({
-        data: { accessToken, organizationId, matrixSlug: normalized, notes: notes || null },
+        data: { accessToken, organizationId, identifier: value, notes: notes || null },
       });
       if (!res.ok) {
         toast.error(res.error);
@@ -136,9 +130,10 @@ function AfiliacoesPage() {
       }
       toast.success(`Pedido enviado para ${res.matrix.name}`);
       setOpen(false);
-      setSlug("");
+      setIdentifier("");
       setNotes("");
       setReload((r) => r + 1);
+
 
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao solicitar");
