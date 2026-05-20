@@ -49,7 +49,9 @@ interface Org {
   logo_url: string | null;
   plan: string | null;
   trial_ends_at: string | null;
+  public_code: string | null;
 }
+
 
 interface Settings {
   organization_id: string;
@@ -220,10 +222,32 @@ function AcademySection({ org, onSaved }: { org: Org; onSaved: () => Promise<voi
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <SectionHeader title="Academia" />
+      {org.public_code && (
+        <div className="space-y-1">
+          <Label>Código da academia</Label>
+          <div className="flex gap-2">
+            <Input value={org.public_code} readOnly className="font-mono" />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                navigator.clipboard.writeText(org.public_code!);
+                toast.success("Código copiado");
+              }}
+            >
+              Copiar
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Compartilhe este código (ou o e-mail abaixo) com academias filiadas para que elas solicitem afiliação.
+          </p>
+        </div>
+      )}
       <div className="space-y-1">
         <Label>Nome da academia</Label>
         <Input value={name} onChange={(e) => setName(e.target.value)} required />
       </div>
+
       <div className="space-y-1">
         <Label>Telefone</Label>
         <Input

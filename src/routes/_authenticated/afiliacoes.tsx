@@ -83,8 +83,9 @@ function AfiliacoesPage() {
   const [reload, setReload] = useState(0);
 
   const [open, setOpen] = useState(false);
-  const [slug, setSlug] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [notes, setNotes] = useState("");
+
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -115,19 +116,13 @@ function AfiliacoesPage() {
 
   const handleRequest = async () => {
     if (!organizationId) return;
-    const normalized = slug
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-    if (!normalized) return toast.error("Informe o slug da matriz.");
+    const value = identifier.trim();
+    if (!value) return toast.error("Informe o código ou e-mail da matriz.");
     setSubmitting(true);
     try {
       const accessToken = await getToken();
       const res = await reqFn({
-        data: { accessToken, organizationId, matrixSlug: normalized, notes: notes || null },
+        data: { accessToken, organizationId, identifier: value, notes: notes || null },
       });
       if (!res.ok) {
         toast.error(res.error);
@@ -135,9 +130,10 @@ function AfiliacoesPage() {
       }
       toast.success(`Pedido enviado para ${res.matrix.name}`);
       setOpen(false);
-      setSlug("");
+      setIdentifier("");
       setNotes("");
       setReload((r) => r + 1);
+
 
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao solicitar");
@@ -319,17 +315,18 @@ function AfiliacoesPage() {
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label htmlFor="slug">Slug da matriz</Label>
+              <Label htmlFor="identifier">Código ou e-mail da matriz</Label>
               <Input
-                id="slug"
-                placeholder="ex: ct-orelha-fight"
-                value={slug}
-                onChange={(e) => setSlug(e.target.value)}
+                id="identifier"
+                placeholder="ex: AC-3K9F2X ou matriz@academia.com"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Peça o slug à matriz (aparece no endereço/cadastro dela).
+                Peça o código (aparece em Configurações &gt; Academia) ou o e-mail de cadastro da matriz.
               </p>
             </div>
+
             <div>
               <Label htmlFor="notes">Mensagem (opcional)</Label>
               <Textarea
