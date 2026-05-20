@@ -76,6 +76,7 @@ function AfiliacoesPage() {
   const reviewFn = useServerFn(reviewAffiliation);
   const cancelFn = useServerFn(cancelAffiliation);
   const statsFn = useServerFn(getConsolidatedStats);
+  const studentsFn = useServerFn(listAffiliateStudents);
 
   const [loading, setLoading] = useState(true);
   const [sent, setSent] = useState<Item[]>([]);
@@ -88,6 +89,26 @@ function AfiliacoesPage() {
   const [notes, setNotes] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
+
+  const [studentsDialog, setStudentsDialog] = useState<{ orgName: string; orgId: string } | null>(null);
+  const [studentsLoading, setStudentsLoading] = useState(false);
+  const [studentsList, setStudentsList] = useState<Awaited<ReturnType<typeof listAffiliateStudents>>["students"]>([]);
+
+  const openStudents = async (orgId: string, orgName: string) => {
+    if (!organizationId) return;
+    setStudentsDialog({ orgId, orgName });
+    setStudentsLoading(true);
+    setStudentsList([]);
+    try {
+      const accessToken = await getToken();
+      const res = await studentsFn({ data: { accessToken, organizationId, affiliateOrgId: orgId } });
+      setStudentsList(res.students);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao carregar alunos");
+    } finally {
+      setStudentsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!organizationId) return;
