@@ -129,11 +129,16 @@ function AfiliacoesPage() {
       const res = await reqFn({
         data: { accessToken, organizationId, matrixSlug: normalized, notes: notes || null },
       });
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
       toast.success(`Pedido enviado para ${res.matrix.name}`);
       setOpen(false);
       setSlug("");
       setNotes("");
       setReload((r) => r + 1);
+
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao solicitar");
     } finally {
