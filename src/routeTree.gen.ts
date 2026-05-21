@@ -21,6 +21,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedAfiliacoesRouteImport } from './routes/_authenticated/afiliacoes'
 import { Route as AuthenticatedRelatoriosIndexRouteImport } from './routes/_authenticated/relatorios/index'
+import { Route as AuthenticatedFinanceiroIndexRouteImport } from './routes/_authenticated/financeiro.index'
 import { Route as AuthenticatedAlunosIndexRouteImport } from './routes/_authenticated/alunos.index'
 import { Route as ApiPublicCheckGraduationAlertsRouteImport } from './routes/api/public/check-graduation-alerts'
 import { Route as AuthenticatedFinanceiroMensalidadesRouteImport } from './routes/_authenticated/financeiro.mensalidades'
@@ -89,6 +90,12 @@ const AuthenticatedRelatoriosIndexRoute =
     path: '/relatorios/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedFinanceiroIndexRoute =
+  AuthenticatedFinanceiroIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedFinanceiroRoute,
+  } as any)
 const AuthenticatedAlunosIndexRoute =
   AuthenticatedAlunosIndexRouteImport.update({
     id: '/alunos/',
@@ -135,6 +142,7 @@ export interface FileRoutesByFullPath {
   '/financeiro/mensalidades': typeof AuthenticatedFinanceiroMensalidadesRoute
   '/api/public/check-graduation-alerts': typeof ApiPublicCheckGraduationAlertsRoute
   '/alunos/': typeof AuthenticatedAlunosIndexRoute
+  '/financeiro/': typeof AuthenticatedFinanceiroIndexRoute
   '/relatorios/': typeof AuthenticatedRelatoriosIndexRoute
 }
 export interface FileRoutesByTo {
@@ -144,7 +152,6 @@ export interface FileRoutesByTo {
   '/afiliacoes': typeof AuthenticatedAfiliacoesRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/financeiro': typeof AuthenticatedFinanceiroRouteWithChildren
   '/instrutores': typeof AuthenticatedInstrutoresRoute
   '/presenca': typeof AuthenticatedPresencaRoute
   '/turmas': typeof AuthenticatedTurmasRoute
@@ -153,6 +160,7 @@ export interface FileRoutesByTo {
   '/financeiro/mensalidades': typeof AuthenticatedFinanceiroMensalidadesRoute
   '/api/public/check-graduation-alerts': typeof ApiPublicCheckGraduationAlertsRoute
   '/alunos': typeof AuthenticatedAlunosIndexRoute
+  '/financeiro': typeof AuthenticatedFinanceiroIndexRoute
   '/relatorios': typeof AuthenticatedRelatoriosIndexRoute
 }
 export interface FileRoutesById {
@@ -173,6 +181,7 @@ export interface FileRoutesById {
   '/_authenticated/financeiro/mensalidades': typeof AuthenticatedFinanceiroMensalidadesRoute
   '/api/public/check-graduation-alerts': typeof ApiPublicCheckGraduationAlertsRoute
   '/_authenticated/alunos/': typeof AuthenticatedAlunosIndexRoute
+  '/_authenticated/financeiro/': typeof AuthenticatedFinanceiroIndexRoute
   '/_authenticated/relatorios/': typeof AuthenticatedRelatoriosIndexRoute
 }
 export interface FileRouteTypes {
@@ -193,6 +202,7 @@ export interface FileRouteTypes {
     | '/financeiro/mensalidades'
     | '/api/public/check-graduation-alerts'
     | '/alunos/'
+    | '/financeiro/'
     | '/relatorios/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -202,7 +212,6 @@ export interface FileRouteTypes {
     | '/afiliacoes'
     | '/configuracoes'
     | '/dashboard'
-    | '/financeiro'
     | '/instrutores'
     | '/presenca'
     | '/turmas'
@@ -211,6 +220,7 @@ export interface FileRouteTypes {
     | '/financeiro/mensalidades'
     | '/api/public/check-graduation-alerts'
     | '/alunos'
+    | '/financeiro'
     | '/relatorios'
   id:
     | '__root__'
@@ -230,6 +240,7 @@ export interface FileRouteTypes {
     | '/_authenticated/financeiro/mensalidades'
     | '/api/public/check-graduation-alerts'
     | '/_authenticated/alunos/'
+    | '/_authenticated/financeiro/'
     | '/_authenticated/relatorios/'
   fileRoutesById: FileRoutesById
 }
@@ -327,6 +338,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRelatoriosIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/financeiro/': {
+      id: '/_authenticated/financeiro/'
+      path: '/'
+      fullPath: '/financeiro/'
+      preLoaderRoute: typeof AuthenticatedFinanceiroIndexRouteImport
+      parentRoute: typeof AuthenticatedFinanceiroRoute
+    }
     '/_authenticated/alunos/': {
       id: '/_authenticated/alunos/'
       path: '/alunos'
@@ -367,12 +385,14 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedFinanceiroRouteChildren {
   AuthenticatedFinanceiroMensalidadesRoute: typeof AuthenticatedFinanceiroMensalidadesRoute
+  AuthenticatedFinanceiroIndexRoute: typeof AuthenticatedFinanceiroIndexRoute
 }
 
 const AuthenticatedFinanceiroRouteChildren: AuthenticatedFinanceiroRouteChildren =
   {
     AuthenticatedFinanceiroMensalidadesRoute:
       AuthenticatedFinanceiroMensalidadesRoute,
+    AuthenticatedFinanceiroIndexRoute: AuthenticatedFinanceiroIndexRoute,
   }
 
 const AuthenticatedFinanceiroRouteWithChildren =
