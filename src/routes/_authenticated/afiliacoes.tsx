@@ -398,7 +398,11 @@ function AfiliacoesPage() {
                         <td className="p-2 text-right">{s.age ?? "—"}</td>
                         <td className="p-2 text-right">{s.weightKg ?? "—"}</td>
                         <td className="p-2">
-                          {s.belt ? `${getBeltLabel(s.belt as any)}${s.degrees ? ` · ${s.degrees}º` : ""}` : "—"}
+                          {s.belt ? (
+                            <span className="inline-flex items-center gap-1">
+                              <BeltBadge belt={s.belt as Belt} size="sm" stripes={s.degrees ?? 0} />
+                            </span>
+                          ) : "—"}
                         </td>
                         <td className="p-2 capitalize text-xs">{s.status}</td>
                       </tr>
