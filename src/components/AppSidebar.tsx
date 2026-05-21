@@ -10,6 +10,7 @@ import {
   Settings,
   Network,
   LogOut,
+  ChevronDown,
 } from "lucide-react";
 import {
   Sidebar,
@@ -22,8 +23,16 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { useAuth } from "@/hooks/useAuth";
 
 const items = [
@@ -32,10 +41,20 @@ const items = [
   { title: "Instrutores", url: "/instrutores", icon: GraduationCap },
   { title: "Turmas", url: "/turmas", icon: Calendar },
   { title: "Presença", url: "/presenca", icon: CheckSquare },
-  { title: "Financeiro", url: "/financeiro", icon: DollarSign },
+];
+
+const itemsAfter = [
   { title: "Relatórios", url: "/relatorios", icon: BarChart3 },
   { title: "Afiliações", url: "/afiliacoes", icon: Network },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
+];
+
+const financeSubitems = [
+  { title: "Visão Geral", url: "/financeiro/dashboard" },
+  { title: "Mensalidades", url: "/financeiro/mensalidades" },
+  { title: "Recorrentes", url: "/financeiro/recorrentes" },
+  { title: "Formas de Pagamento", url: "/financeiro/formas-pagamento" },
+  { title: "Crescimento", url: "/financeiro/crescimento" },
 ];
 
 export function AppSidebar() {
@@ -48,6 +67,7 @@ export function AppSidebar() {
 
   const isActive = (path: string) =>
     currentPath === path || currentPath.startsWith(path + "/");
+  const financeOpen = currentPath.startsWith("/financeiro");
 
   return (
     <Sidebar collapsible="icon">
@@ -75,6 +95,47 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild isActive={isActive(item.url)}>
+                    <Link to={item.url} className="flex items-center gap-2">
+                      <item.icon className="h-4 w-4" />
+                      {!collapsed && <span>{item.title}</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+
+              {/* Financeiro com sub-itens */}
+              <Collapsible defaultOpen={financeOpen} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton isActive={financeOpen}>
+                      <DollarSign className="h-4 w-4" />
+                      {!collapsed && (
+                        <>
+                          <span>Financeiro</span>
+                          <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                        </>
+                      )}
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  {!collapsed && (
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {financeSubitems.map((sub) => (
+                          <SidebarMenuSubItem key={sub.url}>
+                            <SidebarMenuSubButton asChild isActive={currentPath === sub.url}>
+                              <Link to={sub.url}>{sub.title}</Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  )}
+                </SidebarMenuItem>
+              </Collapsible>
+
+              {itemsAfter.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={isActive(item.url)}>
                     <Link to={item.url} className="flex items-center gap-2">
