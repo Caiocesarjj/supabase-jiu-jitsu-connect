@@ -26,7 +26,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getBeltLabel } from "@/lib/graduation";
 import { BeltBadge } from "@/components/BeltBadge";
 import type { Belt } from "@/types/database";
 
