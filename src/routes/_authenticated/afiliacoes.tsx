@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Check, X, Trash2, Plus, Network, Users, DollarSign, AlertCircle, Eye } from "lucide-react";
+import { Check, X, Trash2, Plus, Network, Users, Eye } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -26,8 +26,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { formatBRL } from "@/lib/format";
 import { getBeltLabel } from "@/lib/graduation";
+import { BeltBadge } from "@/components/BeltBadge";
+import type { Belt } from "@/types/database";
 
 export const Route = createFileRoute("/_authenticated/afiliacoes")({
   component: AfiliacoesPage,
@@ -217,24 +218,12 @@ function AfiliacoesPage() {
       {stats && stats.affiliateCount > 0 && (
         <section className="space-y-3">
           <h2 className="text-lg font-semibold">Rede consolidada ({stats.affiliateCount} afiliada{stats.affiliateCount === 1 ? "" : "s"})</h2>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-1">
             <div className="rounded-lg border p-4">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Users className="h-4 w-4" /> Alunos ativos
+                <Users className="h-4 w-4" /> Alunos ativos (rede)
               </div>
               <div className="text-2xl font-bold">{stats.totals.activeStudents}</div>
-            </div>
-            <div className="rounded-lg border p-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <DollarSign className="h-4 w-4" /> Recebido no mês <span className="text-[10px] uppercase">(matriz)</span>
-              </div>
-              <div className="text-2xl font-bold">{formatBRL(stats.totals.receivedThisMonth)}</div>
-            </div>
-            <div className="rounded-lg border p-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <AlertCircle className="h-4 w-4" /> Inadimplentes <span className="text-[10px] uppercase">(matriz)</span>
-              </div>
-              <div className="text-2xl font-bold">{stats.totals.overdueCount}</div>
             </div>
           </div>
           <div className="rounded-lg border overflow-x-auto">
@@ -244,8 +233,6 @@ function AfiliacoesPage() {
                   <th className="text-left p-2">Organização</th>
                   <th className="text-left p-2">Nível</th>
                   <th className="text-right p-2">Alunos</th>
-                  <th className="text-right p-2">Recebido (mês)</th>
-                  <th className="text-right p-2">Inadimplentes</th>
                   <th className="text-right p-2">Ações</th>
                 </tr>
               </thead>
@@ -258,12 +245,6 @@ function AfiliacoesPage() {
                     </td>
                     <td className="p-2">{r.depth === 0 ? "Matriz" : `N${r.depth}`}</td>
                     <td className="p-2 text-right">{r.activeStudents}</td>
-                    <td className="p-2 text-right">
-                      {r.receivedThisMonth == null ? <span className="text-muted-foreground">—</span> : formatBRL(r.receivedThisMonth)}
-                    </td>
-                    <td className="p-2 text-right">
-                      {r.overdueCount == null ? <span className="text-muted-foreground">—</span> : r.overdueCount}
-                    </td>
                     <td className="p-2 text-right">
                       {r.depth > 0 && (
                         <Button size="sm" variant="ghost" onClick={() => openStudents(r.org.id, r.org.name)}>
