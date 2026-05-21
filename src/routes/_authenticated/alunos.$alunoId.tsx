@@ -53,6 +53,7 @@ import {
 } from "@/lib/graduation";
 import type { Belt } from "@/types/database";
 import { TurmasTab } from "@/components/EnrollmentPanels";
+import { getWeightCategory, type Sex } from "@/lib/weight-category";
 
 export const Route = createFileRoute("/_authenticated/alunos/$alunoId")({
   component: AlunoFichaPage,
@@ -157,7 +158,7 @@ function AlunoFichaPage() {
         .from("students")
         .select(
           `
-          id, status, birth_date, medical_notes, monthly_fee, enrollment_date,
+          id, status, birth_date, sex, weight_kg, medical_notes, monthly_fee, enrollment_date,
           profiles ( id, full_name, email, phone, cpf ),
           graduations (
             id, belt, degrees, promotion_date, minimum_next_promotion_date, classes_since_promotion
@@ -388,8 +389,19 @@ function GeralTab({
           <Field label="CPF" value={profile.cpf ?? "—"} />
           <Field label="Telefone" value={profile.phone ?? "—"} />
           <Field label="E-mail" value={profile.email ?? "—"} />
+          <Field label="Sexo" value={student.sex === "male" ? "Masculino" : student.sex === "female" ? "Feminino" : "—"} />
+          <Field label="Peso" value={student.weight_kg != null ? `${student.weight_kg} kg` : "—"} />
           <Field label="Data de matrícula" value={formatDateBR(student.enrollment_date)} />
           <Field label="Mensalidade" value={student.monthly_fee != null ? formatBRL(student.monthly_fee) : "Padrão da academia"} />
+          {(() => {
+            const cat = getWeightCategory({ birthDate: student.birth_date, sex: student.sex, weightKg: student.weight_kg });
+            return (
+              <div className="md:col-span-2">
+                <div className="text-xs text-muted-foreground">Categoria FBJJ</div>
+                <div className="mt-1 text-sm font-medium">{cat ? cat.label : "—"}</div>
+              </div>
+            );
+          })()}
           <div>
             <div className="text-xs text-muted-foreground">Status</div>
             <div className="mt-1"><StudentStatusBadge status={student.status} /></div>
@@ -1468,6 +1480,8 @@ function EditStudentModal({
   const [phone, setPhone] = useState(profile.phone ?? "");
   const [email, setEmail] = useState(profile.email ?? "");
   const [birthDate, setBirthDate] = useState(student.birth_date ?? "");
+  const [sex, setSex] = useState<Sex | "">(student.sex ?? "");
+  const [weightKg, setWeightKg] = useState<string>(student.weight_kg != null ? String(student.weight_kg) : "");
   const [enrollmentDate, setEnrollmentDate] = useState(student.enrollment_date ?? "");
   const [monthlyFee, setMonthlyFee] = useState<string>(
     student.monthly_fee != null ? String(student.monthly_fee) : "",
@@ -1482,6 +1496,8 @@ function EditStudentModal({
     setPhone(profile.phone ?? "");
     setEmail(profile.email ?? "");
     setBirthDate(student.birth_date ?? "");
+    setSex(student.sex ?? "");
+    setWeightKg(student.weight_kg != null ? String(student.weight_kg) : "");
     setEnrollmentDate(student.enrollment_date ?? "");
     setMonthlyFee(student.monthly_fee != null ? String(student.monthly_fee) : "");
     setStatus(student.status ?? "active");
@@ -1511,6 +1527,8 @@ function EditStudentModal({
         .from("students")
         .update({
           birth_date: birthDate || null,
+          sex: sex || null,
+          weight_kg: weightKg === "" ? null : Number(weightKg),
           enrollment_date: enrollmentDate || null,
           monthly_fee: monthlyFee === "" ? null : Number(monthlyFee),
           status,
@@ -1560,6 +1578,29 @@ function EditStudentModal({
             <div>
               <Label>Data de matrícula</Label>
               <Input type="date" value={enrollmentDate ?? ""} onChange={(e) => setEnrollmentDate(e.target.value)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Sexo</Label>
+              <Select value={sex} onValueChange={(v) => setSex(v as Sex)}>
+                <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="male">Masculino</SelectItem>
+                  <SelectItem value="female">Feminino</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Peso (kg)</Label>
+              <Input
+                type="number"
+                step="0.1"
+                inputMode="decimal"
+                value={weightKg}
+                onChange={(e) => setWeightKg(e.target.value)}
+                placeholder="ex: 72.5"
+              />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
