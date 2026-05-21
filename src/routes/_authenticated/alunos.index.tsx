@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/table";
 import type { Belt } from "@/types/database";
 import { getBeltLabel } from "@/lib/graduation";
+import { getWeightCategory, formatShortCategory } from "@/lib/weight-category";
 
 export const Route = createFileRoute("/_authenticated/alunos/")({
   component: AlunosListPage,
@@ -85,7 +86,7 @@ function AlunosListPage() {
       const { data, error } = await supabase
         .from("students")
         .select(`
-          id, status, birth_date, monthly_fee,
+          id, status, birth_date, sex, weight_kg, monthly_fee,
           profiles ( full_name, phone, email, cpf ),
           graduations ( belt, degrees )
         `)
@@ -205,6 +206,7 @@ function AlunosListPage() {
                 <TableRow>
                   <TableHead>Aluno</TableHead>
                   <TableHead>Faixa</TableHead>
+                  <TableHead>Categoria FBJJ</TableHead>
                   <TableHead>Contato</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-12"></TableHead>
@@ -240,6 +242,9 @@ function AlunosListPage() {
                         ) : (
                           <BeltBadge belt="branca" size="sm" />
                         )}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {formatShortCategory(getWeightCategory({ birthDate: s.birth_date, sex: s.sex, weightKg: s.weight_kg }))}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {s.profiles?.phone ?? "—"}
