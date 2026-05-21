@@ -24,7 +24,11 @@ import { Route as AuthenticatedRelatoriosIndexRouteImport } from './routes/_auth
 import { Route as AuthenticatedFinanceiroIndexRouteImport } from './routes/_authenticated/financeiro.index'
 import { Route as AuthenticatedAlunosIndexRouteImport } from './routes/_authenticated/alunos.index'
 import { Route as ApiPublicCheckGraduationAlertsRouteImport } from './routes/api/public/check-graduation-alerts'
+import { Route as AuthenticatedFinanceiroRecorrentesRouteImport } from './routes/_authenticated/financeiro.recorrentes'
 import { Route as AuthenticatedFinanceiroMensalidadesRouteImport } from './routes/_authenticated/financeiro.mensalidades'
+import { Route as AuthenticatedFinanceiroFormasPagamentoRouteImport } from './routes/_authenticated/financeiro.formas-pagamento'
+import { Route as AuthenticatedFinanceiroDashboardRouteImport } from './routes/_authenticated/financeiro.dashboard'
+import { Route as AuthenticatedFinanceiroCrescimentoRouteImport } from './routes/_authenticated/financeiro.crescimento'
 import { Route as AuthenticatedAlunosNovoRouteImport } from './routes/_authenticated/alunos.novo'
 import { Route as AuthenticatedAlunosAlunoIdRouteImport } from './routes/_authenticated/alunos.$alunoId'
 
@@ -108,10 +112,34 @@ const ApiPublicCheckGraduationAlertsRoute =
     path: '/api/public/check-graduation-alerts',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AuthenticatedFinanceiroRecorrentesRoute =
+  AuthenticatedFinanceiroRecorrentesRouteImport.update({
+    id: '/recorrentes',
+    path: '/recorrentes',
+    getParentRoute: () => AuthenticatedFinanceiroRoute,
+  } as any)
 const AuthenticatedFinanceiroMensalidadesRoute =
   AuthenticatedFinanceiroMensalidadesRouteImport.update({
     id: '/mensalidades',
     path: '/mensalidades',
+    getParentRoute: () => AuthenticatedFinanceiroRoute,
+  } as any)
+const AuthenticatedFinanceiroFormasPagamentoRoute =
+  AuthenticatedFinanceiroFormasPagamentoRouteImport.update({
+    id: '/formas-pagamento',
+    path: '/formas-pagamento',
+    getParentRoute: () => AuthenticatedFinanceiroRoute,
+  } as any)
+const AuthenticatedFinanceiroDashboardRoute =
+  AuthenticatedFinanceiroDashboardRouteImport.update({
+    id: '/dashboard',
+    path: '/dashboard',
+    getParentRoute: () => AuthenticatedFinanceiroRoute,
+  } as any)
+const AuthenticatedFinanceiroCrescimentoRoute =
+  AuthenticatedFinanceiroCrescimentoRouteImport.update({
+    id: '/crescimento',
+    path: '/crescimento',
     getParentRoute: () => AuthenticatedFinanceiroRoute,
   } as any)
 const AuthenticatedAlunosNovoRoute = AuthenticatedAlunosNovoRouteImport.update({
@@ -139,7 +167,11 @@ export interface FileRoutesByFullPath {
   '/turmas': typeof AuthenticatedTurmasRoute
   '/alunos/$alunoId': typeof AuthenticatedAlunosAlunoIdRoute
   '/alunos/novo': typeof AuthenticatedAlunosNovoRoute
+  '/financeiro/crescimento': typeof AuthenticatedFinanceiroCrescimentoRoute
+  '/financeiro/dashboard': typeof AuthenticatedFinanceiroDashboardRoute
+  '/financeiro/formas-pagamento': typeof AuthenticatedFinanceiroFormasPagamentoRoute
   '/financeiro/mensalidades': typeof AuthenticatedFinanceiroMensalidadesRoute
+  '/financeiro/recorrentes': typeof AuthenticatedFinanceiroRecorrentesRoute
   '/api/public/check-graduation-alerts': typeof ApiPublicCheckGraduationAlertsRoute
   '/alunos/': typeof AuthenticatedAlunosIndexRoute
   '/financeiro/': typeof AuthenticatedFinanceiroIndexRoute
@@ -157,7 +189,11 @@ export interface FileRoutesByTo {
   '/turmas': typeof AuthenticatedTurmasRoute
   '/alunos/$alunoId': typeof AuthenticatedAlunosAlunoIdRoute
   '/alunos/novo': typeof AuthenticatedAlunosNovoRoute
+  '/financeiro/crescimento': typeof AuthenticatedFinanceiroCrescimentoRoute
+  '/financeiro/dashboard': typeof AuthenticatedFinanceiroDashboardRoute
+  '/financeiro/formas-pagamento': typeof AuthenticatedFinanceiroFormasPagamentoRoute
   '/financeiro/mensalidades': typeof AuthenticatedFinanceiroMensalidadesRoute
+  '/financeiro/recorrentes': typeof AuthenticatedFinanceiroRecorrentesRoute
   '/api/public/check-graduation-alerts': typeof ApiPublicCheckGraduationAlertsRoute
   '/alunos': typeof AuthenticatedAlunosIndexRoute
   '/financeiro': typeof AuthenticatedFinanceiroIndexRoute
@@ -178,7 +214,11 @@ export interface FileRoutesById {
   '/_authenticated/turmas': typeof AuthenticatedTurmasRoute
   '/_authenticated/alunos/$alunoId': typeof AuthenticatedAlunosAlunoIdRoute
   '/_authenticated/alunos/novo': typeof AuthenticatedAlunosNovoRoute
+  '/_authenticated/financeiro/crescimento': typeof AuthenticatedFinanceiroCrescimentoRoute
+  '/_authenticated/financeiro/dashboard': typeof AuthenticatedFinanceiroDashboardRoute
+  '/_authenticated/financeiro/formas-pagamento': typeof AuthenticatedFinanceiroFormasPagamentoRoute
   '/_authenticated/financeiro/mensalidades': typeof AuthenticatedFinanceiroMensalidadesRoute
+  '/_authenticated/financeiro/recorrentes': typeof AuthenticatedFinanceiroRecorrentesRoute
   '/api/public/check-graduation-alerts': typeof ApiPublicCheckGraduationAlertsRoute
   '/_authenticated/alunos/': typeof AuthenticatedAlunosIndexRoute
   '/_authenticated/financeiro/': typeof AuthenticatedFinanceiroIndexRoute
@@ -199,7 +239,11 @@ export interface FileRouteTypes {
     | '/turmas'
     | '/alunos/$alunoId'
     | '/alunos/novo'
+    | '/financeiro/crescimento'
+    | '/financeiro/dashboard'
+    | '/financeiro/formas-pagamento'
     | '/financeiro/mensalidades'
+    | '/financeiro/recorrentes'
     | '/api/public/check-graduation-alerts'
     | '/alunos/'
     | '/financeiro/'
@@ -217,7 +261,11 @@ export interface FileRouteTypes {
     | '/turmas'
     | '/alunos/$alunoId'
     | '/alunos/novo'
+    | '/financeiro/crescimento'
+    | '/financeiro/dashboard'
+    | '/financeiro/formas-pagamento'
     | '/financeiro/mensalidades'
+    | '/financeiro/recorrentes'
     | '/api/public/check-graduation-alerts'
     | '/alunos'
     | '/financeiro'
@@ -237,7 +285,11 @@ export interface FileRouteTypes {
     | '/_authenticated/turmas'
     | '/_authenticated/alunos/$alunoId'
     | '/_authenticated/alunos/novo'
+    | '/_authenticated/financeiro/crescimento'
+    | '/_authenticated/financeiro/dashboard'
+    | '/_authenticated/financeiro/formas-pagamento'
     | '/_authenticated/financeiro/mensalidades'
+    | '/_authenticated/financeiro/recorrentes'
     | '/api/public/check-graduation-alerts'
     | '/_authenticated/alunos/'
     | '/_authenticated/financeiro/'
@@ -359,11 +411,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCheckGraduationAlertsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/financeiro/recorrentes': {
+      id: '/_authenticated/financeiro/recorrentes'
+      path: '/recorrentes'
+      fullPath: '/financeiro/recorrentes'
+      preLoaderRoute: typeof AuthenticatedFinanceiroRecorrentesRouteImport
+      parentRoute: typeof AuthenticatedFinanceiroRoute
+    }
     '/_authenticated/financeiro/mensalidades': {
       id: '/_authenticated/financeiro/mensalidades'
       path: '/mensalidades'
       fullPath: '/financeiro/mensalidades'
       preLoaderRoute: typeof AuthenticatedFinanceiroMensalidadesRouteImport
+      parentRoute: typeof AuthenticatedFinanceiroRoute
+    }
+    '/_authenticated/financeiro/formas-pagamento': {
+      id: '/_authenticated/financeiro/formas-pagamento'
+      path: '/formas-pagamento'
+      fullPath: '/financeiro/formas-pagamento'
+      preLoaderRoute: typeof AuthenticatedFinanceiroFormasPagamentoRouteImport
+      parentRoute: typeof AuthenticatedFinanceiroRoute
+    }
+    '/_authenticated/financeiro/dashboard': {
+      id: '/_authenticated/financeiro/dashboard'
+      path: '/dashboard'
+      fullPath: '/financeiro/dashboard'
+      preLoaderRoute: typeof AuthenticatedFinanceiroDashboardRouteImport
+      parentRoute: typeof AuthenticatedFinanceiroRoute
+    }
+    '/_authenticated/financeiro/crescimento': {
+      id: '/_authenticated/financeiro/crescimento'
+      path: '/crescimento'
+      fullPath: '/financeiro/crescimento'
+      preLoaderRoute: typeof AuthenticatedFinanceiroCrescimentoRouteImport
       parentRoute: typeof AuthenticatedFinanceiroRoute
     }
     '/_authenticated/alunos/novo': {
@@ -384,14 +464,26 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedFinanceiroRouteChildren {
+  AuthenticatedFinanceiroCrescimentoRoute: typeof AuthenticatedFinanceiroCrescimentoRoute
+  AuthenticatedFinanceiroDashboardRoute: typeof AuthenticatedFinanceiroDashboardRoute
+  AuthenticatedFinanceiroFormasPagamentoRoute: typeof AuthenticatedFinanceiroFormasPagamentoRoute
   AuthenticatedFinanceiroMensalidadesRoute: typeof AuthenticatedFinanceiroMensalidadesRoute
+  AuthenticatedFinanceiroRecorrentesRoute: typeof AuthenticatedFinanceiroRecorrentesRoute
   AuthenticatedFinanceiroIndexRoute: typeof AuthenticatedFinanceiroIndexRoute
 }
 
 const AuthenticatedFinanceiroRouteChildren: AuthenticatedFinanceiroRouteChildren =
   {
+    AuthenticatedFinanceiroCrescimentoRoute:
+      AuthenticatedFinanceiroCrescimentoRoute,
+    AuthenticatedFinanceiroDashboardRoute:
+      AuthenticatedFinanceiroDashboardRoute,
+    AuthenticatedFinanceiroFormasPagamentoRoute:
+      AuthenticatedFinanceiroFormasPagamentoRoute,
     AuthenticatedFinanceiroMensalidadesRoute:
       AuthenticatedFinanceiroMensalidadesRoute,
+    AuthenticatedFinanceiroRecorrentesRoute:
+      AuthenticatedFinanceiroRecorrentesRoute,
     AuthenticatedFinanceiroIndexRoute: AuthenticatedFinanceiroIndexRoute,
   }
 
@@ -442,3 +534,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
