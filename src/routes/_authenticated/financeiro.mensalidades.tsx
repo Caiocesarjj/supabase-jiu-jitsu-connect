@@ -303,9 +303,8 @@ function FinanceiroPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Financeiro</h1>
-      </div>
+      {/* (Header e sub-nav vivem no layout pai /financeiro) */}
+
 
       {/* Summary cards */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
