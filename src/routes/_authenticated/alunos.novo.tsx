@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import type { Belt } from "@/types/database";
 import { getBeltLabel } from "@/lib/graduation";
+import { getWeightCategory, type Sex } from "@/lib/weight-category";
 
 export const Route = createFileRoute("/_authenticated/alunos/novo")({
   component: NovoAlunoPage,
@@ -53,12 +54,19 @@ function NovoAlunoPage() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [birthDate, setBirthDate] = useState("");
+  const [sex, setSex] = useState<Sex | "">("");
   const [weightKg, setWeightKg] = useState("");
   const [monthlyFee, setMonthlyFee] = useState("");
   const [belt, setBelt] = useState<Belt>("branca");
   const [degrees, setDegrees] = useState("0");
   const [status, setStatus] = useState("active");
   const [saving, setSaving] = useState(false);
+
+  const category = getWeightCategory({
+    birthDate: birthDate || null,
+    sex: sex || null,
+    weightKg: weightKg ? Number(weightKg) : null,
+  });
 
   const save = async () => {
     if (!organizationId) {
@@ -83,6 +91,7 @@ function NovoAlunoPage() {
           phone: phone.trim() || undefined,
           email: email.trim() || undefined,
           birthDate: birthDate || undefined,
+          sex: sex || null,
           weightKg: weightKg ? Number(weightKg) : null,
           monthlyFee: monthlyFee ? Number(monthlyFee) : null,
           status: status as "active" | "trial" | "inactive",
@@ -144,6 +153,16 @@ function NovoAlunoPage() {
               <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
             <div>
+              <Label>Sexo</Label>
+              <Select value={sex} onValueChange={(v) => setSex(v as Sex)}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="male">Masculino</SelectItem>
+                  <SelectItem value="female">Feminino</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <Label>Peso (kg)</Label>
               <Input
                 type="number"
@@ -155,6 +174,12 @@ function NovoAlunoPage() {
               />
             </div>
           </div>
+          {category && (
+            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm">
+              <span className="text-muted-foreground">Categoria FBJJ: </span>
+              <span className="font-medium text-emerald-800">{category.label}</span>
+            </div>
+          )}
         </section>
 
         <section className="space-y-3">
