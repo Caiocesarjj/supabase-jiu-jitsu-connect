@@ -1,66 +1,148 @@
 
-# Plano: JJ Manager (gestão de academia de Jiu-Jitsu)
+## Visão geral
 
-## Conexão com seu Supabase externo
+4 frentes em uma entrega. Tudo no frontend + utilitários puros, exceto o SQL que **você roda manualmente** no Supabase (listado no fim).
 
-Você quer usar seu próprio projeto Supabase (`zufxbprezjsolrtxcvlb`), não Lovable Cloud. Vou configurar o cliente do Supabase apontando diretamente para suas credenciais:
+---
 
-- `VITE_SUPABASE_URL = https://zufxbprezjsolrtxcvlb.supabase.co`
-- `VITE_SUPABASE_PUBLISHABLE_KEY = sb_publishable_yfraGhFuTshgKMRHFKyUcw_hEs-gMC9`
+## 1) Categorias de peso (FBJJ)
 
-**Importante:** antes de testar, você precisa rodar o `01_supabase_setup.sql` no SQL Editor do seu projeto Supabase. Sem isso, nenhuma query vai funcionar (tabelas `organizations`, `profiles`, `students`, `classes`, `attendance`, `financial_records`, `organization_settings` não existem).
+**Novo módulo** `src/lib/weight-category.ts` com:
+- `AGE_GROUPS`: KIDS 1 (4-5), KIDS 2 (6-7), KIDS 3 (8-9), INFANTIL (10-11), JÚNIOR (12-13), ADOLESCENTES (14-15), JUVENIL (16-17), ADULTO (18-29), MASTER 1/2/3/4.
+- `MALE_WEIGHTS` e `FEMALE_WEIGHTS`: tabela oficial FBJJ (limites superiores por divisão; o último é "acima de" → "Pesadíssimo").
+- `getAgeGroup(birthDate)` → grupo etário.
+- `getWeightCategory({ birthDate, sex, weightKg })` → `{ ageGroup, categoryLabel }` (ex: "JÚNIOR — Leve (até 45 kg)").
+- Retorna `null` se faltar peso/sexo/nascimento.
 
-Como é Supabase externo, eu **não tenho acesso para inspecionar o schema nem aplicar migrations** — você gerencia o banco. Se houver divergência entre o SQL e o que o app espera, vamos depurar a partir dos erros.
+**Cadastro de aluno** (`alunos.novo.tsx` e `alunos.$alunoId.tsx`):
+- Adicionar campo **Sexo** (masc/fem) — usar `sex` na tabela `students`.
+- Peso já existe (`weight_kg`).
+- Exibir badge "Categoria FBJJ" calculada ao vivo.
 
-## Escopo é grande — proposta de fases
+**Ficha do aluno** (`alunos.$alunoId.tsx`): mostrar a categoria no cabeçalho perto da faixa.
 
-O prompt mestre é extenso (auth multi-tenant, 8 páginas, JWT customizado com `organization_id`/`user_role`, geração de cobranças, integrações WhatsApp/Asaas via Edge Functions). Construir tudo de uma vez quase certamente quebra. Recomendo dividir:
+**Dashboard** (`dashboard.tsx`): novo card "Alunos por categoria de peso" — agrupar alunos ativos por `categoryLabel` (lista com contagem). Reuso do `BeltBadge` existente para visual consistente.
 
-### Fase 1 (este passo) — Fundação
-- Cliente Supabase configurado para o projeto externo
-- Tipos TypeScript das 7 tabelas (`/src/types`)
-- Hook `useAuth` (sessão + claims `organization_id`/`user_role` do JWT)
-- Contexto `OrgContext`
-- Layout protegido com Sidebar (rotas via `_authenticated/`)
-- Rotas `/login` e `/cadastro-academia` funcionais
-- Dashboard placeholder com KPIs simples (contagem de alunos, recebido no mês)
-- Tema verde escuro `#0F6E56`, tokens em `src/styles.css`
-- Componentes compartilhados: `BeltBadge`, `StatusBadge`, `Avatar`, `EmptyState`, `ConfirmModal`, `LoadingSpinner`
+---
 
-### Fase 2 — Alunos
-- `/alunos` (lista com busca, filtros por faixa/status)
-- `/alunos/novo` (cadastro)
-- `/alunos/:id` (ficha com abas: dados, graduações, presença, financeiro)
+## 2) Afiliações — limpeza de cards de receita
 
-### Fase 3 — Turmas e Presença
-- `/turmas` (CRUD de turmas)
-- `/presenca` (chamada por turma e data)
+Em `src/routes/_authenticated/afiliacoes.tsx`:
+- Remover os 2 cards "Recebido no mês (matriz)" e "Inadimplentes (matriz)" da seção "Rede consolidada".
+- Manter apenas o card "Alunos ativos".
+- Remover as colunas "Recebido (mês)" e "Inadimplentes" da tabela.
+- Manter botão "Ver alunos" (já existe) que mostra nome/idade/peso/graduação.
 
-### Fase 4 — Financeiro
-- `/financeiro` (lista + filtros por mês/status)
-- Botão "Gerar cobranças do mês" (criação local idempotente)
-- Marcar como pago, cancelar, ver recibo
+---
 
-### Fase 5 — Configurações + integrações externas
-- `/configuracoes` (academia, financeiro, PIX, WhatsApp, alterar senha)
-- Edge Functions Asaas/WhatsApp ficam **fora** desta plataforma — seriam configuradas no seu próprio Supabase (Lovable não gerencia Edge Functions de projetos externos)
+## 3) Cores de faixa e categoria nas listagens
 
-## Detalhes técnicos
+- `alunos.index.tsx`: garantir que cada linha renderiza `<BeltBadge belt={...} stripes={...} />` (cores já existem em `BeltBadge.tsx`) + nova coluna "Categoria FBJJ".
+- Dashboard "Graduações pendentes": também usar `BeltBadge` em vez de texto.
+- Dialog "Ver alunos" em afiliações: trocar texto da graduação por `BeltBadge`.
 
-- **Stack:** TanStack Start (já configurado), não vou trocar por Vite SPA simples. Rotas em `src/routes/` no padrão flat (`alunos.tsx`, `alunos.novo.tsx`, `alunos.$id.tsx`, etc.) sob layout `_authenticated.tsx`.
-- **Roteamento:** TanStack Router (`@tanstack/react-router`). Não React Router DOM — o prompt mestre cita React Router mas vou adaptar para a stack do template.
-- **Auth:** `supabase.auth.signInWithPassword` + `onAuthStateChange` no root para invalidar queries. Email/senha apenas, sem Google.
-- **Multi-tenant:** leio `organization_id` e `user_role` do JWT (claims customizados que seu trigger SQL deve injetar via hook `auth.jwt()`). Toda query inclui `.eq('organization_id', orgId)` mesmo com RLS.
-- **Cadastro de academia:** `signUp` → insert em `organizations`, `profiles`, `organization_settings` (sequencial, sem transação porque não temos RPC). Se o seu SQL tiver função RPC para isso, me avise e uso ela.
-- **Validação:** Zod em todos os formulários.
-- **Datas/moeda:** `Intl.DateTimeFormat('pt-BR')` e `Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })`.
-- **Toasts:** Sonner (já no template).
-- **Sem Edge Functions:** geração de PIX real via Asaas e envio WhatsApp ficam como TODO — apenas crio os registros locais.
+---
 
-## Decisões que preciso confirmar antes de partir para o código
+## 4) Financeiro — reformulação completa em sub-rotas
 
-1. **Fase 1 só, ou tudo de uma vez?** Recomendo Fase 1. Você confirma e eu sigo só com fundação + login + cadastro + dashboard básico.
-2. **Como o `organization_id` chega no JWT?** Seu `01_supabase_setup.sql` configura um Auth Hook (custom_access_token_hook) ou eu leio de `profiles` após o login? (a segunda opção é mais simples se você não tiver o hook)
-3. Confirma que **não quer** login com Google, só email/senha?
+### Sidebar (`AppSidebar.tsx`)
+- "Financeiro" vira **grupo colapsável** (usando `Collapsible` + `SidebarMenuSub`) com 5 sub-itens: Visão Geral, Mensalidades, Recorrentes, Formas de Pagamento, Crescimento.
+- Abre automático quando `pathname` começa com `/financeiro`.
 
-Responda essas 3 e eu já parto para implementar a Fase 1.
+### Layout pai
+Renomear `src/routes/_authenticated/financeiro.tsx` (que hoje é a página) para layout pai com:
+- Header "Financeiro" + subtítulo.
+- Sub-navegação horizontal (`Tabs` linkando para sub-rotas).
+- `<Outlet />`.
+
+### Rotas (5 novos arquivos em `src/routes/_authenticated/financeiro.*.tsx`)
+- `financeiro.index.tsx` → redirect para `/financeiro/dashboard`.
+- `financeiro.dashboard.tsx` — abas internas (Geral / Receitas / Despesas / Fluxo de Caixa / Alunos) usando `Tabs`. Cards comparativos com % variação vs período anterior, "Resumo de Tendências" (badges altas/queda/estáveis). Gráficos com `recharts` (já no projeto via `chart.tsx`).
+- `financeiro.mensalidades.tsx` — gráfico anual BarChart empilhado (recebido/a receber/vencido), 4 cards de resumo, filtro de mês, tabela de pagamentos (extrai a tabela atual do `financeiro.tsx`).
+- `financeiro.recorrentes.tsx` — usa `subscription_records` + `subscription_plans` (que **você criará no SQL**). 4 cards de status, barras de progresso por status, tabela de assinaturas com ações (pausar/reativar/cancelar), modal "Gerenciar Planos" (CRUD).
+- `financeiro.formas-pagamento.tsx` — grid de `payment_methods` com toggle ativo/inativo; configuração de PIX integra com `organization_settings.pix_key`.
+- `financeiro.crescimento.tsx` — cards YTD, LineChart receita vs a receber com projeção pontilhada, botão exportar CSV.
+
+### Bibliotecas necessárias
+- `recharts` (verificar `package.json`; instalar se ausente).
+
+---
+
+## SQL para você rodar no Supabase
+
+```sql
+-- 1) Sexo no aluno
+ALTER TABLE public.students
+  ADD COLUMN IF NOT EXISTS sex text CHECK (sex IN ('male','female'));
+
+-- 2) Planos de assinatura
+CREATE TABLE IF NOT EXISTS public.subscription_plans (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  amount numeric(10,2) NOT NULL,
+  frequency text NOT NULL CHECK (frequency IN ('monthly','quarterly','semiannual','annual')),
+  description text,
+  modality text,
+  active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.subscription_plans ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "org members read plans" ON public.subscription_plans
+  FOR SELECT USING (organization_id IN (SELECT organization_id FROM public.profiles WHERE id = auth.uid()));
+CREATE POLICY "org admin write plans" ON public.subscription_plans
+  FOR ALL USING (organization_id IN (SELECT organization_id FROM public.profiles WHERE id = auth.uid()));
+
+-- 3) Assinaturas ativas
+CREATE TABLE IF NOT EXISTS public.subscription_records (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  student_id uuid NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
+  plan_id uuid NOT NULL REFERENCES public.subscription_plans(id),
+  status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','paused','canceled','expired')),
+  last_paid_at date,
+  next_due_date date,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.subscription_records ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "org members read subs" ON public.subscription_records
+  FOR SELECT USING (organization_id IN (SELECT organization_id FROM public.profiles WHERE id = auth.uid()));
+CREATE POLICY "org admin write subs" ON public.subscription_records
+  FOR ALL USING (organization_id IN (SELECT organization_id FROM public.profiles WHERE id = auth.uid()));
+
+-- 4) Métodos de pagamento
+CREATE TABLE IF NOT EXISTS public.payment_methods (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  type text NOT NULL,  -- 'pix' | 'credit' | 'debit' | 'boleto' | 'cash' | 'custom'
+  active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(organization_id, type, name)
+);
+ALTER TABLE public.payment_methods ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "org members payment_methods" ON public.payment_methods
+  FOR ALL USING (organization_id IN (SELECT organization_id FROM public.profiles WHERE id = auth.uid()));
+
+-- 5) Coluna payment_method já existe em financial_records (verificar)
+```
+
+---
+
+## Pontos não cobertos (assumindo)
+
+- "Despesas" fica como placeholder "Em breve" — não criei tabela `expenses` no SQL pois você indicou que rodaria o SQL próprio; se quiser, posso adicionar.
+- "Sexo" no cadastro existente: alunos antigos ficam `null` → categoria mostra "—" até preencher.
+- Sub-itens do sidebar usam `Collapsible` do shadcn já presente (`collapsible.tsx`).
+
+---
+
+## Ordem de implementação
+
+1. Utilitários (`weight-category.ts`).
+2. Cadastro de aluno (campo sexo + preview categoria).
+3. Dashboard (card categorias + BeltBadge nas graduações).
+4. Listagem alunos (BeltBadge + categoria).
+5. Afiliações (remover cards/colunas, BeltBadge no dialog).
+6. Sidebar colapsável + layout pai do financeiro.
+7. 5 sub-rotas do financeiro (dashboard, mensalidades, recorrentes, formas-pagamento, crescimento).
