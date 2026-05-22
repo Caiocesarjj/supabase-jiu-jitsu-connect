@@ -1528,7 +1528,7 @@ function EditStudentModal({
         .update({
           birth_date: birthDate || null,
           sex: sex || null,
-          weight_kg: weightKg === "" ? null : Number(weightKg),
+          weight: weightKg === "" ? null : Number(weightKg),
           enrollment_date: enrollmentDate || null,
           monthly_fee: monthlyFee === "" ? null : Number(monthlyFee),
           status,
