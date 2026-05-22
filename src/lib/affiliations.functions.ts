@@ -288,7 +288,7 @@ export const listAffiliateStudents = createServerFn({ method: "POST" })
 
     const { data: students, error: sErr } = await supabase
       .from("students")
-      .select("id, profile_id, birth_date, weight_kg, status")
+      .select("id, profile_id, birth_date, weight, status")
       .eq("organization_id", data.affiliateOrgId)
       .order("status", { ascending: true });
     if (sErr) throw sErr;
