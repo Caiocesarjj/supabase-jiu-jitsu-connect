@@ -331,7 +331,7 @@ export const listAffiliateStudents = createServerFn({ method: "POST" })
         id: s.id,
         fullName: nameMap.get(s.profile_id) ?? "—",
         age: calcAge(s.birth_date),
-        weightKg: s.weight_kg ?? null,
+        weightKg: s.weight ?? null,
         status: s.status,
         belt: gradMap.get(s.id)?.belt ?? null,
         degrees: gradMap.get(s.id)?.degrees ?? null,
