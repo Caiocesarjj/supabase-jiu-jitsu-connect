@@ -1497,7 +1497,7 @@ function EditStudentModal({
     setEmail(profile.email ?? "");
     setBirthDate(student.birth_date ?? "");
     setSex(student.sex ?? "");
-    setWeightKg(student.weight_kg != null ? String(student.weight_kg) : "");
+    setWeightKg(student.weight != null ? String(student.weight) : "");
     setEnrollmentDate(student.enrollment_date ?? "");
     setMonthlyFee(student.monthly_fee != null ? String(student.monthly_fee) : "");
     setStatus(student.status ?? "active");
