@@ -1480,7 +1480,13 @@ function EditStudentModal({
   const [phone, setPhone] = useState(profile.phone ?? "");
   const [email, setEmail] = useState(profile.email ?? "");
   const [birthDate, setBirthDate] = useState(student.birth_date ?? "");
-  const [sex, setSex] = useState<Sex | "">(student.sex ?? "");
+  const normalizeSex = (v: unknown): Sex | "" => {
+    if (v === "M" || v === "F") return v;
+    if (v === "male" || v === "masculino") return "M";
+    if (v === "female" || v === "feminino") return "F";
+    return "";
+  };
+  const [sex, setSex] = useState<Sex | "">(normalizeSex(student.sex));
   const [weightKg, setWeightKg] = useState<string>(student.weight != null ? String(student.weight) : "");
   const [enrollmentDate, setEnrollmentDate] = useState(student.enrollment_date ?? "");
   const [monthlyFee, setMonthlyFee] = useState<string>(
@@ -1496,7 +1502,7 @@ function EditStudentModal({
     setPhone(profile.phone ?? "");
     setEmail(profile.email ?? "");
     setBirthDate(student.birth_date ?? "");
-    setSex(student.sex ?? "");
+    setSex(normalizeSex(student.sex));
     setWeightKg(student.weight != null ? String(student.weight) : "");
     setEnrollmentDate(student.enrollment_date ?? "");
     setMonthlyFee(student.monthly_fee != null ? String(student.monthly_fee) : "");
