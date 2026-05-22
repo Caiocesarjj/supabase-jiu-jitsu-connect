@@ -244,7 +244,7 @@ function AlunosListPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        {formatShortCategory(getWeightCategory({ birthDate: s.birth_date, sex: s.sex, weightKg: s.weight_kg }))}
+                        {formatShortCategory(getWeightCategory({ birthDate: s.birth_date, sex: s.sex, weightKg: s.weight }))}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {s.profiles?.phone ?? "—"}
