@@ -108,7 +108,7 @@ export const createStudentRegistration = createServerFn({ method: "POST" })
         phone: z.string().trim().max(30).optional(),
         email: z.string().trim().email().max(255).optional().or(z.literal("")),
         birthDate: z.string().optional(),
-        sex: z.enum(["male", "female"]).nullable().optional(),
+        sex: z.enum(["M", "F"]).nullable().optional(),
         weightKg: z.number().positive().max(500).nullable().optional(),
         monthlyFee: z.number().nullable().optional(),
         status: z.enum(["active", "trial", "inactive"]),
