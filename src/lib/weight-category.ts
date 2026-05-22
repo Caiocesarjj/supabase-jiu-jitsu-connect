@@ -1,6 +1,6 @@
 // FBJJ — Categorias de peso (fonte: fbjj.org.br/informacoes/categorias-de-peso)
 
-export type Sex = "male" | "female";
+export type Sex = "M" | "F";
 
 export type AgeGroup =
   | "KIDS 1"
