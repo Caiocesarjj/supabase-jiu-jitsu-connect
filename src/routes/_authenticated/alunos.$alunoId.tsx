@@ -158,7 +158,7 @@ function AlunoFichaPage() {
         .from("students")
         .select(
           `
-          id, status, birth_date, sex, weight_kg, medical_notes, monthly_fee, enrollment_date,
+          id, status, birth_date, sex, weight, medical_notes, monthly_fee, enrollment_date,
           profiles ( id, full_name, email, phone, cpf ),
           graduations (
             id, belt, degrees, promotion_date, minimum_next_promotion_date, classes_since_promotion
@@ -389,12 +389,12 @@ function GeralTab({
           <Field label="CPF" value={profile.cpf ?? "—"} />
           <Field label="Telefone" value={profile.phone ?? "—"} />
           <Field label="E-mail" value={profile.email ?? "—"} />
-          <Field label="Sexo" value={student.sex === "male" ? "Masculino" : student.sex === "female" ? "Feminino" : "—"} />
-          <Field label="Peso" value={student.weight_kg != null ? `${student.weight_kg} kg` : "—"} />
+          <Field label="Sexo" value={student.sex === "M" ? "Masculino" : student.sex === "F" ? "Feminino" : "—"} />
+          <Field label="Peso" value={student.weight != null ? `${student.weight} kg` : "—"} />
           <Field label="Data de matrícula" value={formatDateBR(student.enrollment_date)} />
           <Field label="Mensalidade" value={student.monthly_fee != null ? formatBRL(student.monthly_fee) : "Padrão da academia"} />
           {(() => {
-            const cat = getWeightCategory({ birthDate: student.birth_date, sex: student.sex, weightKg: student.weight_kg });
+            const cat = getWeightCategory({ birthDate: student.birth_date, sex: student.sex, weightKg: student.weight });
             return (
               <div className="md:col-span-2">
                 <div className="text-xs text-muted-foreground">Categoria FBJJ</div>
@@ -1481,7 +1481,7 @@ function EditStudentModal({
   const [email, setEmail] = useState(profile.email ?? "");
   const [birthDate, setBirthDate] = useState(student.birth_date ?? "");
   const [sex, setSex] = useState<Sex | "">(student.sex ?? "");
-  const [weightKg, setWeightKg] = useState<string>(student.weight_kg != null ? String(student.weight_kg) : "");
+  const [weightKg, setWeightKg] = useState<string>(student.weight != null ? String(student.weight) : "");
   const [enrollmentDate, setEnrollmentDate] = useState(student.enrollment_date ?? "");
   const [monthlyFee, setMonthlyFee] = useState<string>(
     student.monthly_fee != null ? String(student.monthly_fee) : "",
@@ -1497,7 +1497,7 @@ function EditStudentModal({
     setEmail(profile.email ?? "");
     setBirthDate(student.birth_date ?? "");
     setSex(student.sex ?? "");
-    setWeightKg(student.weight_kg != null ? String(student.weight_kg) : "");
+    setWeightKg(student.weight != null ? String(student.weight) : "");
     setEnrollmentDate(student.enrollment_date ?? "");
     setMonthlyFee(student.monthly_fee != null ? String(student.monthly_fee) : "");
     setStatus(student.status ?? "active");
@@ -1528,7 +1528,7 @@ function EditStudentModal({
         .update({
           birth_date: birthDate || null,
           sex: sex || null,
-          weight_kg: weightKg === "" ? null : Number(weightKg),
+          weight: weightKg === "" ? null : Number(weightKg),
           enrollment_date: enrollmentDate || null,
           monthly_fee: monthlyFee === "" ? null : Number(monthlyFee),
           status,
@@ -1586,8 +1586,8 @@ function EditStudentModal({
               <Select value={sex} onValueChange={(v) => setSex(v as Sex)}>
                 <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="male">Masculino</SelectItem>
-                  <SelectItem value="female">Feminino</SelectItem>
+                  <SelectItem value="M">Masculino</SelectItem>
+                  <SelectItem value="F">Feminino</SelectItem>
                 </SelectContent>
               </Select>
             </div>

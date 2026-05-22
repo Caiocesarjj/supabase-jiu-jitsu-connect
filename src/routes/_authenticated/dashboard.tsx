@@ -310,14 +310,14 @@ function WeightCategoryDistribution({ organizationId }: { organizationId: string
     queryFn: async () => {
       const { data, error } = await supabase
         .from("students")
-        .select("birth_date, sex, weight_kg, status")
+        .select("birth_date, sex, weight, status")
         .eq("organization_id", organizationId!)
         .eq("status", "active");
       if (error) throw error;
       const counts = new Map<string, number>();
       let missing = 0;
-      for (const s of (data ?? []) as Array<{ birth_date: string | null; sex: "male" | "female" | null; weight_kg: number | null }>) {
-        const cat = getWeightCategory({ birthDate: s.birth_date, sex: s.sex, weightKg: s.weight_kg });
+      for (const s of (data ?? []) as Array<{ birth_date: string | null; sex: "M" | "F" | null; weight: number | null }>) {
+        const cat = getWeightCategory({ birthDate: s.birth_date, sex: s.sex, weightKg: s.weight });
         if (!cat) { missing++; continue; }
         const key = formatShortCategory(cat);
         counts.set(key, (counts.get(key) ?? 0) + 1);

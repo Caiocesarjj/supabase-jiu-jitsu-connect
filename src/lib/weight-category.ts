@@ -1,6 +1,6 @@
 // FBJJ — Categorias de peso (fonte: fbjj.org.br/informacoes/categorias-de-peso)
 
-export type Sex = "male" | "female";
+export type Sex = "M" | "F";
 
 export type AgeGroup =
   | "KIDS 1"
@@ -104,7 +104,7 @@ export function getWeightCategory(opts: {
   const ageGroup = getAgeGroup(opts.birthDate);
   if (!ageGroup) return null;
 
-  const table = opts.sex === "female" ? FEMALE_LIMITS : MALE_LIMITS;
+  const table = opts.sex === "F" ? FEMALE_LIMITS : MALE_LIMITS;
   const limits = table[ageGroup];
 
   for (let i = 0; i < limits.length; i++) {

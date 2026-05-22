@@ -86,7 +86,7 @@ function AlunosListPage() {
       const { data, error } = await supabase
         .from("students")
         .select(`
-          id, status, birth_date, sex, weight_kg, monthly_fee,
+          id, status, birth_date, sex, weight, monthly_fee,
           profiles ( full_name, phone, email, cpf ),
           graduations ( belt, degrees )
         `)
@@ -244,7 +244,7 @@ function AlunosListPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        {formatShortCategory(getWeightCategory({ birthDate: s.birth_date, sex: s.sex, weightKg: s.weight_kg }))}
+                        {formatShortCategory(getWeightCategory({ birthDate: s.birth_date, sex: s.sex, weightKg: s.weight }))}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {s.profiles?.phone ?? "—"}

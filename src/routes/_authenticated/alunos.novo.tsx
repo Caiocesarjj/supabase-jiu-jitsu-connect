@@ -157,8 +157,8 @@ function NovoAlunoPage() {
               <Select value={sex} onValueChange={(v) => setSex(v as Sex)}>
                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="male">Masculino</SelectItem>
-                  <SelectItem value="female">Feminino</SelectItem>
+                  <SelectItem value="M">Masculino</SelectItem>
+                  <SelectItem value="F">Feminino</SelectItem>
                 </SelectContent>
               </Select>
             </div>
