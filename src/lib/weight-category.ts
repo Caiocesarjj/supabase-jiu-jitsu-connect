@@ -104,7 +104,7 @@ export function getWeightCategory(opts: {
   const ageGroup = getAgeGroup(opts.birthDate);
   if (!ageGroup) return null;
 
-  const table = opts.sex === "female" ? FEMALE_LIMITS : MALE_LIMITS;
+  const table = opts.sex === "F" ? FEMALE_LIMITS : MALE_LIMITS;
   const limits = table[ageGroup];
 
   for (let i = 0; i < limits.length; i++) {
