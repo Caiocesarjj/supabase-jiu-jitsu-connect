@@ -142,7 +142,7 @@ export const createStudentRegistration = createServerFn({ method: "POST" })
         status: data.status,
         birth_date: data.birthDate || null,
         sex: data.sex ?? null,
-        weight_kg: data.weightKg ?? null,
+        weight: data.weightKg ?? null,
         monthly_fee: data.monthlyFee ?? null,
         enrollment_date: today,
       })
