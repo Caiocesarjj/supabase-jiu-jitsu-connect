@@ -46,7 +46,7 @@ function Page() {
       .from("payment_methods")
       .upsert(
         { organization_id: organizationId, type, name, active: next },
-        { onConflict: "organization_id,type,name" },
+        { onConflict: "organization_id,type" },
       );
     if (error) {
       toast.error("Tabela payment_methods não encontrada. Rode o SQL.");
