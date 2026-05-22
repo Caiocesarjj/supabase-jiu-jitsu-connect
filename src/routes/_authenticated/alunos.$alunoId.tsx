@@ -158,7 +158,7 @@ function AlunoFichaPage() {
         .from("students")
         .select(
           `
-          id, status, birth_date, sex, weight_kg, medical_notes, monthly_fee, enrollment_date,
+          id, status, birth_date, sex, weight, medical_notes, monthly_fee, enrollment_date,
           profiles ( id, full_name, email, phone, cpf ),
           graduations (
             id, belt, degrees, promotion_date, minimum_next_promotion_date, classes_since_promotion
