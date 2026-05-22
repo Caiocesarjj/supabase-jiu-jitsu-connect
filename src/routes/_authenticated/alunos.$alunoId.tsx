@@ -389,12 +389,12 @@ function GeralTab({
           <Field label="CPF" value={profile.cpf ?? "—"} />
           <Field label="Telefone" value={profile.phone ?? "—"} />
           <Field label="E-mail" value={profile.email ?? "—"} />
-          <Field label="Sexo" value={student.sex === "male" ? "Masculino" : student.sex === "female" ? "Feminino" : "—"} />
-          <Field label="Peso" value={student.weight_kg != null ? `${student.weight_kg} kg` : "—"} />
+          <Field label="Sexo" value={student.sex === "M" ? "Masculino" : student.sex === "F" ? "Feminino" : "—"} />
+          <Field label="Peso" value={student.weight != null ? `${student.weight} kg` : "—"} />
           <Field label="Data de matrícula" value={formatDateBR(student.enrollment_date)} />
           <Field label="Mensalidade" value={student.monthly_fee != null ? formatBRL(student.monthly_fee) : "Padrão da academia"} />
           {(() => {
-            const cat = getWeightCategory({ birthDate: student.birth_date, sex: student.sex, weightKg: student.weight_kg });
+            const cat = getWeightCategory({ birthDate: student.birth_date, sex: student.sex, weightKg: student.weight });
             return (
               <div className="md:col-span-2">
                 <div className="text-xs text-muted-foreground">Categoria FBJJ</div>
