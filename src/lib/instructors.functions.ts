@@ -1,22 +1,36 @@
 import { createServerFn } from "@tanstack/react-start";
-import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { getUserClient } from "@/lib/supabase-server";
 
-function getSupabaseClient() {
-  const url = process.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL;
-  const key =
-    process.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-  if (!url || !key)
-    throw new Error("Variáveis VITE_SUPABASE_URL ou VITE_SUPABASE_PUBLISHABLE_KEY não encontradas");
-
-  return createClient(url, key);
-}
+const staffRoles = new Set(["admin", "instructor", "instrutor", "staff"]);
 
 const orgAuthSchema = z.object({
   accessToken: z.string().min(10),
   organizationId: z.string().uuid(),
 });
+
+async function requireStaff(accessToken: string, organizationId?: string) {
+  const supabase = getUserClient(accessToken);
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError || !authData.user) throw new Error("Sessão inválida. Faça login novamente.");
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("id, organization_id, full_name, role")
+    .eq("id", authData.user.id)
+    .maybeSingle();
+
+  if (profileError) throw profileError;
+  if (!profile) throw new Error("Perfil não encontrado para este usuário.");
+  if (organizationId && profile.organization_id !== organizationId) {
+    throw new Error("Você não tem acesso a esta organização.");
+  }
+  if (!staffRoles.has(String(profile.role))) {
+    throw new Error("Sem permissão para realizar este cadastro.");
+  }
+
+  return { supabase, user: authData.user, profile };
+}
 
 const pastBeltSchema = z.object({
   belt: z.string().min(2).max(40),
@@ -77,7 +91,7 @@ export const createInstructor = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    const supabase = getSupabaseClient();
+    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
     const row = { organization_id: data.organizationId, ...toRow(data) };
     const { data: ins, error } = await supabase
       .from("instructors")
@@ -108,7 +122,7 @@ export const updateInstructor = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    const supabase = getSupabaseClient();
+    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
     const { error } = await supabase
       .from("instructors")
       .update(toRow(data))
@@ -123,7 +137,7 @@ export const deleteInstructor = createServerFn({ method: "POST" })
     orgAuthSchema.extend({ instructorId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data }) => {
-    const supabase = getSupabaseClient();
+    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
     await supabase
       .from("instructor_belt_history")
       .delete()
@@ -146,7 +160,7 @@ export const addInstructorPastBelt = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    const supabase = getSupabaseClient();
+    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
     const { error } = await supabase.from("instructor_belt_history").insert({
       organization_id: data.organizationId,
       instructor_id: data.instructorId,
@@ -165,7 +179,7 @@ export const deleteInstructorPastBelt = createServerFn({ method: "POST" })
     orgAuthSchema.extend({ historyId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data }) => {
-    const supabase = getSupabaseClient();
+    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
     const { error } = await supabase
       .from("instructor_belt_history")
       .delete()
