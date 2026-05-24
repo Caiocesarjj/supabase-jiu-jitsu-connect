@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { UserPlus, UserCheck, Mail, Phone, Check } from "lucide-react";
 import { toast } from "sonner";
@@ -11,7 +11,7 @@ import { Avatar } from "@/components/Avatar";
 import { Button } from "@/components/ui/button";
 import type { Belt } from "@/types/database";
 
-export const Route = createFileRoute("/_authenticated/instrutores")({
+export const Route = createFileRoute("/_authenticated/instrutores/")({
   component: InstructorsPage,
   head: () => ({ meta: [{ title: "Instrutores — JJ Manager" }] }),
 });
@@ -31,6 +31,7 @@ interface InstructorCard {
 }
 
 function InstructorsPage() {
+  const navigate = useNavigate();
   const { organizationId } = useAuth();
   const [loading, setLoading] = useState(true);
   const [instructors, setInstructors] = useState<InstructorCard[]>([]);
@@ -69,10 +70,11 @@ function InstructorsPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Instrutores</h1>
-        <Button asChild className="bg-emerald-600 text-white hover:bg-emerald-700">
-          <Link to="/instrutores/novo">
-            <UserPlus className="mr-2 h-4 w-4" /> Cadastrar Instrutor
-          </Link>
+        <Button
+          onClick={() => navigate({ to: "/instrutores/novo" })}
+          className="bg-emerald-600 text-white hover:bg-emerald-700"
+        >
+          <UserPlus className="mr-2 h-4 w-4" /> Cadastrar Instrutor
         </Button>
       </div>
 
@@ -81,8 +83,11 @@ function InstructorsPage() {
           icon={<UserCheck className="h-10 w-10" />}
           title="Nenhum instrutor cadastrado"
           action={
-            <Button asChild className="bg-emerald-600 text-white hover:bg-emerald-700">
-              <Link to="/instrutores/novo">Cadastrar instrutor</Link>
+            <Button
+              onClick={() => navigate({ to: "/instrutores/novo" })}
+              className="bg-emerald-600 text-white hover:bg-emerald-700"
+            >
+              Cadastrar instrutor
             </Button>
           }
         />
@@ -98,6 +103,7 @@ function InstructorsPage() {
 }
 
 function InstructorCardView({ instructor: i }: { instructor: InstructorCard }) {
+  const navigate = useNavigate();
   const specs = i.specialties ?? [];
   const visible = specs.slice(0, 3);
   const remaining = specs.length - visible.length;
@@ -168,22 +174,30 @@ function InstructorCardView({ instructor: i }: { instructor: InstructorCard }) {
       </div>
 
       <div className="mt-4 flex gap-2">
-        <Button asChild variant="outline" size="sm" className="flex-1">
-          <Link to="/instrutores/$instructorId" params={{ instructorId: i.id }}>
-            Ver perfil
-          </Link>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1"
+          onClick={() =>
+            navigate({
+              to: "/instrutores/$instructorId",
+              params: { instructorId: i.id },
+            })
+          }
+        >
+          Ver perfil
         </Button>
         <Button
-          asChild
           size="sm"
           className="flex-1 bg-emerald-600 text-white hover:bg-emerald-700"
+          onClick={() =>
+            navigate({
+              to: "/instrutores/$instructorId/editar",
+              params: { instructorId: i.id },
+            })
+          }
         >
-          <Link
-            to="/instrutores/$instructorId/editar"
-            params={{ instructorId: i.id }}
-          >
-            Editar
-          </Link>
+          Editar
         </Button>
       </div>
     </div>

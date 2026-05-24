@@ -8,7 +8,7 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { InstructorWizard, type InstructorFormData } from "@/components/InstructorWizard";
 import type { Belt } from "@/types/database";
 
-export const Route = createFileRoute("/_authenticated/instrutores/$instructorId/editar")({
+export const Route = createFileRoute("/_authenticated/instrutores_/$instructorId/editar")({
   component: EditInstructorPage,
   head: () => ({ meta: [{ title: "Editar instrutor — JJ Manager" }] }),
 });
