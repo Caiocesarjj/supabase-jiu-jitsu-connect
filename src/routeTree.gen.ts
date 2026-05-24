@@ -24,6 +24,8 @@ import { Route as AuthenticatedRelatoriosIndexRouteImport } from './routes/_auth
 import { Route as AuthenticatedFinanceiroIndexRouteImport } from './routes/_authenticated/financeiro.index'
 import { Route as AuthenticatedAlunosIndexRouteImport } from './routes/_authenticated/alunos.index'
 import { Route as ApiPublicCheckGraduationAlertsRouteImport } from './routes/api/public/check-graduation-alerts'
+import { Route as AuthenticatedInstrutoresNovoRouteImport } from './routes/_authenticated/instrutores.novo'
+import { Route as AuthenticatedInstrutoresInstructorIdRouteImport } from './routes/_authenticated/instrutores.$instructorId'
 import { Route as AuthenticatedFinanceiroRecorrentesRouteImport } from './routes/_authenticated/financeiro.recorrentes'
 import { Route as AuthenticatedFinanceiroMensalidadesRouteImport } from './routes/_authenticated/financeiro.mensalidades'
 import { Route as AuthenticatedFinanceiroFormasPagamentoRouteImport } from './routes/_authenticated/financeiro.formas-pagamento'
@@ -31,6 +33,7 @@ import { Route as AuthenticatedFinanceiroDashboardRouteImport } from './routes/_
 import { Route as AuthenticatedFinanceiroCrescimentoRouteImport } from './routes/_authenticated/financeiro.crescimento'
 import { Route as AuthenticatedAlunosNovoRouteImport } from './routes/_authenticated/alunos.novo'
 import { Route as AuthenticatedAlunosAlunoIdRouteImport } from './routes/_authenticated/alunos.$alunoId'
+import { Route as AuthenticatedInstrutoresInstructorIdEditarRouteImport } from './routes/_authenticated/instrutores.$instructorId.editar'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -112,6 +115,18 @@ const ApiPublicCheckGraduationAlertsRoute =
     path: '/api/public/check-graduation-alerts',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AuthenticatedInstrutoresNovoRoute =
+  AuthenticatedInstrutoresNovoRouteImport.update({
+    id: '/novo',
+    path: '/novo',
+    getParentRoute: () => AuthenticatedInstrutoresRoute,
+  } as any)
+const AuthenticatedInstrutoresInstructorIdRoute =
+  AuthenticatedInstrutoresInstructorIdRouteImport.update({
+    id: '/$instructorId',
+    path: '/$instructorId',
+    getParentRoute: () => AuthenticatedInstrutoresRoute,
+  } as any)
 const AuthenticatedFinanceiroRecorrentesRoute =
   AuthenticatedFinanceiroRecorrentesRouteImport.update({
     id: '/recorrentes',
@@ -153,6 +168,12 @@ const AuthenticatedAlunosAlunoIdRoute =
     path: '/alunos/$alunoId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedInstrutoresInstructorIdEditarRoute =
+  AuthenticatedInstrutoresInstructorIdEditarRouteImport.update({
+    id: '/editar',
+    path: '/editar',
+    getParentRoute: () => AuthenticatedInstrutoresInstructorIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -162,7 +183,7 @@ export interface FileRoutesByFullPath {
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/financeiro': typeof AuthenticatedFinanceiroRouteWithChildren
-  '/instrutores': typeof AuthenticatedInstrutoresRoute
+  '/instrutores': typeof AuthenticatedInstrutoresRouteWithChildren
   '/presenca': typeof AuthenticatedPresencaRoute
   '/turmas': typeof AuthenticatedTurmasRoute
   '/alunos/$alunoId': typeof AuthenticatedAlunosAlunoIdRoute
@@ -172,10 +193,13 @@ export interface FileRoutesByFullPath {
   '/financeiro/formas-pagamento': typeof AuthenticatedFinanceiroFormasPagamentoRoute
   '/financeiro/mensalidades': typeof AuthenticatedFinanceiroMensalidadesRoute
   '/financeiro/recorrentes': typeof AuthenticatedFinanceiroRecorrentesRoute
+  '/instrutores/$instructorId': typeof AuthenticatedInstrutoresInstructorIdRouteWithChildren
+  '/instrutores/novo': typeof AuthenticatedInstrutoresNovoRoute
   '/api/public/check-graduation-alerts': typeof ApiPublicCheckGraduationAlertsRoute
   '/alunos/': typeof AuthenticatedAlunosIndexRoute
   '/financeiro/': typeof AuthenticatedFinanceiroIndexRoute
   '/relatorios/': typeof AuthenticatedRelatoriosIndexRoute
+  '/instrutores/$instructorId/editar': typeof AuthenticatedInstrutoresInstructorIdEditarRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -184,7 +208,7 @@ export interface FileRoutesByTo {
   '/afiliacoes': typeof AuthenticatedAfiliacoesRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/instrutores': typeof AuthenticatedInstrutoresRoute
+  '/instrutores': typeof AuthenticatedInstrutoresRouteWithChildren
   '/presenca': typeof AuthenticatedPresencaRoute
   '/turmas': typeof AuthenticatedTurmasRoute
   '/alunos/$alunoId': typeof AuthenticatedAlunosAlunoIdRoute
@@ -194,10 +218,13 @@ export interface FileRoutesByTo {
   '/financeiro/formas-pagamento': typeof AuthenticatedFinanceiroFormasPagamentoRoute
   '/financeiro/mensalidades': typeof AuthenticatedFinanceiroMensalidadesRoute
   '/financeiro/recorrentes': typeof AuthenticatedFinanceiroRecorrentesRoute
+  '/instrutores/$instructorId': typeof AuthenticatedInstrutoresInstructorIdRouteWithChildren
+  '/instrutores/novo': typeof AuthenticatedInstrutoresNovoRoute
   '/api/public/check-graduation-alerts': typeof ApiPublicCheckGraduationAlertsRoute
   '/alunos': typeof AuthenticatedAlunosIndexRoute
   '/financeiro': typeof AuthenticatedFinanceiroIndexRoute
   '/relatorios': typeof AuthenticatedRelatoriosIndexRoute
+  '/instrutores/$instructorId/editar': typeof AuthenticatedInstrutoresInstructorIdEditarRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -209,7 +236,7 @@ export interface FileRoutesById {
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/financeiro': typeof AuthenticatedFinanceiroRouteWithChildren
-  '/_authenticated/instrutores': typeof AuthenticatedInstrutoresRoute
+  '/_authenticated/instrutores': typeof AuthenticatedInstrutoresRouteWithChildren
   '/_authenticated/presenca': typeof AuthenticatedPresencaRoute
   '/_authenticated/turmas': typeof AuthenticatedTurmasRoute
   '/_authenticated/alunos/$alunoId': typeof AuthenticatedAlunosAlunoIdRoute
@@ -219,10 +246,13 @@ export interface FileRoutesById {
   '/_authenticated/financeiro/formas-pagamento': typeof AuthenticatedFinanceiroFormasPagamentoRoute
   '/_authenticated/financeiro/mensalidades': typeof AuthenticatedFinanceiroMensalidadesRoute
   '/_authenticated/financeiro/recorrentes': typeof AuthenticatedFinanceiroRecorrentesRoute
+  '/_authenticated/instrutores/$instructorId': typeof AuthenticatedInstrutoresInstructorIdRouteWithChildren
+  '/_authenticated/instrutores/novo': typeof AuthenticatedInstrutoresNovoRoute
   '/api/public/check-graduation-alerts': typeof ApiPublicCheckGraduationAlertsRoute
   '/_authenticated/alunos/': typeof AuthenticatedAlunosIndexRoute
   '/_authenticated/financeiro/': typeof AuthenticatedFinanceiroIndexRoute
   '/_authenticated/relatorios/': typeof AuthenticatedRelatoriosIndexRoute
+  '/_authenticated/instrutores/$instructorId/editar': typeof AuthenticatedInstrutoresInstructorIdEditarRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -244,10 +274,13 @@ export interface FileRouteTypes {
     | '/financeiro/formas-pagamento'
     | '/financeiro/mensalidades'
     | '/financeiro/recorrentes'
+    | '/instrutores/$instructorId'
+    | '/instrutores/novo'
     | '/api/public/check-graduation-alerts'
     | '/alunos/'
     | '/financeiro/'
     | '/relatorios/'
+    | '/instrutores/$instructorId/editar'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -266,10 +299,13 @@ export interface FileRouteTypes {
     | '/financeiro/formas-pagamento'
     | '/financeiro/mensalidades'
     | '/financeiro/recorrentes'
+    | '/instrutores/$instructorId'
+    | '/instrutores/novo'
     | '/api/public/check-graduation-alerts'
     | '/alunos'
     | '/financeiro'
     | '/relatorios'
+    | '/instrutores/$instructorId/editar'
   id:
     | '__root__'
     | '/'
@@ -290,10 +326,13 @@ export interface FileRouteTypes {
     | '/_authenticated/financeiro/formas-pagamento'
     | '/_authenticated/financeiro/mensalidades'
     | '/_authenticated/financeiro/recorrentes'
+    | '/_authenticated/instrutores/$instructorId'
+    | '/_authenticated/instrutores/novo'
     | '/api/public/check-graduation-alerts'
     | '/_authenticated/alunos/'
     | '/_authenticated/financeiro/'
     | '/_authenticated/relatorios/'
+    | '/_authenticated/instrutores/$instructorId/editar'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -411,6 +450,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCheckGraduationAlertsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/instrutores/novo': {
+      id: '/_authenticated/instrutores/novo'
+      path: '/novo'
+      fullPath: '/instrutores/novo'
+      preLoaderRoute: typeof AuthenticatedInstrutoresNovoRouteImport
+      parentRoute: typeof AuthenticatedInstrutoresRoute
+    }
+    '/_authenticated/instrutores/$instructorId': {
+      id: '/_authenticated/instrutores/$instructorId'
+      path: '/$instructorId'
+      fullPath: '/instrutores/$instructorId'
+      preLoaderRoute: typeof AuthenticatedInstrutoresInstructorIdRouteImport
+      parentRoute: typeof AuthenticatedInstrutoresRoute
+    }
     '/_authenticated/financeiro/recorrentes': {
       id: '/_authenticated/financeiro/recorrentes'
       path: '/recorrentes'
@@ -460,6 +513,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAlunosAlunoIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/instrutores/$instructorId/editar': {
+      id: '/_authenticated/instrutores/$instructorId/editar'
+      path: '/editar'
+      fullPath: '/instrutores/$instructorId/editar'
+      preLoaderRoute: typeof AuthenticatedInstrutoresInstructorIdEditarRouteImport
+      parentRoute: typeof AuthenticatedInstrutoresInstructorIdRoute
+    }
   }
 }
 
@@ -492,12 +552,44 @@ const AuthenticatedFinanceiroRouteWithChildren =
     AuthenticatedFinanceiroRouteChildren,
   )
 
+interface AuthenticatedInstrutoresInstructorIdRouteChildren {
+  AuthenticatedInstrutoresInstructorIdEditarRoute: typeof AuthenticatedInstrutoresInstructorIdEditarRoute
+}
+
+const AuthenticatedInstrutoresInstructorIdRouteChildren: AuthenticatedInstrutoresInstructorIdRouteChildren =
+  {
+    AuthenticatedInstrutoresInstructorIdEditarRoute:
+      AuthenticatedInstrutoresInstructorIdEditarRoute,
+  }
+
+const AuthenticatedInstrutoresInstructorIdRouteWithChildren =
+  AuthenticatedInstrutoresInstructorIdRoute._addFileChildren(
+    AuthenticatedInstrutoresInstructorIdRouteChildren,
+  )
+
+interface AuthenticatedInstrutoresRouteChildren {
+  AuthenticatedInstrutoresInstructorIdRoute: typeof AuthenticatedInstrutoresInstructorIdRouteWithChildren
+  AuthenticatedInstrutoresNovoRoute: typeof AuthenticatedInstrutoresNovoRoute
+}
+
+const AuthenticatedInstrutoresRouteChildren: AuthenticatedInstrutoresRouteChildren =
+  {
+    AuthenticatedInstrutoresInstructorIdRoute:
+      AuthenticatedInstrutoresInstructorIdRouteWithChildren,
+    AuthenticatedInstrutoresNovoRoute: AuthenticatedInstrutoresNovoRoute,
+  }
+
+const AuthenticatedInstrutoresRouteWithChildren =
+  AuthenticatedInstrutoresRoute._addFileChildren(
+    AuthenticatedInstrutoresRouteChildren,
+  )
+
 interface AuthenticatedRouteChildren {
   AuthenticatedAfiliacoesRoute: typeof AuthenticatedAfiliacoesRoute
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedFinanceiroRoute: typeof AuthenticatedFinanceiroRouteWithChildren
-  AuthenticatedInstrutoresRoute: typeof AuthenticatedInstrutoresRoute
+  AuthenticatedInstrutoresRoute: typeof AuthenticatedInstrutoresRouteWithChildren
   AuthenticatedPresencaRoute: typeof AuthenticatedPresencaRoute
   AuthenticatedTurmasRoute: typeof AuthenticatedTurmasRoute
   AuthenticatedAlunosAlunoIdRoute: typeof AuthenticatedAlunosAlunoIdRoute
@@ -511,7 +603,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedFinanceiroRoute: AuthenticatedFinanceiroRouteWithChildren,
-  AuthenticatedInstrutoresRoute: AuthenticatedInstrutoresRoute,
+  AuthenticatedInstrutoresRoute: AuthenticatedInstrutoresRouteWithChildren,
   AuthenticatedPresencaRoute: AuthenticatedPresencaRoute,
   AuthenticatedTurmasRoute: AuthenticatedTurmasRoute,
   AuthenticatedAlunosAlunoIdRoute: AuthenticatedAlunosAlunoIdRoute,
