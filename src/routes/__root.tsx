@@ -76,12 +76,21 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "JJ Manager — Gestão para academias de Jiu-Jitsu" },
+      { title: "Gestor BJJ — Gestão para academias de Jiu-Jitsu" },
       {
         name: "description",
         content:
           "Sistema completo para gestão de academias de Jiu-Jitsu: alunos, turmas, presença e financeiro.",
       },
+      { property: "og:title", content: "Gestor BJJ — Gestão para academias de Jiu-Jitsu" },
+      { name: "twitter:title", content: "Gestor BJJ — Gestão para academias de Jiu-Jitsu" },
+      { name: "description", content: "Supabase Jiu-Jitsu Connect manages student data, graduations, instructors, and class schedules for martial arts academies." },
+      { property: "og:description", content: "Supabase Jiu-Jitsu Connect manages student data, graduations, instructors, and class schedules for martial arts academies." },
+      { name: "twitter:description", content: "Supabase Jiu-Jitsu Connect manages student data, graduations, instructors, and class schedules for martial arts academies." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/0183b792-7f8d-4361-bd9d-a23c564a232a/id-preview-9ed68f12--3d17d3a0-8cfa-4b36-b1f7-a078f09ef85e.lovable.app-1779582061154.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/0183b792-7f8d-4361-bd9d-a23c564a232a/id-preview-9ed68f12--3d17d3a0-8cfa-4b36-b1f7-a078f09ef85e.lovable.app-1779582061154.png" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { property: "og:type", content: "website" },
     ],
     links: [{ rel: "stylesheet", href: appCss }],
   }),
