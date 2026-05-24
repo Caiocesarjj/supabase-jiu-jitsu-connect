@@ -40,33 +40,62 @@ const pastBeltSchema = z.object({
   notes: z.string().max(500).nullable().optional(),
 });
 
+const detailsSchema = {
+  fullName: z.string().trim().min(2).max(160),
+  belt: z.string().min(2).max(40),
+  degrees: z.number().int().min(0).max(10),
+  phone: z.string().trim().max(30).optional().nullable(),
+  email: z.string().trim().max(255).optional().nullable(),
+  notes: z.string().max(2000).optional().nullable(),
+  photoUrl: z.string().trim().max(500).optional().nullable(),
+  birthDate: z.string().min(10).max(10).optional().nullable(),
+  gender: z.string().max(40).optional().nullable(),
+  experienceYears: z.number().int().min(0).max(80).optional().nullable(),
+  certifications: z.array(z.string().min(1).max(60)).max(20).optional(),
+  specialties: z.array(z.string().min(1).max(60)).max(30).optional(),
+  contractType: z.string().max(40).optional().nullable(),
+  paymentModel: z.string().max(40).optional().nullable(),
+  hourlyRate: z.number().min(0).max(100000).optional().nullable(),
+  monthlySalary: z.number().min(0).max(1000000).optional().nullable(),
+  availability: z.array(z.string().min(1).max(40)).max(50).optional(),
+  active: z.boolean().optional(),
+};
+
+function toRow(data: z.infer<z.ZodObject<typeof detailsSchema>>) {
+  return {
+    full_name: data.fullName,
+    belt: data.belt,
+    degrees: data.degrees,
+    phone: data.phone || null,
+    email: data.email || null,
+    notes: data.notes || null,
+    photo_url: data.photoUrl || null,
+    birth_date: data.birthDate || null,
+    gender: data.gender || null,
+    experience_years: data.experienceYears ?? null,
+    certifications: data.certifications ?? [],
+    specialties: data.specialties ?? [],
+    contract_type: data.contractType || null,
+    payment_model: data.paymentModel || null,
+    hourly_rate: data.hourlyRate ?? null,
+    monthly_salary: data.monthlySalary ?? null,
+    availability: data.availability ?? [],
+    active: data.active ?? true,
+  };
+}
+
 export const createInstructor = createServerFn({ method: "POST" })
   .inputValidator((input) =>
     orgAuthSchema
-      .extend({
-        fullName: z.string().trim().min(2).max(160),
-        belt: z.string().min(2).max(40),
-        degrees: z.number().int().min(0).max(10),
-        phone: z.string().trim().max(30).optional().nullable(),
-        email: z.string().trim().max(255).optional().nullable(),
-        notes: z.string().max(2000).optional().nullable(),
-        pastBelts: z.array(pastBeltSchema).max(30).optional(),
-      })
+      .extend({ ...detailsSchema, pastBelts: z.array(pastBeltSchema).max(30).optional() })
       .parse(input),
   )
   .handler(async ({ data }) => {
     const { supabase } = await requireStaff(data.accessToken, data.organizationId);
+    const row = { organization_id: data.organizationId, ...toRow(data) };
     const { data: ins, error } = await supabase
       .from("instructors")
-      .insert({
-        organization_id: data.organizationId,
-        full_name: data.fullName,
-        belt: data.belt,
-        degrees: data.degrees,
-        phone: data.phone || null,
-        email: data.email || null,
-        notes: data.notes || null,
-      })
+      .insert(row)
       .select("id")
       .single();
     if (error) throw error;
@@ -89,29 +118,14 @@ export const createInstructor = createServerFn({ method: "POST" })
 export const updateInstructor = createServerFn({ method: "POST" })
   .inputValidator((input) =>
     orgAuthSchema
-      .extend({
-        instructorId: z.string().uuid(),
-        fullName: z.string().trim().min(2).max(160),
-        belt: z.string().min(2).max(40),
-        degrees: z.number().int().min(0).max(10),
-        phone: z.string().trim().max(30).optional().nullable(),
-        email: z.string().trim().max(255).optional().nullable(),
-        notes: z.string().max(2000).optional().nullable(),
-      })
+      .extend({ instructorId: z.string().uuid(), ...detailsSchema })
       .parse(input),
   )
   .handler(async ({ data }) => {
     const { supabase } = await requireStaff(data.accessToken, data.organizationId);
     const { error } = await supabase
       .from("instructors")
-      .update({
-        full_name: data.fullName,
-        belt: data.belt,
-        degrees: data.degrees,
-        phone: data.phone || null,
-        email: data.email || null,
-        notes: data.notes || null,
-      })
+      .update(toRow(data))
       .eq("id", data.instructorId)
       .eq("organization_id", data.organizationId);
     if (error) throw error;
