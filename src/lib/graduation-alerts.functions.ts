@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { createClient } from "@supabase/supabase-js";
+import { getAdminClient } from "@/lib/supabase-server";
 
 // Tempos mínimos por faixa (meses) — espelha src/lib/graduation.ts
 const MIN_MONTHS: Record<string, number> = {
@@ -31,10 +31,7 @@ function addMonths(dateStr: string, months: number): string {
 export const checkGraduationAlerts = createServerFn({ method: "GET" }).handler(
   async () => {
     // Admin client criado dentro do handler para garantir acesso ao process.env em runtime
-    const supabaseAdmin = createClient(
-      process.env.APP_SUPABASE_URL!,
-      process.env.APP_SUPABASE_SERVICE_ROLE_KEY!,
-    );
+    const supabaseAdmin = getAdminClient();
 
     const today = new Date().toISOString().split("T")[0];
     let processed = 0;

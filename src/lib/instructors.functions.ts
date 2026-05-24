@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
-import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { getUserClient } from "@/lib/supabase-server";
 
 const staffRoles = new Set(["admin", "instructor", "instrutor", "staff"]);
 const orgAuthSchema = z.object({
@@ -8,16 +8,9 @@ const orgAuthSchema = z.object({
   organizationId: z.string().uuid(),
 });
 
-function getAdminClient() {
-  const url = process.env.APP_SUPABASE_URL ?? process.env.SUPABASE_URL;
-  const key = process.env.APP_SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error("Supabase do servidor não configurado");
-  return createClient(url, key, { auth: { persistSession: false } });
-}
-
 async function requireStaff(accessToken: string, organizationId: string) {
-  const supabase = getAdminClient();
-  const { data: authData, error: authError } = await supabase.auth.getUser(accessToken);
+  const supabase = getUserClient(accessToken);
+  const { data: authData, error: authError } = await supabase.auth.getUser();
   if (authError || !authData.user) throw new Error("Sessão inválida. Faça login novamente.");
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
