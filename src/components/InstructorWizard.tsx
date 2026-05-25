@@ -121,6 +121,13 @@ export function InstructorWizard({ organizationId, initial, instructorId }: Prop
   const update = <K extends keyof InstructorFormData>(k: K, v: InstructorFormData[K]) =>
     setData((d) => ({ ...d, [k]: v }));
 
+  const parseNumber = (value: string) => {
+    const normalized = value.trim().replace(",", ".");
+    if (!normalized) return null;
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
   const toggleArr = (key: "certifications" | "specialties" | "availability", v: string) =>
     setData((d) => ({
       ...d,
@@ -197,18 +204,18 @@ export function InstructorWizard({ organizationId, initial, instructorId }: Prop
         photoUrl: photoUrl || null,
         birthDate: data.birthDate || null,
         gender: data.gender || null,
-        experienceYears: data.experienceYears ? Number(data.experienceYears) : null,
+        experienceYears: parseNumber(data.experienceYears),
         certifications: data.certifications,
         specialties: data.specialties,
         contractType: data.contractType || null,
         paymentModel: data.paymentModel,
         hourlyRate:
           data.paymentModel === "hourly" && data.hourlyRate
-            ? Number(data.hourlyRate)
+            ? parseNumber(data.hourlyRate)
             : null,
         monthlySalary:
           data.paymentModel === "monthly" && data.monthlySalary
-            ? Number(data.monthlySalary)
+            ? parseNumber(data.monthlySalary)
             : null,
         availability: data.availability,
       };
