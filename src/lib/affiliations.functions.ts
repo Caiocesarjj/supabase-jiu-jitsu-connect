@@ -287,8 +287,18 @@ export const listAffiliateStudents = createServerFn({ method: "POST" })
         .eq("root_id", data.organizationId)
         .eq("descendant_id", data.affiliateOrgId)
         .maybeSingle();
-      if (tErr) throw tErr;
-      if (!tree) throw new Error("Sem acesso a essa filial.");
+      if (tErr) console.warn("affiliation_tree indisponível ao listar alunos", tErr.message);
+      if (!tree) {
+        const { data: direct, error: directErr } = await supabase
+          .from("affiliations")
+          .select("id")
+          .eq("matrix_org_id", data.organizationId)
+          .eq("affiliate_org_id", data.affiliateOrgId)
+          .eq("status", "approved")
+          .maybeSingle();
+        if (directErr) throw directErr;
+        if (!direct) throw new Error("Sem acesso a essa filial.");
+      }
     }
 
     const { data: students, error: sErr } = await supabase
