@@ -331,7 +331,7 @@ export const listClassSchedules = createServerFn({ method: "POST" })
     const { data: rows, error } = await supabase
       .from("class_schedules")
       .select(
-        `id, name, weekday, start_time, duration_min, active, instructor_record_id, instructors ( id, full_name )`,
+        `id, name, weekday, start_time, duration_min, active, instructor_id, instructors ( id, full_name )`,
       )
       .eq("organization_id", data.organizationId)
       .eq("active", true)
@@ -403,10 +403,10 @@ export const saveClassSchedules = createServerFn({ method: "POST" })
       if (deactErr) throw deactErr;
 
       // Re-insert one active row per (day × instructor) using the new values
-      const rows: Array<typeof base & { weekday: number; instructor_record_id: string | null }> = [];
+      const rows: Array<typeof base & { weekday: number; instructor_id: string | null }> = [];
       for (const weekday of data.days) {
         for (const instructorId of instructorIds) {
-          rows.push({ ...base, weekday, instructor_record_id: instructorId });
+          rows.push({ ...base, weekday, instructor_id: instructorId });
         }
       }
       const { error: insErr } = await supabase.from("class_schedules").insert(rows);
@@ -414,10 +414,10 @@ export const saveClassSchedules = createServerFn({ method: "POST" })
       return { count: rows.length };
     }
 
-    const rows: Array<typeof base & { weekday: number; instructor_record_id: string | null }> = [];
+    const rows: Array<typeof base & { weekday: number; instructor_id: string | null }> = [];
     for (const weekday of data.days) {
       for (const instructorId of instructorIds) {
-        rows.push({ ...base, weekday, instructor_record_id: instructorId });
+        rows.push({ ...base, weekday, instructor_id: instructorId });
       }
     }
     const { error } = await supabase.from("class_schedules").insert(rows);
