@@ -283,7 +283,7 @@ function ScheduleModal({
       ? Array.from(
           new Set(
             siblings
-              .map((s) => s.instructor_record_id)
+              .map((s) => s.instructor_id)
               .filter((v): v is string => !!v),
           ),
         )
