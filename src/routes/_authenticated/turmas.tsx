@@ -46,7 +46,7 @@ interface Schedule {
   start_time: string;
   duration_min: number;
   active: boolean;
-  instructor_record_id?: string | null;
+  instructor_id?: string | null;
   instructors?: { full_name: string } | null;
 }
 
@@ -287,8 +287,8 @@ function ScheduleModal({
               .filter((v): v is string => !!v),
           ),
         )
-      : schedule?.instructor_record_id
-        ? [schedule.instructor_record_id]
+      : schedule?.instructor_id
+        ? [schedule.instructor_id]
         : [],
   );
   const toggleInstructor = (id: string) => {

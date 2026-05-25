@@ -169,7 +169,10 @@ export function InstructorWizard({ organizationId, initial, instructorId }: Prop
     const { error } = await supabase.storage
       .from("avatars")
       .upload(path, photoFile, { upsert: false, contentType: photoFile.type });
-    if (error) throw new Error("Falha ao enviar foto: " + error.message);
+    if (error) {
+      toast.warning("A foto não foi enviada, mas o instrutor será salvo sem imagem.");
+      return data.photoUrl || null;
+    }
     const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
     return pub.publicUrl;
   };
