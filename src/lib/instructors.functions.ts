@@ -84,6 +84,22 @@ function toRow(data: z.infer<z.ZodObject<typeof detailsSchema>>) {
   };
 }
 
+function toBasicRow(data: z.infer<z.ZodObject<typeof detailsSchema>>) {
+  return {
+    full_name: data.fullName,
+    belt: data.belt,
+    degrees: data.degrees,
+    phone: data.phone || null,
+    email: data.email || null,
+    notes: data.notes || null,
+  };
+}
+
+function isMissingColumnError(error: unknown) {
+  const message = error && typeof error === "object" && "message" in error ? String((error as { message?: unknown }).message) : String(error);
+  return message.includes("Could not find") || message.includes("column") || message.includes("schema cache");
+}
+
 export const createInstructor = createServerFn({ method: "POST" })
   .inputValidator((input) =>
     orgAuthSchema
@@ -93,11 +109,19 @@ export const createInstructor = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabase } = await requireStaff(data.accessToken, data.organizationId);
     const row = { organization_id: data.organizationId, ...toRow(data) };
-    const { data: ins, error } = await supabase
+    let insertRes = await supabase
       .from("instructors")
       .insert(row)
       .select("id")
       .single();
+    if (insertRes.error && isMissingColumnError(insertRes.error)) {
+      insertRes = await supabase
+        .from("instructors")
+        .insert({ organization_id: data.organizationId, ...toBasicRow(data) })
+        .select("id")
+        .single();
+    }
+    const { data: ins, error } = insertRes;
     if (error) throw error;
     if (data.pastBelts && data.pastBelts.length > 0) {
       const rows = data.pastBelts.map((b) => ({
@@ -123,11 +147,19 @@ export const updateInstructor = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { supabase } = await requireStaff(data.accessToken, data.organizationId);
-    const { error } = await supabase
+    let updateRes = await supabase
       .from("instructors")
       .update(toRow(data))
       .eq("id", data.instructorId)
       .eq("organization_id", data.organizationId);
+    if (updateRes.error && isMissingColumnError(updateRes.error)) {
+      updateRes = await supabase
+        .from("instructors")
+        .update(toBasicRow(data))
+        .eq("id", data.instructorId)
+        .eq("organization_id", data.organizationId);
+    }
+    const { error } = updateRes;
     if (error) throw error;
     return { ok: true };
   });
