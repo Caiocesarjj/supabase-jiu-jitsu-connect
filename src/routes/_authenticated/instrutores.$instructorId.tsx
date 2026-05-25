@@ -78,7 +78,7 @@ function InstructorProfilePage() {
         .from("class_schedules")
         .select("id, name, weekday, start_time, duration_min")
         .eq("organization_id", organizationId)
-        .eq("instructor_record_id", instructorId)
+        .eq("instructor_id", instructorId)
         .eq("active", true)
         .order("weekday")
         .order("start_time");

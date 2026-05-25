@@ -377,17 +377,17 @@ function InstructorsPanel({ organizationId }: { organizationId: string | null })
           .order("full_name"),
         supabase
           .from("class_schedules")
-          .select("instructor_record_id")
+          .select("instructor_id")
           .eq("organization_id", organizationId!)
           .eq("active", true),
       ]);
       const counts: Record<string, number> = {};
-      type SchedRow = { instructor_record_id: string | null };
+      type SchedRow = { instructor_id: string | null };
       type InsRow = { id: string; full_name: string; belt: Belt; degrees: number };
       const schedRows = (schRes.data ?? []) as SchedRow[];
       for (const row of schedRows) {
-        if (row.instructor_record_id)
-          counts[row.instructor_record_id] = (counts[row.instructor_record_id] ?? 0) + 1;
+        if (row.instructor_id)
+          counts[row.instructor_id] = (counts[row.instructor_id] ?? 0) + 1;
       }
       return {
         instructors: (insRes.data ?? []) as InsRow[],

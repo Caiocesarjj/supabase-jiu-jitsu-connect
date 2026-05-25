@@ -185,9 +185,22 @@ export const getConsolidatedStats = createServerFn({ method: "POST" })
       .from("affiliation_tree")
       .select("descendant_id, depth")
       .eq("root_id", data.organizationId);
-    if (tErr) throw tErr;
+    if (tErr) console.warn("affiliation_tree indisponível, usando affiliations aprovadas", tErr.message);
 
-    const descendantIds = (tree ?? []).map((r: any) => r.descendant_id as string);
+    const treeRows = tErr ? [] : (tree ?? []);
+    const { data: directApproved, error: directErr } = await supabase
+      .from("affiliations")
+      .select("affiliate_org_id")
+      .eq("matrix_org_id", data.organizationId)
+      .eq("status", "approved");
+    if (directErr) throw directErr;
+
+    const descendantIds = Array.from(
+      new Set([
+        ...treeRows.map((r: any) => r.descendant_id as string),
+        ...(directApproved ?? []).map((r: any) => r.affiliate_org_id as string),
+      ]),
+    );
     const orgIds = [data.organizationId, ...descendantIds];
 
     const { data: orgs, error: oErr } = await supabase
@@ -237,7 +250,7 @@ export const getConsolidatedStats = createServerFn({ method: "POST" })
         const overdueCount = isSelf ? (results[2]?.count ?? 0) : null;
         const depth = isSelf
           ? 0
-          : Number((tree ?? []).find((t: any) => t.descendant_id === id)?.depth ?? 1);
+          : Number(treeRows.find((t: any) => t.descendant_id === id)?.depth ?? 1);
         return {
           org: orgsMap.get(id) ?? { id, name: "—", slug: "" },
           depth,
@@ -274,8 +287,18 @@ export const listAffiliateStudents = createServerFn({ method: "POST" })
         .eq("root_id", data.organizationId)
         .eq("descendant_id", data.affiliateOrgId)
         .maybeSingle();
-      if (tErr) throw tErr;
-      if (!tree) throw new Error("Sem acesso a essa filial.");
+      if (tErr) console.warn("affiliation_tree indisponível ao listar alunos", tErr.message);
+      if (!tree) {
+        const { data: direct, error: directErr } = await supabase
+          .from("affiliations")
+          .select("id")
+          .eq("matrix_org_id", data.organizationId)
+          .eq("affiliate_org_id", data.affiliateOrgId)
+          .eq("status", "approved")
+          .maybeSingle();
+        if (directErr) throw directErr;
+        if (!direct) throw new Error("Sem acesso a essa filial.");
+      }
     }
 
     const { data: students, error: sErr } = await supabase
