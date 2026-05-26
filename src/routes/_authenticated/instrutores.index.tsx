@@ -236,6 +236,14 @@ function InstructorCardView({ instructor: i, onDelete }: { instructor: Instructo
         >
           Editar
         </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          title="Excluir"
+          onClick={onDelete}
+        >
+          <Trash2 className="h-4 w-4 text-destructive" />
+        </Button>
       </div>
     </div>
   );
