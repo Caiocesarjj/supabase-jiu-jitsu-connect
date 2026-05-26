@@ -74,6 +74,29 @@ function AlunosListPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [beltFilter, setBeltFilter] = useState<string>("all");
+  const [reload, setReload] = useState(0);
+  const [toDelete, setToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!toDelete || !organizationId) return;
+    setDeleting(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const accessToken = session.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida");
+      await deleteStudentRegistration({
+        data: { accessToken, organizationId, studentId: toDelete.id },
+      });
+      toast.success("Aluno excluído");
+      setToDelete(null);
+      setReload((r) => r + 1);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao excluir aluno");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchRaw), 300);
