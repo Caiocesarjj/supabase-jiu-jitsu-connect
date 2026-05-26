@@ -37,6 +37,9 @@ function InstructorsPage() {
   const { organizationId } = useAuth();
   const [loading, setLoading] = useState(true);
   const [instructors, setInstructors] = useState<InstructorCard[]>([]);
+  const [reload, setReload] = useState(0);
+  const [toDelete, setToDelete] = useState<InstructorCard | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!organizationId) return;
@@ -58,7 +61,27 @@ function InstructorsPage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId]);
+  }, [organizationId, reload]);
+
+  const handleDelete = async () => {
+    if (!toDelete || !organizationId) return;
+    setDeleting(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const accessToken = session.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida");
+      await deleteInstructor({
+        data: { accessToken, organizationId, instructorId: toDelete.id },
+      });
+      toast.success("Instrutor excluído");
+      setToDelete(null);
+      setReload((r) => r + 1);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao excluir instrutor");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   if (loading) {
     return (
