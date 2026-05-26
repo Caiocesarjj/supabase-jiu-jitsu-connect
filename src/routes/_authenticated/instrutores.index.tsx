@@ -119,9 +119,21 @@ function InstructorsPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {instructors.map((i) => (
-            <InstructorCardView key={i.id} instructor={i} />
+            <InstructorCardView key={i.id} instructor={i} onDelete={() => setToDelete(i)} />
           ))}
         </div>
+      )}
+
+      {toDelete && (
+        <ConfirmModal
+          open={!!toDelete}
+          onOpenChange={(o) => !o && !deleting && setToDelete(null)}
+          title={`Excluir "${toDelete.full_name}"?`}
+          description="Esta ação remove o instrutor e seu histórico de faixas. Não pode ser desfeita."
+          confirmLabel={deleting ? "Excluindo..." : "Excluir"}
+          destructive
+          onConfirm={handleDelete}
+        />
       )}
     </div>
   );
