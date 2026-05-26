@@ -128,7 +128,7 @@ function AlunosListPage() {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [organizationId]);
+  }, [organizationId, reload]);
 
   const activeCount = students.filter((s) => s.status === "active").length;
 
