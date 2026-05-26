@@ -139,7 +139,7 @@ function InstructorsPage() {
   );
 }
 
-function InstructorCardView({ instructor: i }: { instructor: InstructorCard }) {
+function InstructorCardView({ instructor: i, onDelete }: { instructor: InstructorCard; onDelete: () => void }) {
   const navigate = useNavigate();
   const specs = i.specialties ?? [];
   const visible = specs.slice(0, 3);
