@@ -28,6 +28,8 @@ import {
 import type { Belt } from "@/types/database";
 import { getBeltLabel } from "@/lib/graduation";
 import { getWeightCategory, formatShortCategory } from "@/lib/weight-category";
+import { ConfirmModal } from "@/components/ConfirmModal";
+import { deleteStudentRegistration } from "@/lib/registrations.functions";
 
 export const Route = createFileRoute("/_authenticated/alunos/")({
   component: AlunosListPage,
