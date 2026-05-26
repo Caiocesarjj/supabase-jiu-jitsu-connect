@@ -304,25 +304,48 @@ function AlunosListPage() {
               const name = s.profiles?.full_name ?? "Sem nome";
               const grad = Array.isArray(s.graduations) ? s.graduations[0] : s.graduations;
               return (
-                <button
+                <div
                   key={s.id}
-                  onClick={() => navigate({ to: "/alunos/$alunoId", params: { alunoId: s.id } })}
-                  className="w-full text-left flex items-center gap-3 rounded-lg border bg-card p-3 hover:bg-muted/50"
+                  className="flex items-center gap-2 rounded-lg border bg-card p-3 hover:bg-muted/50"
                 >
-                  <Avatar name={name} size={40} />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">{name}</div>
-                    <div className="mt-1 flex items-center gap-2">
-                      <BeltBadge belt={grad?.belt ?? "branca"} size="sm" showLabel={false} />
-                      <StatusPill status={s.status} />
+                  <button
+                    onClick={() => navigate({ to: "/alunos/$alunoId", params: { alunoId: s.id } })}
+                    className="flex flex-1 items-center gap-3 text-left min-w-0"
+                  >
+                    <Avatar name={name} size={40} />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">{name}</div>
+                      <div className="mt-1 flex items-center gap-2">
+                        <BeltBadge belt={grad?.belt ?? "branca"} size="sm" showLabel={false} />
+                        <StatusPill status={s.status} />
+                      </div>
                     </div>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </button>
+                  </button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    title="Excluir"
+                    onClick={() => setToDelete({ id: s.id, name })}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
               );
             })}
           </div>
         </>
+      )}
+
+      {toDelete && (
+        <ConfirmModal
+          open={!!toDelete}
+          onOpenChange={(o) => !o && !deleting && setToDelete(null)}
+          title={`Excluir "${toDelete.name}"?`}
+          description="O aluno será removido. Esta ação não pode ser desfeita."
+          confirmLabel={deleting ? "Excluindo..." : "Excluir"}
+          destructive
+          onConfirm={handleDelete}
+        />
       )}
     </div>
   );
