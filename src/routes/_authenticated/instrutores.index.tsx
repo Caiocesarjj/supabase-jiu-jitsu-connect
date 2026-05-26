@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { UserPlus, UserCheck, Mail, Phone, Check } from "lucide-react";
+import { UserPlus, UserCheck, Mail, Phone, Check, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,6 +9,8 @@ import { EmptyState } from "@/components/EmptyState";
 import { BeltBadge } from "@/components/BeltBadge";
 import { Avatar } from "@/components/Avatar";
 import { Button } from "@/components/ui/button";
+import { ConfirmModal } from "@/components/ConfirmModal";
+import { deleteInstructor } from "@/lib/instructors.functions";
 import type { Belt } from "@/types/database";
 
 export const Route = createFileRoute("/_authenticated/instrutores/")({
