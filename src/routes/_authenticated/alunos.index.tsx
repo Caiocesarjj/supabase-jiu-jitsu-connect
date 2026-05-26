@@ -276,7 +276,20 @@ function AlunosListPage() {
                       </TableCell>
                       <TableCell><StatusPill status={s.status} /></TableCell>
                       <TableCell>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            title="Excluir"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setToDelete({ id: s.id, name: s.profiles?.full_name ?? "aluno" });
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
