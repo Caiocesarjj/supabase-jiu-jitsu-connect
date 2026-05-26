@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { UserPlus, ChevronRight, Users, Search } from "lucide-react";
+import { UserPlus, ChevronRight, Users, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
@@ -28,6 +28,8 @@ import {
 import type { Belt } from "@/types/database";
 import { getBeltLabel } from "@/lib/graduation";
 import { getWeightCategory, formatShortCategory } from "@/lib/weight-category";
+import { ConfirmModal } from "@/components/ConfirmModal";
+import { deleteStudentRegistration } from "@/lib/registrations.functions";
 
 export const Route = createFileRoute("/_authenticated/alunos/")({
   component: AlunosListPage,
@@ -72,6 +74,29 @@ function AlunosListPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [beltFilter, setBeltFilter] = useState<string>("all");
+  const [reload, setReload] = useState(0);
+  const [toDelete, setToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!toDelete || !organizationId) return;
+    setDeleting(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const accessToken = session.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida");
+      await deleteStudentRegistration({
+        data: { accessToken, organizationId, studentId: toDelete.id },
+      });
+      toast.success("Aluno excluído");
+      setToDelete(null);
+      setReload((r) => r + 1);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao excluir aluno");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchRaw), 300);
@@ -103,7 +128,7 @@ function AlunosListPage() {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [organizationId]);
+  }, [organizationId, reload]);
 
   const activeCount = students.filter((s) => s.status === "active").length;
 
@@ -251,7 +276,20 @@ function AlunosListPage() {
                       </TableCell>
                       <TableCell><StatusPill status={s.status} /></TableCell>
                       <TableCell>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            title="Excluir"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setToDelete({ id: s.id, name: s.profiles?.full_name ?? "aluno" });
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -266,25 +304,48 @@ function AlunosListPage() {
               const name = s.profiles?.full_name ?? "Sem nome";
               const grad = Array.isArray(s.graduations) ? s.graduations[0] : s.graduations;
               return (
-                <button
+                <div
                   key={s.id}
-                  onClick={() => navigate({ to: "/alunos/$alunoId", params: { alunoId: s.id } })}
-                  className="w-full text-left flex items-center gap-3 rounded-lg border bg-card p-3 hover:bg-muted/50"
+                  className="flex items-center gap-2 rounded-lg border bg-card p-3 hover:bg-muted/50"
                 >
-                  <Avatar name={name} size={40} />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">{name}</div>
-                    <div className="mt-1 flex items-center gap-2">
-                      <BeltBadge belt={grad?.belt ?? "branca"} size="sm" showLabel={false} />
-                      <StatusPill status={s.status} />
+                  <button
+                    onClick={() => navigate({ to: "/alunos/$alunoId", params: { alunoId: s.id } })}
+                    className="flex flex-1 items-center gap-3 text-left min-w-0"
+                  >
+                    <Avatar name={name} size={40} />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">{name}</div>
+                      <div className="mt-1 flex items-center gap-2">
+                        <BeltBadge belt={grad?.belt ?? "branca"} size="sm" showLabel={false} />
+                        <StatusPill status={s.status} />
+                      </div>
                     </div>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </button>
+                  </button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    title="Excluir"
+                    onClick={() => setToDelete({ id: s.id, name })}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
               );
             })}
           </div>
         </>
+      )}
+
+      {toDelete && (
+        <ConfirmModal
+          open={!!toDelete}
+          onOpenChange={(o) => !o && !deleting && setToDelete(null)}
+          title={`Excluir "${toDelete.name}"?`}
+          description="O aluno será removido. Esta ação não pode ser desfeita."
+          confirmLabel={deleting ? "Excluindo..." : "Excluir"}
+          destructive
+          onConfirm={handleDelete}
+        />
       )}
     </div>
   );

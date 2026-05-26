@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { UserPlus, UserCheck, Mail, Phone, Check } from "lucide-react";
+import { UserPlus, UserCheck, Mail, Phone, Check, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,6 +9,8 @@ import { EmptyState } from "@/components/EmptyState";
 import { BeltBadge } from "@/components/BeltBadge";
 import { Avatar } from "@/components/Avatar";
 import { Button } from "@/components/ui/button";
+import { ConfirmModal } from "@/components/ConfirmModal";
+import { deleteInstructor } from "@/lib/instructors.functions";
 import type { Belt } from "@/types/database";
 
 export const Route = createFileRoute("/_authenticated/instrutores/")({
@@ -35,6 +37,9 @@ function InstructorsPage() {
   const { organizationId } = useAuth();
   const [loading, setLoading] = useState(true);
   const [instructors, setInstructors] = useState<InstructorCard[]>([]);
+  const [reload, setReload] = useState(0);
+  const [toDelete, setToDelete] = useState<InstructorCard | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!organizationId) return;
@@ -56,7 +61,27 @@ function InstructorsPage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId]);
+  }, [organizationId, reload]);
+
+  const handleDelete = async () => {
+    if (!toDelete || !organizationId) return;
+    setDeleting(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const accessToken = session.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida");
+      await deleteInstructor({
+        data: { accessToken, organizationId, instructorId: toDelete.id },
+      });
+      toast.success("Instrutor excluído");
+      setToDelete(null);
+      setReload((r) => r + 1);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao excluir instrutor");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -94,15 +119,27 @@ function InstructorsPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {instructors.map((i) => (
-            <InstructorCardView key={i.id} instructor={i} />
+            <InstructorCardView key={i.id} instructor={i} onDelete={() => setToDelete(i)} />
           ))}
         </div>
+      )}
+
+      {toDelete && (
+        <ConfirmModal
+          open={!!toDelete}
+          onOpenChange={(o) => !o && !deleting && setToDelete(null)}
+          title={`Excluir "${toDelete.full_name}"?`}
+          description="Esta ação remove o instrutor e seu histórico de faixas. Não pode ser desfeita."
+          confirmLabel={deleting ? "Excluindo..." : "Excluir"}
+          destructive
+          onConfirm={handleDelete}
+        />
       )}
     </div>
   );
 }
 
-function InstructorCardView({ instructor: i }: { instructor: InstructorCard }) {
+function InstructorCardView({ instructor: i, onDelete }: { instructor: InstructorCard; onDelete: () => void }) {
   const navigate = useNavigate();
   const specs = i.specialties ?? [];
   const visible = specs.slice(0, 3);
@@ -198,6 +235,14 @@ function InstructorCardView({ instructor: i }: { instructor: InstructorCard }) {
           }
         >
           Editar
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          title="Excluir"
+          onClick={onDelete}
+        >
+          <Trash2 className="h-4 w-4 text-destructive" />
         </Button>
       </div>
     </div>
