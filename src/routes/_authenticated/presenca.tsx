@@ -51,7 +51,8 @@ function PresencaPage() {
   const { organizationId } = useAuth();
   const saveAttendance = useServerFn(saveAttendanceRegistration);
   const [schedules, setSchedules] = useState<ScheduleOption[]>([]);
-  const [students, setStudents] = useState<AttendanceStudent[]>([]);
+  const [allStudents, setAllStudents] = useState<AttendanceStudent[]>([]);
+  const [enrolledIds, setEnrolledIds] = useState<Set<string> | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedScheduleId, setSelectedScheduleId] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<string>(todayISO());
