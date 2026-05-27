@@ -59,6 +59,19 @@ function PresencaPage() {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [selectedClassName, setSelectedClassName] = useState<string>("");
+
+  const classNames = useMemo(
+    () => Array.from(new Set(schedules.map((s) => s.name))).sort(),
+    [schedules],
+  );
+  const schedulesForClass = useMemo(
+    () =>
+      schedules
+        .filter((s) => s.name === selectedClassName)
+        .sort((a, b) => a.weekday - b.weekday || a.start_time.localeCompare(b.start_time)),
+    [schedules, selectedClassName],
+  );
 
   const students = useMemo<AttendanceStudent[]>(() => {
     if (!selectedScheduleId) return [];
