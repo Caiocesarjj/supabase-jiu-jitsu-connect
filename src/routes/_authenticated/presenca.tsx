@@ -60,6 +60,13 @@ function PresencaPage() {
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const students = useMemo<AttendanceStudent[]>(() => {
+    if (!selectedScheduleId) return [];
+    if (!enrolledIds) return [];
+    return allStudents.filter((s) => enrolledIds.has(s.id));
+  }, [allStudents, enrolledIds, selectedScheduleId]);
+
+
   useEffect(() => {
     if (!organizationId) return;
     let cancelled = false;
