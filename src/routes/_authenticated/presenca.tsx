@@ -213,21 +213,47 @@ function PresencaPage() {
       <h1 className="text-2xl font-semibold">Presença</h1>
 
       <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4">
-        <div className="min-w-[220px]">
+        <div className="min-w-[200px]">
           <Label>Turma</Label>
-          <Select value={selectedScheduleId} onValueChange={setSelectedScheduleId}>
+          <Select
+            value={selectedClassName}
+            onValueChange={(v) => {
+              setSelectedClassName(v);
+              setSelectedScheduleId("");
+            }}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Selecione a turma" />
             </SelectTrigger>
             <SelectContent>
-              {schedules.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.name} — {WEEKDAYS[s.weekday]} {s.start_time?.slice(0, 5)}
+              {classNames.map((name) => (
+                <SelectItem key={name} value={name}>
+                  {name}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
+        <div className="min-w-[200px]">
+          <Label>Dia / Horário</Label>
+          <Select
+            value={selectedScheduleId}
+            onValueChange={setSelectedScheduleId}
+            disabled={!selectedClassName}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione o dia" />
+            </SelectTrigger>
+            <SelectContent>
+              {schedulesForClass.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {WEEKDAYS[s.weekday]} — {s.start_time?.slice(0, 5)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div>
           <Label>Data</Label>
           <Input
