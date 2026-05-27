@@ -103,6 +103,33 @@ function PresencaPage() {
     };
   }, [organizationId]);
 
+  // Load enrolled students for the selected schedule
+  useEffect(() => {
+    if (!organizationId || !selectedScheduleId) {
+      setEnrolledIds(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("student_class_enrollments")
+        .select("student_id")
+        .eq("organization_id", organizationId)
+        .eq("schedule_id", selectedScheduleId);
+      if (cancelled) return;
+      if (error) {
+        toast.error("Erro ao carregar matrículas da turma");
+        setEnrolledIds(new Set());
+        return;
+      }
+      setEnrolledIds(new Set((data ?? []).map((r: { student_id: string }) => r.student_id)));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [organizationId, selectedScheduleId]);
+
+
   // Load existing attendance and initialize checks
   useEffect(() => {
     if (!organizationId || !selectedScheduleId || !selectedDate) return;
