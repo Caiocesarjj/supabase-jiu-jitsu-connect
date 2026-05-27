@@ -88,7 +88,7 @@ function PresencaPage() {
           (a.profiles?.full_name ?? "").localeCompare(b.profiles?.full_name ?? ""),
         );
       setSchedules((sch.data as ScheduleOption[] | null) ?? []);
-      setStudents(studentList);
+      setAllStudents(studentList);
       setLoading(false);
     })();
     return () => {
