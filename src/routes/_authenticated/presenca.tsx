@@ -51,13 +51,21 @@ function PresencaPage() {
   const { organizationId } = useAuth();
   const saveAttendance = useServerFn(saveAttendanceRegistration);
   const [schedules, setSchedules] = useState<ScheduleOption[]>([]);
-  const [students, setStudents] = useState<AttendanceStudent[]>([]);
+  const [allStudents, setAllStudents] = useState<AttendanceStudent[]>([]);
+  const [enrolledIds, setEnrolledIds] = useState<Set<string> | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedScheduleId, setSelectedScheduleId] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<string>(todayISO());
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const students = useMemo<AttendanceStudent[]>(() => {
+    if (!selectedScheduleId) return [];
+    if (!enrolledIds) return [];
+    return allStudents.filter((s) => enrolledIds.has(s.id));
+  }, [allStudents, enrolledIds, selectedScheduleId]);
+
 
   useEffect(() => {
     if (!organizationId) return;
@@ -87,13 +95,40 @@ function PresencaPage() {
           (a.profiles?.full_name ?? "").localeCompare(b.profiles?.full_name ?? ""),
         );
       setSchedules((sch.data as ScheduleOption[] | null) ?? []);
-      setStudents(studentList);
+      setAllStudents(studentList);
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
   }, [organizationId]);
+
+  // Load enrolled students for the selected schedule
+  useEffect(() => {
+    if (!organizationId || !selectedScheduleId) {
+      setEnrolledIds(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("student_class_enrollments")
+        .select("student_id")
+        .eq("organization_id", organizationId)
+        .eq("schedule_id", selectedScheduleId);
+      if (cancelled) return;
+      if (error) {
+        toast.error("Erro ao carregar matrículas da turma");
+        setEnrolledIds(new Set());
+        return;
+      }
+      setEnrolledIds(new Set((data ?? []).map((r: { student_id: string }) => r.student_id)));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [organizationId, selectedScheduleId]);
+
 
   // Load existing attendance and initialize checks
   useEffect(() => {
