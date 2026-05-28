@@ -200,6 +200,7 @@ function SaveButton({ saving }: { saving: boolean }) {
 }
 
 function AcademySection({ org, onSaved }: { org: Org; onSaved: () => Promise<void> }) {
+  const updateAcademy = useServerFn(updateAcademyConfig);
   const [name, setName] = useState(org.name);
   const [phone, setPhone] = useState(org.phone ?? "");
   const [email, setEmail] = useState(org.email);
@@ -208,16 +209,19 @@ function AcademySection({ org, onSaved }: { org: Org; onSaved: () => Promise<voi
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    const { error } = await supabase
-      .from("organizations")
-      .update({ name, phone, email })
-      .eq("id", org.id);
-    setSaving(false);
-    if (error) toast.error(error.message);
-    else {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida. Faça login novamente.");
+      await updateAcademy({
+        data: { accessToken, organizationId: org.id, name, phone: phone || null, email },
+      });
       toast.success("Academia atualizada.");
       await onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar.");
     }
+    setSaving(false);
   };
 
   return (
@@ -265,6 +269,7 @@ function AcademySection({ org, onSaved }: { org: Org; onSaved: () => Promise<voi
     </form>
   );
 }
+
 
 function PlanSection({ org }: { org: Org }) {
   const plan = org.plan ?? "starter";
