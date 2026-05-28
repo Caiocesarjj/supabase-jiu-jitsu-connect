@@ -647,25 +647,7 @@ export const updateWhatsappConfig = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-    orgAuthSchema
-      .extend({
-        whatsappNotifications: z.boolean(),
-        botbotToken: z.string().nullable().optional(),
-        chargeReminderDays: z.array(z.number().int().min(-30).max(30)).max(10),
-      })
-      .parse(input),
-  )
-  .handler(async ({ data }) => {
-    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
-    const { error } = await supabase.from("organization_settings").upsert({
-      organization_id: data.organizationId,
-      whatsapp_notifications: data.whatsappNotifications,
-      botbot_token: data.whatsappNotifications ? data.botbotToken || null : null,
-      charge_reminder_days: data.whatsappNotifications ? data.chargeReminderDays : [],
-    });
-    if (error) throw error;
-    return { ok: true };
-  });
+
 
 // ============================================================
 // Student × Class enrollments
