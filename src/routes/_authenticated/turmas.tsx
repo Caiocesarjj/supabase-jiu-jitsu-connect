@@ -218,13 +218,14 @@ function TurmasPage() {
         <ConfirmModal
           open={!!confirmDel}
           onOpenChange={(o) => !o && setConfirmDel(null)}
-          title={`Desativar a turma "${confirmDel.name}"?`}
-          description="Os registros de presença serão mantidos."
-          confirmLabel="Desativar"
+          title={`Excluir a turma "${confirmDel.name}"?`}
+          description="A turma e seus registros de presença e matrículas serão excluídos permanentemente."
+          confirmLabel="Excluir"
           destructive
           onConfirm={handleDeactivate}
         />
       )}
+
 
       {studentsModal && (
         <ClassStudentsModal
