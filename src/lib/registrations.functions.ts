@@ -568,6 +568,26 @@ export const getOrganizationConfig = createServerFn({ method: "POST" })
     let settings = settingsRes.data;
 
     if (!settings) {
+      const { data: created, error: createError } = await supabase
+        .from("organization_settings")
+        .insert({
+          organization_id: organizationId,
+          monthly_fee_default: 200,
+          due_day: 10,
+          whatsapp_notifications: false,
+          botbot_token: null,
+          charge_reminder_days: [],
+        })
+        .select("*")
+        .single();
+      if (createError) throw createError;
+      settings = created;
+    }
+
+    return { org, settings };
+  });
+
+
 export const updateAcademyConfig = createServerFn({ method: "POST" })
   .inputValidator((input) =>
     orgAuthSchema
