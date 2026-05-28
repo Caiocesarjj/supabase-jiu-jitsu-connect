@@ -404,6 +404,7 @@ function WhatsappSection({
   const [dZero, setDZero] = useState(initialDays.includes(0));
   const [dPlus3, setDPlus3] = useState(initialDays.includes(3));
   const [saving, setSaving] = useState(false);
+  const updateWhatsapp = useServerFn(updateWhatsappConfig);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -411,21 +412,27 @@ function WhatsappSection({
     const days = [dMinus3 ? -3 : null, dZero ? 0 : null, dPlus3 ? 3 : null].filter(
       (v): v is number => v !== null,
     );
-    const { error } = await supabase
-      .from("organization_settings")
-      .update({
-        whatsapp_notifications: enabled,
-        botbot_token: enabled ? token : null,
-        charge_reminder_days: enabled ? days : [],
-      })
-      .eq("organization_id", organizationId);
-    setSaving(false);
-    if (error) toast.error(error.message);
-    else {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida. Faça login novamente.");
+      await updateWhatsapp({
+        data: {
+          accessToken,
+          organizationId,
+          whatsappNotifications: enabled,
+          botbotToken: enabled ? token : null,
+          chargeReminderDays: enabled ? days : [],
+        },
+      });
       toast.success("Notificações atualizadas.");
       await onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar.");
     }
+    setSaving(false);
   };
+
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
