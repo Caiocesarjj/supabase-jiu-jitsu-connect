@@ -437,18 +437,37 @@ export const deactivateClassSchedule = createServerFn({ method: "POST" })
       .eq("organization_id", data.organizationId)
       .single();
     if (fetchErr) throw fetchErr;
-    // Deactivate the whole sibling group
-    const { error } = await supabase
+    // Find all sibling schedule ids
+    const { data: sibs, error: sibErr } = await supabase
       .from("class_schedules")
-      .update({ active: false })
+      .select("id")
       .eq("organization_id", data.organizationId)
       .eq("name", original.name)
       .eq("start_time", original.start_time)
-      .eq("duration_min", original.duration_min)
-      .eq("active", true);
+      .eq("duration_min", original.duration_min);
+    if (sibErr) throw sibErr;
+    const ids = (sibs ?? []).map((s: { id: string }) => s.id);
+    if (ids.length === 0) return { ok: true };
+    // Delete dependent rows first
+    await supabase
+      .from("attendance")
+      .delete()
+      .eq("organization_id", data.organizationId)
+      .in("schedule_id", ids);
+    await supabase
+      .from("student_class_enrollments")
+      .delete()
+      .eq("organization_id", data.organizationId)
+      .in("schedule_id", ids);
+    const { error } = await supabase
+      .from("class_schedules")
+      .delete()
+      .eq("organization_id", data.organizationId)
+      .in("id", ids);
     if (error) throw error;
     return { ok: true };
   });
+
 
 export const saveAttendanceRegistration = createServerFn({ method: "POST" })
   .inputValidator((input) =>
