@@ -568,25 +568,6 @@ export const getOrganizationConfig = createServerFn({ method: "POST" })
     let settings = settingsRes.data;
 
     if (!settings) {
-      const { data: created, error: createError } = await supabase
-        .from("organization_settings")
-        .insert({
-          organization_id: organizationId,
-          monthly_fee_default: 200,
-          due_day: 10,
-          whatsapp_notifications: false,
-          botbot_token: null,
-          charge_reminder_days: [],
-        })
-        .select("*")
-        .single();
-      if (createError) throw createError;
-      settings = created;
-    }
-
-    return { org, settings };
-  });
-
 export const updateAcademyConfig = createServerFn({ method: "POST" })
   .inputValidator((input) =>
     orgAuthSchema
@@ -598,8 +579,9 @@ export const updateAcademyConfig = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
-    const { error } = await supabase
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+    const { error } = await admin
       .from("organizations")
       .update({ name: data.name, phone: data.phone || null, email: data.email })
       .eq("id", data.organizationId);
@@ -619,20 +601,52 @@ export const updateFinancialConfig = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
-    const { error } = await supabase.from("organization_settings").upsert({
-      organization_id: data.organizationId,
-      monthly_fee_default: data.monthlyFeeDefault,
-      due_day: data.dueDay,
-      pix_key_type: data.pixKeyType || null,
-      pix_key: data.pixKey || null,
-    });
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+    const { error } = await admin
+      .from("organization_settings")
+      .upsert(
+        {
+          organization_id: data.organizationId,
+          monthly_fee_default: data.monthlyFeeDefault,
+          due_day: data.dueDay,
+          pix_key_type: data.pixKeyType || null,
+          pix_key: data.pixKey || null,
+        },
+        { onConflict: "organization_id" },
+      );
     if (error) throw error;
     return { ok: true };
   });
 
 export const updateWhatsappConfig = createServerFn({ method: "POST" })
   .inputValidator((input) =>
+    orgAuthSchema
+      .extend({
+        whatsappNotifications: z.boolean(),
+        botbotToken: z.string().nullable().optional(),
+        chargeReminderDays: z.array(z.number().int().min(-30).max(30)).max(10),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+    const { error } = await admin
+      .from("organization_settings")
+      .upsert(
+        {
+          organization_id: data.organizationId,
+          whatsapp_notifications: data.whatsappNotifications,
+          botbot_token: data.whatsappNotifications ? data.botbotToken || null : null,
+          charge_reminder_days: data.whatsappNotifications ? data.chargeReminderDays : [],
+        },
+        { onConflict: "organization_id" },
+      );
+    if (error) throw error;
+    return { ok: true };
+  });
+
     orgAuthSchema
       .extend({
         whatsappNotifications: z.boolean(),
