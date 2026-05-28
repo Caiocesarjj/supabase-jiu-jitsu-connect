@@ -109,13 +109,14 @@ function TurmasPage() {
       if (!accessToken || !organizationId)
         throw new Error("Sessão inválida. Faça login novamente.");
       await deactivateSchedule({ data: { accessToken, organizationId, id: confirmDel.id } });
-      toast.success("Turma desativada");
+      toast.success("Turma excluída");
       setReload((r) => r + 1);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao desativar turma");
+      toast.error(err instanceof Error ? err.message : "Erro ao excluir turma");
     }
     setConfirmDel(null);
   };
+
 
   if (loading) {
     return (
@@ -218,13 +219,14 @@ function TurmasPage() {
         <ConfirmModal
           open={!!confirmDel}
           onOpenChange={(o) => !o && setConfirmDel(null)}
-          title={`Desativar a turma "${confirmDel.name}"?`}
-          description="Os registros de presença serão mantidos."
-          confirmLabel="Desativar"
+          title={`Excluir a turma "${confirmDel.name}"?`}
+          description="A turma e seus registros de presença e matrículas serão excluídos permanentemente."
+          confirmLabel="Excluir"
           destructive
           onConfirm={handleDeactivate}
         />
       )}
+
 
       {studentsModal && (
         <ClassStudentsModal

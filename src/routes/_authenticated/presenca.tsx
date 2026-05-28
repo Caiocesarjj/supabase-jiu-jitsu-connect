@@ -65,20 +65,23 @@ function PresencaPage() {
     () => Array.from(new Set(schedules.map((s) => s.name))).sort(),
     [schedules],
   );
-  const schedulesForClass = useMemo(
-    () =>
-      schedules
-        .filter((s) => s.name === selectedClassName)
-        .sort((a, b) => a.weekday - b.weekday || a.start_time.localeCompare(b.start_time)),
-    [schedules, selectedClassName],
-  );
+  const schedulesForClass = useMemo(() => {
+    const seen = new Set<string>();
+    const out: ScheduleOption[] = [];
+    for (const s of schedules.filter((s) => s.name === selectedClassName)) {
+      const key = `${s.weekday}|${s.start_time}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(s);
+    }
+    return out.sort((a, b) => a.weekday - b.weekday || a.start_time.localeCompare(b.start_time));
+  }, [schedules, selectedClassName]);
 
   const students = useMemo<AttendanceStudent[]>(() => {
     if (!selectedScheduleId) return [];
     if (!enrolledIds) return [];
     return allStudents.filter((s) => enrolledIds.has(s.id));
   }, [allStudents, enrolledIds, selectedScheduleId]);
-
 
   useEffect(() => {
     if (!organizationId) return;
@@ -88,6 +91,7 @@ function PresencaPage() {
       const [sch, st] = await Promise.all([
         supabase
           .from("class_schedules")
+
           .select("id, name, weekday, start_time, duration_min")
           .eq("organization_id", organizationId)
           .eq("active", true)

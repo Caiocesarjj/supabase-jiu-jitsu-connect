@@ -437,18 +437,37 @@ export const deactivateClassSchedule = createServerFn({ method: "POST" })
       .eq("organization_id", data.organizationId)
       .single();
     if (fetchErr) throw fetchErr;
-    // Deactivate the whole sibling group
-    const { error } = await supabase
+    // Find all sibling schedule ids
+    const { data: sibs, error: sibErr } = await supabase
       .from("class_schedules")
-      .update({ active: false })
+      .select("id")
       .eq("organization_id", data.organizationId)
       .eq("name", original.name)
       .eq("start_time", original.start_time)
-      .eq("duration_min", original.duration_min)
-      .eq("active", true);
+      .eq("duration_min", original.duration_min);
+    if (sibErr) throw sibErr;
+    const ids = (sibs ?? []).map((s: { id: string }) => s.id);
+    if (ids.length === 0) return { ok: true };
+    // Delete dependent rows first
+    await supabase
+      .from("attendance")
+      .delete()
+      .eq("organization_id", data.organizationId)
+      .in("schedule_id", ids);
+    await supabase
+      .from("student_class_enrollments")
+      .delete()
+      .eq("organization_id", data.organizationId)
+      .in("schedule_id", ids);
+    const { error } = await supabase
+      .from("class_schedules")
+      .delete()
+      .eq("organization_id", data.organizationId)
+      .in("id", ids);
     if (error) throw error;
     return { ok: true };
   });
+
 
 export const saveAttendanceRegistration = createServerFn({ method: "POST" })
   .inputValidator((input) =>
@@ -568,6 +587,7 @@ export const getOrganizationConfig = createServerFn({ method: "POST" })
     return { org, settings };
   });
 
+
 export const updateAcademyConfig = createServerFn({ method: "POST" })
   .inputValidator((input) =>
     orgAuthSchema
@@ -579,8 +599,9 @@ export const updateAcademyConfig = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
-    const { error } = await supabase
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+    const { error } = await admin
       .from("organizations")
       .update({ name: data.name, phone: data.phone || null, email: data.email })
       .eq("id", data.organizationId);
@@ -600,14 +621,20 @@ export const updateFinancialConfig = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
-    const { error } = await supabase.from("organization_settings").upsert({
-      organization_id: data.organizationId,
-      monthly_fee_default: data.monthlyFeeDefault,
-      due_day: data.dueDay,
-      pix_key_type: data.pixKeyType || null,
-      pix_key: data.pixKey || null,
-    });
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+    const { error } = await admin
+      .from("organization_settings")
+      .upsert(
+        {
+          organization_id: data.organizationId,
+          monthly_fee_default: data.monthlyFeeDefault,
+          due_day: data.dueDay,
+          pix_key_type: data.pixKeyType || null,
+          pix_key: data.pixKey || null,
+        },
+        { onConflict: "organization_id" },
+      );
     if (error) throw error;
     return { ok: true };
   });
@@ -623,16 +650,24 @@ export const updateWhatsappConfig = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
-    const { error } = await supabase.from("organization_settings").upsert({
-      organization_id: data.organizationId,
-      whatsapp_notifications: data.whatsappNotifications,
-      botbot_token: data.whatsappNotifications ? data.botbotToken || null : null,
-      charge_reminder_days: data.whatsappNotifications ? data.chargeReminderDays : [],
-    });
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+    const { error } = await admin
+      .from("organization_settings")
+      .upsert(
+        {
+          organization_id: data.organizationId,
+          whatsapp_notifications: data.whatsappNotifications,
+          botbot_token: data.whatsappNotifications ? data.botbotToken || null : null,
+          charge_reminder_days: data.whatsappNotifications ? data.chargeReminderDays : [],
+        },
+        { onConflict: "organization_id" },
+      );
     if (error) throw error;
     return { ok: true };
   });
+
+
 
 // ============================================================
 // Student × Class enrollments

@@ -200,6 +200,7 @@ function SaveButton({ saving }: { saving: boolean }) {
 }
 
 function AcademySection({ org, onSaved }: { org: Org; onSaved: () => Promise<void> }) {
+  const updateAcademy = useServerFn(updateAcademyConfig);
   const [name, setName] = useState(org.name);
   const [phone, setPhone] = useState(org.phone ?? "");
   const [email, setEmail] = useState(org.email);
@@ -208,16 +209,19 @@ function AcademySection({ org, onSaved }: { org: Org; onSaved: () => Promise<voi
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    const { error } = await supabase
-      .from("organizations")
-      .update({ name, phone, email })
-      .eq("id", org.id);
-    setSaving(false);
-    if (error) toast.error(error.message);
-    else {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida. Faça login novamente.");
+      await updateAcademy({
+        data: { accessToken, organizationId: org.id, name, phone: phone || null, email },
+      });
       toast.success("Academia atualizada.");
       await onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar.");
     }
+    setSaving(false);
   };
 
   return (
@@ -266,6 +270,7 @@ function AcademySection({ org, onSaved }: { org: Org; onSaved: () => Promise<voi
   );
 }
 
+
 function PlanSection({ org }: { org: Org }) {
   const plan = org.plan ?? "starter";
   const planLabel = plan === "pro" ? "Pro" : plan === "scale" ? "Scale" : "Starter";
@@ -307,26 +312,33 @@ function FinancialSection({
   const [pixType, setPixType] = useState(settings.pix_key_type ?? "");
   const [pixKey, setPixKey] = useState(settings.pix_key ?? "");
   const [saving, setSaving] = useState(false);
+  const updateFinancial = useServerFn(updateFinancialConfig);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    const { error } = await supabase
-      .from("organization_settings")
-      .update({
-        monthly_fee_default: parseFloat(fee) || 0,
-        due_day: parseInt(dueDay, 10) || 10,
-        pix_key_type: pixType || null,
-        pix_key: pixKey || null,
-      })
-      .eq("organization_id", organizationId);
-    setSaving(false);
-    if (error) toast.error(error.message);
-    else {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida. Faça login novamente.");
+      await updateFinancial({
+        data: {
+          accessToken,
+          organizationId,
+          monthlyFeeDefault: parseFloat(fee) || 0,
+          dueDay: parseInt(dueDay, 10) || 10,
+          pixKeyType: pixType || null,
+          pixKey: pixKey || null,
+        },
+      });
       toast.success("Configurações financeiras atualizadas.");
       await onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar.");
     }
+    setSaving(false);
   };
+
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
@@ -392,6 +404,7 @@ function WhatsappSection({
   const [dZero, setDZero] = useState(initialDays.includes(0));
   const [dPlus3, setDPlus3] = useState(initialDays.includes(3));
   const [saving, setSaving] = useState(false);
+  const updateWhatsapp = useServerFn(updateWhatsappConfig);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -399,21 +412,27 @@ function WhatsappSection({
     const days = [dMinus3 ? -3 : null, dZero ? 0 : null, dPlus3 ? 3 : null].filter(
       (v): v is number => v !== null,
     );
-    const { error } = await supabase
-      .from("organization_settings")
-      .update({
-        whatsapp_notifications: enabled,
-        botbot_token: enabled ? token : null,
-        charge_reminder_days: enabled ? days : [],
-      })
-      .eq("organization_id", organizationId);
-    setSaving(false);
-    if (error) toast.error(error.message);
-    else {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida. Faça login novamente.");
+      await updateWhatsapp({
+        data: {
+          accessToken,
+          organizationId,
+          whatsappNotifications: enabled,
+          botbotToken: enabled ? token : null,
+          chargeReminderDays: enabled ? days : [],
+        },
+      });
       toast.success("Notificações atualizadas.");
       await onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar.");
     }
+    setSaving(false);
   };
+
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
