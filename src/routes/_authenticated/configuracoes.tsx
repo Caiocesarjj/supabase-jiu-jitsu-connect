@@ -9,12 +9,14 @@ import {
   getOrganizationConfig,
   updateAcademyConfig,
   updateFinancialConfig,
+  updateIntegrationsConfig,
   updateWhatsappConfig,
 } from "@/lib/registrations.functions";
 import { formatDateBR } from "@/lib/format";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -503,24 +505,31 @@ function IntegrationsSection({
   const [apiKey, setApiKey] = useState(settings.payment_gateway_api_key ?? "");
   const [show, setShow] = useState(false);
   const [saving, setSaving] = useState(false);
+  const updateIntegrations = useServerFn(updateIntegrationsConfig);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    const { error } = await supabase
-      .from("organization_settings")
-      .update({
-        payment_gateway: provider || null,
-        payment_gateway_api_key: apiKey || null,
-      })
-      .eq("organization_id", organizationId);
-    setSaving(false);
-    if (error) toast.error(error.message);
-    else {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida. Faça login novamente.");
+      await updateIntegrations({
+        data: {
+          accessToken,
+          organizationId,
+          paymentGateway: provider || null,
+          paymentGatewayApiKey: apiKey || null,
+        },
+      });
       toast.success("Integração atualizada.");
       await onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar.");
     }
+    setSaving(false);
   };
+
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">

@@ -1,11 +1,14 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
-import { createStudentRegistration } from "@/lib/registrations.functions";
+import {
+  createStudentRegistration,
+  listSubscriptionPlansForOrg,
+} from "@/lib/registrations.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +26,7 @@ import { getWeightCategory, type Sex } from "@/lib/weight-category";
 export const Route = createFileRoute("/_authenticated/alunos/novo")({
   component: NovoAlunoPage,
 });
+
 
 const BELTS: Belt[] = [
   "branca",
@@ -44,10 +48,26 @@ const BELTS: Belt[] = [
   "verde_preto",
 ];
 
+interface PlanOption {
+  id: string;
+  name: string;
+  amount: number;
+  frequency: "monthly" | "quarterly" | "semiannual" | "annual";
+  active: boolean;
+}
+
+const FREQ_MONTHS: Record<PlanOption["frequency"], number> = {
+  monthly: 1,
+  quarterly: 3,
+  semiannual: 6,
+  annual: 12,
+};
+
 function NovoAlunoPage() {
   const { organizationId } = useAuth();
   const navigate = useNavigate();
   const createStudent = useServerFn(createStudentRegistration);
+  const listPlans = useServerFn(listSubscriptionPlansForOrg);
 
   const [fullName, setFullName] = useState("");
   const [cpf, setCpf] = useState("");
@@ -60,6 +80,9 @@ function NovoAlunoPage() {
   const [belt, setBelt] = useState<Belt>("branca");
   const [degrees, setDegrees] = useState("0");
   const [status, setStatus] = useState("active");
+  const [planId, setPlanId] = useState<string>("");
+  const [validityDate, setValidityDate] = useState<string>("");
+  const [plans, setPlans] = useState<PlanOption[]>([]);
   const [saving, setSaving] = useState(false);
 
   const category = getWeightCategory({
@@ -67,6 +90,32 @@ function NovoAlunoPage() {
     sex: sex || null,
     weightKg: weightKg ? Number(weightKg) : null,
   });
+
+  useEffect(() => {
+    if (!organizationId) return;
+    (async () => {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (!accessToken) return;
+        const res = await listPlans({ data: { accessToken, organizationId } });
+        setPlans((res.plans as PlanOption[]).filter((p) => p.active));
+      } catch {
+        // silent
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationId]);
+
+  // auto compute validity when plan changes
+  useEffect(() => {
+    if (!planId) return;
+    const p = plans.find((pp) => pp.id === planId);
+    if (!p) return;
+    const d = new Date();
+    d.setMonth(d.getMonth() + FREQ_MONTHS[p.frequency]);
+    setValidityDate(d.toISOString().slice(0, 10));
+  }, [planId, plans]);
 
   const save = async () => {
     if (!organizationId) {
@@ -97,6 +146,8 @@ function NovoAlunoPage() {
           status: status as "active" | "trial" | "inactive",
           belt,
           degrees: Number(degrees) || 0,
+          subscriptionPlanId: planId || null,
+          validityDate: planId && validityDate ? validityDate : undefined,
         },
       });
 
@@ -109,6 +160,7 @@ function NovoAlunoPage() {
       setSaving(false);
     }
   };
+
 
   const maxDeg = belt === "preta" ? 10 : 4;
 
@@ -209,7 +261,36 @@ function NovoAlunoPage() {
               />
             </div>
           </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+            <div>
+              <Label>Plano</Label>
+              <Select value={planId || "none"} onValueChange={(v) => setPlanId(v === "none" ? "" : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder={plans.length ? "Selecione um plano" : "Nenhum plano cadastrado"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem plano</SelectItem>
+                  {plans.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name} — R$ {p.amount}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Validade</Label>
+              <Input
+                type="date"
+                value={validityDate}
+                onChange={(e) => setValidityDate(e.target.value)}
+                disabled={!planId}
+              />
+            </div>
+          </div>
         </section>
+
 
         <section className="space-y-3">
           <h2 className="text-sm font-semibold text-muted-foreground">Graduação inicial</h2>
