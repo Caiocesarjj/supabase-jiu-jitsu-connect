@@ -4,12 +4,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
-import {
-  getOrganizationConfig,
-  updateAcademyConfig,
-  updateFinancialConfig,
-  updateWhatsappConfig,
 import {
   getOrganizationConfig,
   updateAcademyConfig,
@@ -17,6 +13,7 @@ import {
   updateIntegrationsConfig,
   updateWhatsappConfig,
 } from "@/lib/registrations.functions";
+
 
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
