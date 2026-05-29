@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import {
   getOrganizationConfig,
@@ -13,7 +12,10 @@ import {
   updateIntegrationsConfig,
   updateWhatsappConfig,
 } from "@/lib/registrations.functions";
-
+import { formatDateBR } from "@/lib/format";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
