@@ -241,6 +241,18 @@ function Page() {
     setPlanOpen(true);
   };
 
+  const upsertPlanFn = useServerFn(upsertSubscriptionPlan);
+  const togglePlanFn = useServerFn(toggleSubscriptionPlan);
+  const createSubFn = useServerFn(createSubscriptionRecord);
+  const updateSubStatusFn = useServerFn(updateSubscriptionStatus);
+
+  const getToken = async () => {
+    const { data } = await supabase.auth.getSession();
+    const t = data.session?.access_token;
+    if (!t) throw new Error("Sessão inválida. Faça login novamente.");
+    return t;
+  };
+
   const savePlan = async () => {
     if (!organizationId) return;
     if (!planName.trim() || !planAmount) {
@@ -248,35 +260,38 @@ function Page() {
       return;
     }
     setSavingPlan(true);
-    const payload = {
-      organization_id: organizationId,
-      name: planName.trim(),
-      amount: Number(planAmount),
-      frequency: planFreq,
-      description: planDesc.trim() || null,
-    };
-    const { error } = editingPlan
-      ? await supabase.from("subscription_plans").update(payload).eq("id", editingPlan.id)
-      : await supabase.from("subscription_plans").insert(payload);
-    setSavingPlan(false);
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      const accessToken = await getToken();
+      await upsertPlanFn({
+        data: {
+          accessToken,
+          organizationId,
+          planId: editingPlan?.id ?? null,
+          name: planName.trim(),
+          amount: Number(planAmount),
+          frequency: planFreq,
+          description: planDesc.trim() || null,
+        },
+      });
+      toast.success(editingPlan ? "Plano atualizado" : "Plano criado");
+      setPlanOpen(false);
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar");
     }
-    toast.success(editingPlan ? "Plano atualizado" : "Plano criado");
-    setPlanOpen(false);
-    load();
+    setSavingPlan(false);
   };
 
   const togglePlanActive = async (p: Plan) => {
-    const { error } = await supabase
-      .from("subscription_plans")
-      .update({ active: !p.active })
-      .eq("id", p.id);
-    if (error) toast.error(error.message);
-    else {
+    try {
+      const accessToken = await getToken();
+      await togglePlanFn({
+        data: { accessToken, organizationId: organizationId!, planId: p.id, active: !p.active },
+      });
       toast.success(p.active ? "Plano desativado" : "Plano ativado");
       load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao atualizar");
     }
   };
 
@@ -305,35 +320,40 @@ function Page() {
       return;
     }
     setSavingSub(true);
-    const { error } = await supabase.from("subscription_records").insert({
-      organization_id: organizationId,
-      student_id: subStudent,
-      plan_id: subPlan,
-      status: "active",
-      started_at: subStart,
-      next_due_date: subNext,
-    });
-    setSavingSub(false);
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      const accessToken = await getToken();
+      await createSubFn({
+        data: {
+          accessToken,
+          organizationId,
+          studentId: subStudent,
+          planId: subPlan,
+          startedAt: subStart,
+          nextDueDate: subNext,
+        },
+      });
+      toast.success("Assinatura criada");
+      setSubOpen(false);
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao criar");
     }
-    toast.success("Assinatura criada");
-    setSubOpen(false);
-    load();
+    setSavingSub(false);
   };
 
   const changeStatus = async (s: Subscription, status: SubStatus) => {
-    const { error } = await supabase
-      .from("subscription_records")
-      .update({ status })
-      .eq("id", s.id);
-    if (error) toast.error(error.message);
-    else {
+    try {
+      const accessToken = await getToken();
+      await updateSubStatusFn({
+        data: { accessToken, organizationId: organizationId!, subscriptionId: s.id, status },
+      });
       toast.success(`Assinatura ${STATUS_LABEL[status].toLowerCase()}`);
       load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao atualizar");
     }
   };
+
 
   if (loading) return <LoadingSpinner label="Carregando..." />;
 
