@@ -1,11 +1,14 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
-import { createStudentRegistration } from "@/lib/registrations.functions";
+import {
+  createStudentRegistration,
+  listSubscriptionPlansForOrg,
+} from "@/lib/registrations.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +26,7 @@ import { getWeightCategory, type Sex } from "@/lib/weight-category";
 export const Route = createFileRoute("/_authenticated/alunos/novo")({
   component: NovoAlunoPage,
 });
+
 
 const BELTS: Belt[] = [
   "branca",
