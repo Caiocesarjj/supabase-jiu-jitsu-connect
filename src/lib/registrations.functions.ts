@@ -832,4 +832,154 @@ export const unenrollStudentFromClass = createServerFn({ method: "POST" })
       .in("schedule_id", siblingIds);
     if (error) throw error;
     return { ok: true };
+    if (error) throw error;
+    return { ok: true };
   });
+
+// ============================================================
+// Subscription plans & records (admin-elevated after staff check)
+// ============================================================
+
+const frequencyEnum = z.enum(["monthly", "quarterly", "semiannual", "annual"]);
+const subStatusEnum = z.enum(["active", "paused", "canceled", "expired"]);
+
+export const upsertSubscriptionPlan = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema
+      .extend({
+        planId: z.string().uuid().nullable().optional(),
+        name: z.string().trim().min(1).max(120),
+        amount: z.number().min(0),
+        frequency: frequencyEnum,
+        description: z.string().trim().max(500).nullable().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+    const payload = {
+      organization_id: data.organizationId,
+      name: data.name,
+      amount: data.amount,
+      frequency: data.frequency,
+      description: data.description ?? null,
+    };
+    if (data.planId) {
+      const { error } = await admin
+        .from("subscription_plans")
+        .update(payload)
+        .eq("id", data.planId)
+        .eq("organization_id", data.organizationId);
+      if (error) throw error;
+      return { id: data.planId };
+    }
+    const { data: row, error } = await admin
+      .from("subscription_plans")
+      .insert({ ...payload, active: true })
+      .select("id")
+      .single();
+    if (error) throw error;
+    return { id: row.id as string };
+  });
+
+export const toggleSubscriptionPlan = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema.extend({ planId: z.string().uuid(), active: z.boolean() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+    const { error } = await admin
+      .from("subscription_plans")
+      .update({ active: data.active })
+      .eq("id", data.planId)
+      .eq("organization_id", data.organizationId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const createSubscriptionRecord = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema
+      .extend({
+        studentId: z.string().uuid(),
+        planId: z.string().uuid(),
+        startedAt: z.string(),
+        nextDueDate: z.string(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+    const { error } = await admin.from("subscription_records").insert({
+      organization_id: data.organizationId,
+      student_id: data.studentId,
+      plan_id: data.planId,
+      status: "active",
+      started_at: data.startedAt,
+      next_due_date: data.nextDueDate,
+    });
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const updateSubscriptionStatus = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema
+      .extend({ subscriptionId: z.string().uuid(), status: subStatusEnum })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+    const { error } = await admin
+      .from("subscription_records")
+      .update({ status: data.status })
+      .eq("id", data.subscriptionId)
+      .eq("organization_id", data.organizationId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const updateIntegrationsConfig = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema
+      .extend({
+        paymentGateway: z.string().nullable().optional(),
+        paymentGatewayApiKey: z.string().nullable().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+    const { error } = await admin
+      .from("organization_settings")
+      .upsert(
+        {
+          organization_id: data.organizationId,
+          payment_gateway: data.paymentGateway || null,
+          payment_gateway_api_key: data.paymentGatewayApiKey || null,
+        },
+        { onConflict: "organization_id" },
+      );
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const listSubscriptionPlansForOrg = createServerFn({ method: "POST" })
+  .inputValidator((input) => orgAuthSchema.parse(input))
+  .handler(async ({ data }) => {
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+    const { data: rows, error } = await admin
+      .from("subscription_plans")
+      .select("id, name, amount, frequency, description, active")
+      .eq("organization_id", data.organizationId)
+      .order("amount");
+    if (error) throw error;
+    return { plans: rows ?? [] };
+  });
+
