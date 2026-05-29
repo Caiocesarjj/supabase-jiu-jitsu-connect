@@ -107,11 +107,14 @@ export const createStudentRegistration = createServerFn({ method: "POST" })
         status: z.enum(["active", "trial", "inactive"]),
         belt: z.string().min(2).max(40),
         degrees: z.number().int().min(0).max(10),
+        subscriptionPlanId: z.string().uuid().nullable().optional(),
+        validityDate: z.string().optional(),
       })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
+    await requireStaff(data.accessToken, data.organizationId);
+    const supabase = getAdminClient();
     const today = new Date().toISOString().split("T")[0];
 
     const profileId = crypto.randomUUID();
@@ -155,8 +158,21 @@ export const createStudentRegistration = createServerFn({ method: "POST" })
     });
     if (graduationError) throw graduationError;
 
+    if (data.subscriptionPlanId && data.validityDate) {
+      const { error: subError } = await supabase.from("subscription_records").insert({
+        organization_id: data.organizationId,
+        student_id: studentId,
+        plan_id: data.subscriptionPlanId,
+        status: "active",
+        started_at: today,
+        next_due_date: data.validityDate,
+      });
+      if (subError) throw subError;
+    }
+
     return { studentId };
   });
+
 
 export const deleteStudentRegistration = createServerFn({ method: "POST" })
   .inputValidator((input) =>
