@@ -259,8 +259,36 @@ function NovoAlunoPage() {
                 value={monthlyFee}
                 onChange={(e) => setMonthlyFee(e.target.value)}
               />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <Label>Plano</Label>
+              <Select value={planId || "none"} onValueChange={(v) => setPlanId(v === "none" ? "" : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder={plans.length ? "Selecione um plano" : "Nenhum plano cadastrado"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem plano</SelectItem>
+                  {plans.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name} — R$ {p.amount}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Validade</Label>
+              <Input
+                type="date"
+                value={validityDate}
+                onChange={(e) => setValidityDate(e.target.value)}
+                disabled={!planId}
+              />
             </div>
           </div>
+        </section>
+
         </section>
 
         <section className="space-y-3">
