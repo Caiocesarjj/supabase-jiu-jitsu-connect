@@ -291,7 +291,6 @@ function NovoAlunoPage() {
           </div>
         </section>
 
-        </section>
 
         <section className="space-y-3">
           <h2 className="text-sm font-semibold text-muted-foreground">Graduação inicial</h2>
