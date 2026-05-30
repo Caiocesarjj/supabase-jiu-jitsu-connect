@@ -565,9 +565,10 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
 export const getOrganizationConfig = createServerFn({ method: "POST" })
   .inputValidator((input) => authSchema.parse(input))
   .handler(async ({ data }) => {
-    const { supabase, profile } = await requireStaff(data.accessToken);
+    const { profile } = await requireStaff(data.accessToken);
+    const admin = getAdminClient();
     const organizationId = profile.organization_id as string;
-    const { data: org, error: orgError } = await supabase
+    const { data: org, error: orgError } = await admin
       .from("organizations")
       .select("id, name, phone, email, logo_url, plan, trial_ends_at, public_code")
       .eq("id", organizationId)
