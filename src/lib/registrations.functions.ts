@@ -585,7 +585,7 @@ export const getOrganizationConfig = createServerFn({ method: "POST" })
     let settings = settingsRes.data;
 
     if (!settings) {
-      const { data: created, error: createError } = await supabase
+      const { data: created, error: createError } = await admin
         .from("organization_settings")
         .insert({
           organization_id: organizationId,
