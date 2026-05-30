@@ -402,13 +402,19 @@ function WhatsappSection({
 }) {
   const [enabled, setEnabled] = useState(!!settings.whatsapp_notifications);
   const [token, setToken] = useState(settings.botbot_token ?? "");
+  const [appKey, setAppKey] = useState(settings.botbot_app_key ?? "");
+  const [authKey, setAuthKey] = useState(settings.botbot_auth_key ?? "");
   const [showToken, setShowToken] = useState(false);
+  const [showAppKey, setShowAppKey] = useState(false);
+  const [showAuthKey, setShowAuthKey] = useState(false);
   const initialDays = settings.charge_reminder_days ?? [];
   const [dMinus3, setDMinus3] = useState(initialDays.includes(-3));
   const [dZero, setDZero] = useState(initialDays.includes(0));
   const [dPlus3, setDPlus3] = useState(initialDays.includes(3));
   const [saving, setSaving] = useState(false);
+  const [sending, setSending] = useState(false);
   const updateWhatsapp = useServerFn(updateWhatsappConfig);
+  const sendNotifications = useServerFn(sendChargeNotifications);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -426,6 +432,8 @@ function WhatsappSection({
           organizationId,
           whatsappNotifications: enabled,
           botbotToken: enabled ? token : null,
+          botbotAppKey: enabled ? appKey : null,
+          botbotAuthKey: enabled ? authKey : null,
           chargeReminderDays: enabled ? days : [],
         },
       });
@@ -435,6 +443,20 @@ function WhatsappSection({
       toast.error(err instanceof Error ? err.message : "Erro ao salvar.");
     }
     setSaving(false);
+  };
+
+  const handleSendNow = async () => {
+    setSending(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida. Faça login novamente.");
+      const result = await sendNotifications({ data: { accessToken, organizationId } });
+      toast.success(`Enviadas: ${result.sent} • Ignoradas: ${result.skipped} • Total: ${result.total}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao enviar notificações.");
+    }
+    setSending(false);
   };
 
 
@@ -466,6 +488,48 @@ function WhatsappSection({
               </button>
             </div>
           </div>
+          <div className="rounded-md border border-border bg-muted/30 p-3 space-y-3">
+            <p className="text-sm font-medium">Credenciais BotBot</p>
+            <div className="space-y-1">
+              <Label>App Key</Label>
+              <div className="relative">
+                <Input
+                  type={showAppKey ? "text" : "password"}
+                  value={appKey}
+                  onChange={(e) => setAppKey(e.target.value)}
+                  placeholder="App Key do BotBot"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAppKey((s) => !s)}
+                  className="absolute right-2 top-2.5 text-muted-foreground"
+                >
+                  {showAppKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label>Auth Key</Label>
+              <div className="relative">
+                <Input
+                  type={showAuthKey ? "text" : "password"}
+                  value={authKey}
+                  onChange={(e) => setAuthKey(e.target.value)}
+                  placeholder="Auth Key do BotBot"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAuthKey((s) => !s)}
+                  className="absolute right-2 top-2.5 text-muted-foreground"
+                >
+                  {showAuthKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Em botbot.chat → Aplicativos → app "JJ Manager" → Configurações, copie App Key e Auth Key.
+            </p>
+          </div>
           <div className="space-y-2">
             <Label>Dias de disparo</Label>
             <div className="flex items-center gap-2">
@@ -489,7 +553,15 @@ function WhatsappSection({
           </div>
         </div>
       )}
-      <SaveButton saving={saving} />
+      <div className="flex flex-wrap gap-2">
+        <SaveButton saving={saving} />
+        {enabled && (
+          <Button type="button" variant="outline" onClick={handleSendNow} disabled={sending}>
+            {sending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Enviar notificações agora
+          </Button>
+        )}
+      </div>
     </form>
   );
 }
