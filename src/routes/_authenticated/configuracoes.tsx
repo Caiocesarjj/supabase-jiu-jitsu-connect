@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import {
   getOrganizationConfig,
+  sendChargeNotifications,
   updateAcademyConfig,
   updateFinancialConfig,
   updateIntegrationsConfig,
