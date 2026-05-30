@@ -64,6 +64,8 @@ interface Settings {
   pix_key_type: string | null;
   whatsapp_notifications: boolean;
   botbot_token: string | null;
+  botbot_app_key: string | null;
+  botbot_auth_key: string | null;
   charge_reminder_days: number[] | null;
   payment_gateway: string | null;
   payment_gateway_api_key: string | null;
