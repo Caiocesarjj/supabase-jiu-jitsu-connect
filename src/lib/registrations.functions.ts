@@ -576,7 +576,7 @@ export const getOrganizationConfig = createServerFn({ method: "POST" })
     if (orgError) throw orgError;
     if (!org) throw new Error("Academia não encontrada.");
 
-    const settingsRes = await supabase
+    const settingsRes = await admin
       .from("organization_settings")
       .select("*")
       .eq("organization_id", organizationId)
