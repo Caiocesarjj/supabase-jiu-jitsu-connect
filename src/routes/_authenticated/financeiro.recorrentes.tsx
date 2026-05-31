@@ -84,6 +84,8 @@ interface Plan {
   frequency: Frequency;
   description: string | null;
   active: boolean;
+  valid_until: string | null;
+  new_amount_after: number | null;
 }
 
 interface Subscription {
