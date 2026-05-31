@@ -153,6 +153,8 @@ function Page() {
   const [planAmount, setPlanAmount] = useState("");
   const [planFreq, setPlanFreq] = useState<Frequency>("monthly");
   const [planDesc, setPlanDesc] = useState("");
+  const [planValidUntil, setPlanValidUntil] = useState("");
+  const [planNewAmount, setPlanNewAmount] = useState("");
   const [savingPlan, setSavingPlan] = useState(false);
 
   // Subscription modal
@@ -169,7 +171,7 @@ function Page() {
     const [plansRes, subsRes, studentsRes] = await Promise.all([
       supabase
         .from("subscription_plans")
-        .select("id, name, amount, frequency, description, active")
+        .select("id, name, amount, frequency, description, active, valid_until, new_amount_after")
         .eq("organization_id", organizationId)
         .order("amount"),
       supabase
