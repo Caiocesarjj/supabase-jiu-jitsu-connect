@@ -386,9 +386,6 @@ function Page() {
         <Button variant="outline" onClick={openNewPlan}>
           <Plus className="mr-2 h-4 w-4" /> Novo Plano
         </Button>
-        <Button onClick={openNewSub} disabled={plans.filter((p) => p.active).length === 0}>
-          <Plus className="mr-2 h-4 w-4" /> Nova Assinatura
-        </Button>
       </div>
 
       {/* Subscriptions table */}
