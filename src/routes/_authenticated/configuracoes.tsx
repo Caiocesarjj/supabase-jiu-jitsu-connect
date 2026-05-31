@@ -304,13 +304,12 @@ function WhatsappSection({
   onSaved: () => Promise<void>;
 }) {
   const [enabled, setEnabled] = useState(!!settings.whatsapp_notifications);
-  const [token, setToken] = useState(settings.botbot_token ?? "");
   const [appKey, setAppKey] = useState(settings.botbot_app_key ?? "");
   const [authKey, setAuthKey] = useState(settings.botbot_auth_key ?? "");
-  const [showToken, setShowToken] = useState(false);
   const [showAppKey, setShowAppKey] = useState(false);
   const [showAuthKey, setShowAuthKey] = useState(false);
   const initialDays = settings.charge_reminder_days ?? [];
+  const [dMinus7, setDMinus7] = useState(initialDays.includes(-7));
   const [dMinus3, setDMinus3] = useState(initialDays.includes(-3));
   const [dZero, setDZero] = useState(initialDays.includes(0));
   const [dPlus3, setDPlus3] = useState(initialDays.includes(3));
@@ -322,9 +321,12 @@ function WhatsappSection({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    const days = [dMinus3 ? -3 : null, dZero ? 0 : null, dPlus3 ? 3 : null].filter(
-      (v): v is number => v !== null,
-    );
+    const days = [
+      dMinus7 ? -7 : null,
+      dMinus3 ? -3 : null,
+      dZero ? 0 : null,
+      dPlus3 ? 3 : null,
+    ].filter((v): v is number => v !== null);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
@@ -334,7 +336,7 @@ function WhatsappSection({
           accessToken,
           organizationId,
           whatsappNotifications: enabled,
-          botbotToken: enabled ? token : null,
+          botbotToken: null,
           botbotAppKey: enabled ? appKey : null,
           botbotAuthKey: enabled ? authKey : null,
           chargeReminderDays: enabled ? days : [],
