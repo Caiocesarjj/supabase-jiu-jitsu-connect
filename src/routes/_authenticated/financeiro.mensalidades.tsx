@@ -360,11 +360,8 @@ function FinanceiroPage() {
             </div>
           </div>
         </div>
-        <Button onClick={() => setGenOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Gerar cobranças do mês
-        </Button>
       </div>
+
 
       {/* Records table */}
       {loading ? (
@@ -497,15 +494,8 @@ function FinanceiroPage() {
         </div>
       )}
 
-      {/* Generate confirm */}
-      <ConfirmModal
-        open={genOpen}
-        onOpenChange={(o) => !generating && setGenOpen(o)}
-        title="Gerar mensalidades"
-        description={`Gerar mensalidades de ${monthLabel} para todos os alunos ativos sem cobrança neste mês?`}
-        confirmLabel={generating ? "Gerando..." : "Gerar"}
-        onConfirm={handleGenerate}
-      />
+      {/* Cobranças são geradas automaticamente pelo cron no dia 1 do mês */}
+
 
       {/* Cancel confirm */}
       <ConfirmModal
