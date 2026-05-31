@@ -548,6 +548,28 @@ function Page() {
                 </Select>
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Válido até (opcional)</Label>
+                <Input
+                  type="date"
+                  value={planValidUntil}
+                  onChange={(e) => setPlanValidUntil(e.target.value)}
+                />
+              </div>
+              {planValidUntil && (
+                <div>
+                  <Label>Novo valor após vencimento (R$)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={planNewAmount}
+                    onChange={(e) => setPlanNewAmount(e.target.value)}
+                    placeholder="Ex: 180.00"
+                  />
+                </div>
+              )}
+            </div>
             <div>
               <Label>Descrição</Label>
               <Textarea
