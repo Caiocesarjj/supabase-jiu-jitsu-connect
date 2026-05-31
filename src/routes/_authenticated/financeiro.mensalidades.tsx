@@ -2,7 +2,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
-  Plus,
   MoreHorizontal,
   AlertCircle,
   Search,
@@ -136,8 +135,6 @@ function FinanceiroPage() {
   const [filterMonth, setFilterMonth] = useState(currentMonthKey());
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterSearch, setFilterSearch] = useState("");
-  const [genOpen, setGenOpen] = useState(false);
-  const [generating, setGenerating] = useState(false);
   const [payRecord, setPayRecord] = useState<Record | null>(null);
   const [cancelRecord, setCancelRecord] = useState<Record | null>(null);
   const [revertRecord, setRevertRecord] = useState<Record | null>(null);
@@ -200,66 +197,6 @@ function FinanceiroPage() {
       .reduce((s, r) => s + Number(r.amount), 0);
     return { cobrado, pago, pendente, vencido };
   }, [filtered]);
-
-  const monthLabel =
-    monthOptions().find((o) => o.value === filterMonth)?.label ?? filterMonth;
-
-  const handleGenerate = async () => {
-    if (!organizationId) return;
-    setGenerating(true);
-    try {
-      const [{ data: activeStudents, error: e1 }, { data: settings, error: e2 }] =
-        await Promise.all([
-          supabase
-            .from("students")
-            .select("id, monthly_fee")
-            .eq("organization_id", organizationId)
-            .eq("status", "active"),
-          supabase
-            .from("organization_settings")
-            .select("monthly_fee_default, due_day")
-            .eq("organization_id", organizationId)
-            .single(),
-        ]);
-      if (e1) throw e1;
-      if (e2) throw e2;
-      const [year, month] = filterMonth.split("-");
-      const referenceMonth = `${year}-${month}-01`;
-      const dueDay = String(settings?.due_day ?? 10).padStart(2, "0");
-      const dueDate = `${year}-${month}-${dueDay}`;
-      const defaultFee = Number(settings?.monthly_fee_default ?? 0);
-
-      const rows = (activeStudents ?? []).map((s: { id: string; monthly_fee: number | null }) => ({
-        organization_id: organizationId,
-        student_id: s.id,
-        amount: s.monthly_fee ?? defaultFee,
-        due_date: dueDate,
-        reference_month: referenceMonth,
-        status: "pending" as const,
-        idempotency_key: `${s.id}_${referenceMonth}`,
-      }));
-
-      if (rows.length === 0) {
-        toast.info("Nenhum aluno ativo encontrado.");
-      } else {
-        const { error } = await supabase
-          .from("financial_records")
-          .upsert(rows, {
-            onConflict: "idempotency_key",
-            ignoreDuplicates: true,
-          });
-        if (error) throw error;
-        toast.success(`${rows.length} cobranças geradas para ${monthLabel}.`);
-      }
-      setGenOpen(false);
-      await load();
-    } catch (err) {
-      const e = err as { message?: string };
-      toast.error(e.message ?? "Erro ao gerar cobranças.");
-    } finally {
-      setGenerating(false);
-    }
-  };
 
   const handleCopyPix = (code: string | null) => {
     if (!code) return;
