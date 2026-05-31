@@ -9,7 +9,6 @@ import {
   getOrganizationConfig,
   sendChargeNotifications,
   updateAcademyConfig,
-  updateFinancialConfig,
   updateIntegrationsConfig,
   updateWhatsappConfig,
 } from "@/lib/registrations.functions";
@@ -133,10 +132,9 @@ function ConfiguracoesPage() {
       <h1 className="text-2xl font-semibold">Configurações</h1>
 
       <Tabs defaultValue="academia" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5">
           <TabsTrigger value="academia">Academia</TabsTrigger>
           <TabsTrigger value="plano">Plano</TabsTrigger>
-          <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
           <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
           <TabsTrigger value="integracoes">Integrações</TabsTrigger>
           <TabsTrigger value="conta">Conta</TabsTrigger>
@@ -154,14 +152,6 @@ function ConfiguracoesPage() {
 
         <TabsContent value="plano" className="mt-6">
           <PlanSection org={org} />
-        </TabsContent>
-
-        <TabsContent value="financeiro" className="mt-6">
-          <FinancialSection
-            settings={settings}
-            organizationId={organizationId!}
-            onSaved={load}
-          />
         </TabsContent>
 
         <TabsContent value="whatsapp" className="mt-6">
