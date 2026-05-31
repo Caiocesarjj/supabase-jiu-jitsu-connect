@@ -9,7 +9,7 @@ export const Route = createFileRoute("/_authenticated/financeiro")({
 const tabs = [
   { label: "Dashboard", to: "/financeiro/dashboard" },
   { label: "Mensalidades", to: "/financeiro/mensalidades" },
-  { label: "Recorrentes", to: "/financeiro/recorrentes" },
+  { label: "Planos", to: "/financeiro/recorrentes" },
   { label: "Formas de Pagamento", to: "/financeiro/formas-pagamento" },
   { label: "Crescimento", to: "/financeiro/crescimento" },
 ] as const;

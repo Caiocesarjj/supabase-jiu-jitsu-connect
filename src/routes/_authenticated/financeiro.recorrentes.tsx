@@ -84,6 +84,8 @@ interface Plan {
   frequency: Frequency;
   description: string | null;
   active: boolean;
+  valid_until: string | null;
+  new_amount_after: number | null;
 }
 
 interface Subscription {
@@ -151,6 +153,8 @@ function Page() {
   const [planAmount, setPlanAmount] = useState("");
   const [planFreq, setPlanFreq] = useState<Frequency>("monthly");
   const [planDesc, setPlanDesc] = useState("");
+  const [planValidUntil, setPlanValidUntil] = useState("");
+  const [planNewAmount, setPlanNewAmount] = useState("");
   const [savingPlan, setSavingPlan] = useState(false);
 
   // Subscription modal
@@ -167,7 +171,7 @@ function Page() {
     const [plansRes, subsRes, studentsRes] = await Promise.all([
       supabase
         .from("subscription_plans")
-        .select("id, name, amount, frequency, description, active")
+        .select("id, name, amount, frequency, description, active, valid_until, new_amount_after")
         .eq("organization_id", organizationId)
         .order("amount"),
       supabase
@@ -229,6 +233,8 @@ function Page() {
     setPlanAmount("");
     setPlanFreq("monthly");
     setPlanDesc("");
+    setPlanValidUntil("");
+    setPlanNewAmount("");
     setPlanOpen(true);
   };
 
@@ -238,6 +244,8 @@ function Page() {
     setPlanAmount(String(p.amount));
     setPlanFreq(p.frequency);
     setPlanDesc(p.description ?? "");
+    setPlanValidUntil(p.valid_until ?? "");
+    setPlanNewAmount(p.new_amount_after != null ? String(p.new_amount_after) : "");
     setPlanOpen(true);
   };
 
@@ -271,6 +279,9 @@ function Page() {
           amount: Number(planAmount),
           frequency: planFreq,
           description: planDesc.trim() || null,
+          validUntil: planValidUntil || null,
+          newAmountAfter:
+            planValidUntil && planNewAmount ? Number(planNewAmount) : null,
         },
       });
       toast.success(editingPlan ? "Plano atualizado" : "Plano criado");
@@ -374,9 +385,6 @@ function Page() {
       <div className="flex flex-wrap gap-2 justify-end">
         <Button variant="outline" onClick={openNewPlan}>
           <Plus className="mr-2 h-4 w-4" /> Novo Plano
-        </Button>
-        <Button onClick={openNewSub} disabled={plans.filter((p) => p.active).length === 0}>
-          <Plus className="mr-2 h-4 w-4" /> Nova Assinatura
         </Button>
       </div>
 
@@ -539,6 +547,28 @@ function Page() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Válido até (opcional)</Label>
+                <Input
+                  type="date"
+                  value={planValidUntil}
+                  onChange={(e) => setPlanValidUntil(e.target.value)}
+                />
+              </div>
+              {planValidUntil && (
+                <div>
+                  <Label>Novo valor após vencimento (R$)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={planNewAmount}
+                    onChange={(e) => setPlanNewAmount(e.target.value)}
+                    placeholder="Ex: 180.00"
+                  />
+                </div>
+              )}
             </div>
             <div>
               <Label>Descrição</Label>

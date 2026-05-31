@@ -9,7 +9,6 @@ import {
   getOrganizationConfig,
   sendChargeNotifications,
   updateAcademyConfig,
-  updateFinancialConfig,
   updateIntegrationsConfig,
   updateWhatsappConfig,
 } from "@/lib/registrations.functions";
@@ -133,10 +132,9 @@ function ConfiguracoesPage() {
       <h1 className="text-2xl font-semibold">Configurações</h1>
 
       <Tabs defaultValue="academia" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5">
           <TabsTrigger value="academia">Academia</TabsTrigger>
           <TabsTrigger value="plano">Plano</TabsTrigger>
-          <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
           <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
           <TabsTrigger value="integracoes">Integrações</TabsTrigger>
           <TabsTrigger value="conta">Conta</TabsTrigger>
@@ -154,14 +152,6 @@ function ConfiguracoesPage() {
 
         <TabsContent value="plano" className="mt-6">
           <PlanSection org={org} />
-        </TabsContent>
-
-        <TabsContent value="financeiro" className="mt-6">
-          <FinancialSection
-            settings={settings}
-            organizationId={organizationId!}
-            onSaved={load}
-          />
         </TabsContent>
 
         <TabsContent value="whatsapp" className="mt-6">
@@ -303,94 +293,6 @@ function PlanSection({ org }: { org: Org }) {
   );
 }
 
-function FinancialSection({
-  settings,
-  organizationId,
-  onSaved,
-}: {
-  settings: Settings;
-  organizationId: string;
-  onSaved: () => Promise<void>;
-}) {
-  const [fee, setFee] = useState(String(settings.monthly_fee_default ?? ""));
-  const [dueDay, setDueDay] = useState(String(settings.due_day ?? 10));
-  const [pixType, setPixType] = useState(settings.pix_key_type ?? "");
-  const [pixKey, setPixKey] = useState(settings.pix_key ?? "");
-  const [saving, setSaving] = useState(false);
-  const updateFinancial = useServerFn(updateFinancialConfig);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-      if (!accessToken) throw new Error("Sessão inválida. Faça login novamente.");
-      await updateFinancial({
-        data: {
-          accessToken,
-          organizationId,
-          monthlyFeeDefault: parseFloat(fee) || 0,
-          dueDay: parseInt(dueDay, 10) || 10,
-          pixKeyType: pixType || null,
-          pixKey: pixKey || null,
-        },
-      });
-      toast.success("Configurações financeiras atualizadas.");
-      await onSaved();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao salvar.");
-    }
-    setSaving(false);
-  };
-
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <SectionHeader title="Financeiro" />
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1">
-          <Label>Mensalidade padrão (R$)</Label>
-          <Input type="number" step="0.01" value={fee} onChange={(e) => setFee(e.target.value)} />
-        </div>
-        <div className="space-y-1">
-          <Label>Dia de vencimento</Label>
-          <Input
-            type="number"
-            min={1}
-            max={28}
-            value={dueDay}
-            onChange={(e) => setDueDay(e.target.value)}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label>Tipo da chave PIX</Label>
-          <Select value={pixType} onValueChange={setPixType}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="cpf">CPF</SelectItem>
-              <SelectItem value="cnpj">CNPJ</SelectItem>
-              <SelectItem value="email">E-mail</SelectItem>
-              <SelectItem value="phone">Telefone</SelectItem>
-              <SelectItem value="random">Chave aleatória</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <Label>Chave PIX</Label>
-          <Input
-            value={pixKey}
-            onChange={(e) => setPixKey(e.target.value)}
-            placeholder={pixPlaceholder(pixType)}
-          />
-        </div>
-      </div>
-      <SaveButton saving={saving} />
-    </form>
-  );
-}
 
 function WhatsappSection({
   settings,
@@ -402,13 +304,12 @@ function WhatsappSection({
   onSaved: () => Promise<void>;
 }) {
   const [enabled, setEnabled] = useState(!!settings.whatsapp_notifications);
-  const [token, setToken] = useState(settings.botbot_token ?? "");
   const [appKey, setAppKey] = useState(settings.botbot_app_key ?? "");
   const [authKey, setAuthKey] = useState(settings.botbot_auth_key ?? "");
-  const [showToken, setShowToken] = useState(false);
   const [showAppKey, setShowAppKey] = useState(false);
   const [showAuthKey, setShowAuthKey] = useState(false);
   const initialDays = settings.charge_reminder_days ?? [];
+  const [dMinus7, setDMinus7] = useState(initialDays.includes(-7));
   const [dMinus3, setDMinus3] = useState(initialDays.includes(-3));
   const [dZero, setDZero] = useState(initialDays.includes(0));
   const [dPlus3, setDPlus3] = useState(initialDays.includes(3));
@@ -420,9 +321,12 @@ function WhatsappSection({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    const days = [dMinus3 ? -3 : null, dZero ? 0 : null, dPlus3 ? 3 : null].filter(
-      (v): v is number => v !== null,
-    );
+    const days = [
+      dMinus7 ? -7 : null,
+      dMinus3 ? -3 : null,
+      dZero ? 0 : null,
+      dPlus3 ? 3 : null,
+    ].filter((v): v is number => v !== null);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
@@ -432,7 +336,7 @@ function WhatsappSection({
           accessToken,
           organizationId,
           whatsappNotifications: enabled,
-          botbotToken: enabled ? token : null,
+          botbotToken: null,
           botbotAppKey: enabled ? appKey : null,
           botbotAuthKey: enabled ? authKey : null,
           chargeReminderDays: enabled ? days : [],
@@ -472,27 +376,10 @@ function WhatsappSection({
       </div>
       {enabled && (
         <div className="space-y-3 pl-2">
-          <div className="space-y-1">
-            <Label>Token do BotBot.chat</Label>
-            <div className="relative">
-              <Input
-                type={showToken ? "text" : "password"}
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-              />
-              <button
-                type="button"
-                onClick={() => setShowToken((s) => !s)}
-                className="absolute right-2 top-2.5 text-muted-foreground"
-              >
-                {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
           <div className="rounded-md border border-border bg-muted/30 p-3 space-y-3">
             <p className="text-sm font-medium">Credenciais BotBot</p>
             <div className="space-y-1">
-              <Label>App Key</Label>
+              <Label>App Key do BotBot</Label>
               <div className="relative">
                 <Input
                   type={showAppKey ? "text" : "password"}
@@ -510,7 +397,7 @@ function WhatsappSection({
               </div>
             </div>
             <div className="space-y-1">
-              <Label>Auth Key</Label>
+              <Label>Auth Key do BotBot</Label>
               <div className="relative">
                 <Input
                   type={showAuthKey ? "text" : "password"}
@@ -533,6 +420,12 @@ function WhatsappSection({
           </div>
           <div className="space-y-2">
             <Label>Dias de disparo</Label>
+            <div className="flex items-center gap-2">
+              <Checkbox id="d-7" checked={dMinus7} onCheckedChange={(v) => setDMinus7(!!v)} />
+              <Label htmlFor="d-7" className="cursor-pointer">
+                D-7 (7 dias antes do vencimento)
+              </Label>
+            </div>
             <div className="flex items-center gap-2">
               <Checkbox id="d-3" checked={dMinus3} onCheckedChange={(v) => setDMinus3(!!v)} />
               <Label htmlFor="d-3" className="cursor-pointer">
