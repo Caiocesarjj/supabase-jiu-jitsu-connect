@@ -52,7 +52,7 @@ const itemsAfter = [
 const financeSubitems = [
   { title: "Visão Geral", url: "/financeiro/dashboard" },
   { title: "Mensalidades", url: "/financeiro/mensalidades" },
-  { title: "Recorrentes", url: "/financeiro/recorrentes" },
+  { title: "Planos", url: "/financeiro/recorrentes" },
   { title: "Formas de Pagamento", url: "/financeiro/formas-pagamento" },
   { title: "Crescimento", url: "/financeiro/crescimento" },
 ];
