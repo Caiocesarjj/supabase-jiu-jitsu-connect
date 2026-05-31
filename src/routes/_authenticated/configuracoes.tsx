@@ -376,27 +376,10 @@ function WhatsappSection({
       </div>
       {enabled && (
         <div className="space-y-3 pl-2">
-          <div className="space-y-1">
-            <Label>Token do BotBot.chat</Label>
-            <div className="relative">
-              <Input
-                type={showToken ? "text" : "password"}
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-              />
-              <button
-                type="button"
-                onClick={() => setShowToken((s) => !s)}
-                className="absolute right-2 top-2.5 text-muted-foreground"
-              >
-                {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
           <div className="rounded-md border border-border bg-muted/30 p-3 space-y-3">
             <p className="text-sm font-medium">Credenciais BotBot</p>
             <div className="space-y-1">
-              <Label>App Key</Label>
+              <Label>App Key do BotBot</Label>
               <div className="relative">
                 <Input
                   type={showAppKey ? "text" : "password"}
@@ -414,7 +397,7 @@ function WhatsappSection({
               </div>
             </div>
             <div className="space-y-1">
-              <Label>Auth Key</Label>
+              <Label>Auth Key do BotBot</Label>
               <div className="relative">
                 <Input
                   type={showAuthKey ? "text" : "password"}
@@ -437,6 +420,12 @@ function WhatsappSection({
           </div>
           <div className="space-y-2">
             <Label>Dias de disparo</Label>
+            <div className="flex items-center gap-2">
+              <Checkbox id="d-7" checked={dMinus7} onCheckedChange={(v) => setDMinus7(!!v)} />
+              <Label htmlFor="d-7" className="cursor-pointer">
+                D-7 (7 dias antes do vencimento)
+              </Label>
+            </div>
             <div className="flex items-center gap-2">
               <Checkbox id="d-3" checked={dMinus3} onCheckedChange={(v) => setDMinus3(!!v)} />
               <Label htmlFor="d-3" className="cursor-pointer">
