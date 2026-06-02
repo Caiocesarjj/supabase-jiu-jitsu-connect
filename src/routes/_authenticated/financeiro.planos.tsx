@@ -307,18 +307,18 @@ function Page() {
     setSubStudent("");
     setSubPlan("");
     setSubStart(todayISO());
-    setSubNext("");
+    setSubNext(todayISO());
     setSubOpen(true);
   };
 
-  // Auto compute next due when plan or start changes
+  // Usa a data de cadastro do aluno como base do vencimento.
   useEffect(() => {
-    if (!subPlan || !subStart) return;
-    const p = plans.find((pp) => pp.id === subPlan);
-    if (!p) return;
-    const next = addMonths(new Date(subStart + "T00:00:00"), FREQ_MONTHS[p.frequency]);
-    setSubNext(next.toISOString().slice(0, 10));
-  }, [subPlan, subStart, plans]);
+    if (!subStudent) return;
+    const student = students.find((item) => item.id === subStudent);
+    const enrollmentDate = student?.enrollmentDate || todayISO();
+    setSubStart(enrollmentDate);
+    setSubNext(enrollmentDate);
+  }, [subStudent, students]);
 
   const saveSub = async () => {
     if (!organizationId) return;
