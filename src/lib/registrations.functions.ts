@@ -620,7 +620,7 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
           .from("students")
           .select(
             `id, monthly_fee, enrollment_date,
-             subscription_records!subscription_records_student_id_fkey(status, plan_id, subscription_plans(amount))`,
+             subscription_records!subscription_records_student_id_fkey(status, plan_id, subscription_plans(amount, new_amount_after))`,
           )
           .eq("organization_id", data.organizationId)
           .eq("status", "active")
@@ -644,14 +644,17 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
       enrollment_date: string | null;
       subscription_records?: Array<{
         status: string;
-        subscription_plans: { amount: number | null } | Array<{ amount: number | null }> | null;
+        subscription_plans:
+          | { amount: number | null; new_amount_after: number | null }
+          | Array<{ amount: number | null; new_amount_after: number | null }>
+          | null;
       }>;
     }>).map((student) => {
       const activeSubscription = student.subscription_records?.find((sub) => sub.status === "active");
       const plan = Array.isArray(activeSubscription?.subscription_plans)
         ? activeSubscription?.subscription_plans[0]
         : activeSubscription?.subscription_plans;
-      const subscriptionAmount = plan?.amount;
+      const subscriptionAmount = plan?.new_amount_after ?? plan?.amount;
       return {
         organization_id: data.organizationId,
         student_id: student.id,
