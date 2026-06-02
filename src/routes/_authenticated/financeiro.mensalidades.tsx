@@ -317,6 +317,10 @@ function FinanceiroPage() {
             </div>
           </div>
         </div>
+        <Button onClick={handleGenerateCharges} disabled={generating}>
+          {generating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Gerar cobranças do mês
+        </Button>
       </div>
 
 
