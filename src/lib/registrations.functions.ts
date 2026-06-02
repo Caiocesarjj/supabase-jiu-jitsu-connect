@@ -620,7 +620,7 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
           .from("students")
           .select(
             `id, monthly_fee, enrollment_date,
-             subscription_records!subscription_records_student_id_fkey(status, plan_id, subscription_plans(amount, new_amount_after))`,
+             subscription_records(status, plan_id, subscription_plans(amount, new_amount_after))`,
           )
           .eq("organization_id", data.organizationId)
           .eq("status", "active")
