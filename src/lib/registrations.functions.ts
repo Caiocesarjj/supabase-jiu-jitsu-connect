@@ -8,6 +8,27 @@ const staffRoles = new Set(["admin", "instructor", "instrutor", "staff"]);
 const authSchema = z.object({ accessToken: z.string().min(10) });
 const orgAuthSchema = authSchema.extend({ organizationId: z.string().uuid() });
 
+function dueDateFromEnrollment(referenceMonth: string, enrollmentDate: string | null, fallbackDay: number) {
+  const [yearRaw, monthRaw] = referenceMonth.split("-").map(Number);
+  const year = Number.isFinite(yearRaw) ? yearRaw : new Date().getFullYear();
+  const month = Number.isFinite(monthRaw) ? monthRaw : new Date().getMonth() + 1;
+  const sourceDate = enrollmentDate ? new Date(`${enrollmentDate}T00:00:00`) : null;
+  const sourceDay = sourceDate && !Number.isNaN(sourceDate.getTime()) ? sourceDate.getDate() : fallbackDay;
+  const lastDay = new Date(year, month, 0).getDate();
+  const day = Math.min(Math.max(sourceDay, 1), lastDay);
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function normalizeBrazilianPhone(phone: string | null | undefined) {
+  const digits = (phone ?? "").replace(/\D/g, "");
+  if (!digits) return null;
+  return digits.startsWith("55") ? digits : `55${digits}`;
+}
+
+function asaasBaseUrl() {
+  return (process.env.ASAAS_BASE_URL || "https://api.asaas.com/v3").replace(/\/$/, "");
+}
+
 async function requireStaff(accessToken: string, organizationId?: string) {
   const supabase = getUserClient(accessToken);
   const { data: authData, error: authError } = await supabase.auth.getUser();
