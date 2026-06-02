@@ -56,13 +56,6 @@ interface PlanOption {
   active: boolean;
 }
 
-const FREQ_MONTHS: Record<PlanOption["frequency"], number> = {
-  monthly: 1,
-  quarterly: 3,
-  semiannual: 6,
-  annual: 12,
-};
-
 function NovoAlunoPage() {
   const { organizationId } = useAuth();
   const navigate = useNavigate();
