@@ -654,7 +654,11 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
       const plan = Array.isArray(activeSubscription?.subscription_plans)
         ? activeSubscription?.subscription_plans[0]
         : activeSubscription?.subscription_plans;
-      const subscriptionAmount = plan?.new_amount_after ?? plan?.amount;
+      const enrollmentMonth = student.enrollment_date?.slice(0, 7) ?? data.referenceMonth;
+      const subscriptionAmount =
+        plan?.new_amount_after != null && data.referenceMonth > enrollmentMonth
+          ? plan.new_amount_after
+          : plan?.amount;
       return {
         organization_id: data.organizationId,
         student_id: student.id,
