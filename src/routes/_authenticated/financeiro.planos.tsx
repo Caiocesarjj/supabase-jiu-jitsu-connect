@@ -620,19 +620,19 @@ function Page() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Data de início</Label>
+                <Label>Data de cadastro do aluno</Label>
                 <Input
                   type="date"
                   value={subStart}
-                  onChange={(e) => setSubStart(e.target.value)}
+                  readOnly
                 />
               </div>
               <div>
-                <Label>Próximo vencimento</Label>
+                <Label>Vencimento da cobrança</Label>
                 <Input
                   type="date"
                   value={subNext}
-                  onChange={(e) => setSubNext(e.target.value)}
+                  readOnly
                 />
               </div>
             </div>
