@@ -563,17 +563,20 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
     const referenceMonth = `${year}-${month}-01`;
     const dueDay = Number(settings?.due_day ?? 10);
     const defaultFee = Number(settings?.monthly_fee_default ?? 0);
-    const rows = ((students ?? []) as Array<{
+    const rows = ((students ?? []) as unknown as Array<{
       id: string;
       monthly_fee: number | null;
       enrollment_date: string | null;
       subscription_records?: Array<{
         status: string;
-        subscription_plans: { amount: number | null } | null;
+        subscription_plans: { amount: number | null } | Array<{ amount: number | null }> | null;
       }>;
     }>).map((student) => {
       const activeSubscription = student.subscription_records?.find((sub) => sub.status === "active");
-      const subscriptionAmount = activeSubscription?.subscription_plans?.amount;
+      const plan = Array.isArray(activeSubscription?.subscription_plans)
+        ? activeSubscription?.subscription_plans[0]
+        : activeSubscription?.subscription_plans;
+      const subscriptionAmount = plan?.amount;
       return {
         organization_id: data.organizationId,
         student_id: student.id,
