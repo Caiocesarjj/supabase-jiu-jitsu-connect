@@ -84,7 +84,6 @@ interface Plan {
   frequency: Frequency;
   description: string | null;
   active: boolean;
-  valid_until: string | null;
   new_amount_after: number | null;
 }
 
@@ -110,6 +109,7 @@ interface Subscription {
 interface StudentOption {
   id: string;
   name: string;
+  enrollmentDate: string | null;
 }
 
 function StatusBadge({ status }: { status: SubStatus }) {
@@ -153,7 +153,6 @@ function Page() {
   const [planAmount, setPlanAmount] = useState("");
   const [planFreq, setPlanFreq] = useState<Frequency>("monthly");
   const [planDesc, setPlanDesc] = useState("");
-  const [planValidUntil, setPlanValidUntil] = useState("");
   const [planNewAmount, setPlanNewAmount] = useState("");
   const [savingPlan, setSavingPlan] = useState(false);
 
@@ -171,7 +170,7 @@ function Page() {
     const [plansRes, subsRes, studentsRes] = await Promise.all([
       supabase
         .from("subscription_plans")
-        .select("id, name, amount, frequency, description, active, valid_until, new_amount_after")
+        .select("id, name, amount, frequency, description, active, new_amount_after")
         .eq("organization_id", organizationId)
         .order("amount"),
       supabase
@@ -185,7 +184,7 @@ function Page() {
         .order("created_at", { ascending: false }),
       supabase
         .from("students")
-        .select("id, profiles ( full_name )")
+        .select("id, enrollment_date, profiles ( full_name )")
         .eq("organization_id", organizationId)
         .order("created_at", { ascending: false }),
     ]);
@@ -199,9 +198,10 @@ function Page() {
     if (!studentsRes.error) {
       const opts = ((studentsRes.data as unknown as Array<{
         id: string;
+          enrollment_date: string | null;
         profiles: { full_name: string } | null;
       }>) ?? [])
-        .map((s) => ({ id: s.id, name: s.profiles?.full_name ?? "—" }))
+        .map((s) => ({ id: s.id, name: s.profiles?.full_name ?? "—", enrollmentDate: s.enrollment_date }))
         .sort((a, b) => a.name.localeCompare(b.name));
       setStudents(opts);
     }
