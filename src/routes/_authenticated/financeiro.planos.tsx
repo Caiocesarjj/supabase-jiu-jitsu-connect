@@ -433,7 +433,12 @@ function Page() {
 
       {/* Subscriptions table */}
       <div>
-        <h2 className="text-sm font-semibold text-muted-foreground mb-2">Assinaturas</h2>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-muted-foreground">Assinaturas</h2>
+          <Button variant="outline" onClick={openNewSub} disabled={plans.filter((p) => p.active).length === 0}>
+            <Plus className="mr-2 h-4 w-4" /> Nova assinatura
+          </Button>
+        </div>
         {subs.length === 0 ? (
           <EmptyState
             title="Nenhuma assinatura"
