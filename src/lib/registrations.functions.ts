@@ -129,7 +129,7 @@ export const createStudentRegistration = createServerFn({ method: "POST" })
         belt: z.string().min(2).max(40),
         degrees: z.number().int().min(0).max(10),
         subscriptionPlanId: z.string().uuid().nullable().optional(),
-        validityDate: z.string().optional(),
+        validityDate: z.string().nullable().optional(),
       })
       .parse(input),
   )
@@ -179,14 +179,14 @@ export const createStudentRegistration = createServerFn({ method: "POST" })
     });
     if (graduationError) throw graduationError;
 
-    if (data.subscriptionPlanId && data.validityDate) {
+    if (data.subscriptionPlanId) {
       const { error: subError } = await supabase.from("subscription_records").insert({
         organization_id: data.organizationId,
         student_id: studentId,
         plan_id: data.subscriptionPlanId,
         status: "active",
         started_at: today,
-        next_due_date: data.validityDate,
+        next_due_date: data.validityDate || today,
       });
       if (subError) throw subError;
     }
