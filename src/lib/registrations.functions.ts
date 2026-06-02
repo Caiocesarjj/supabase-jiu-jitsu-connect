@@ -29,6 +29,81 @@ function asaasBaseUrl() {
   return (process.env.ASAAS_BASE_URL || "https://api.asaas.com/v3").replace(/\/$/, "");
 }
 
+async function asaasRequest<T>(apiKey: string, path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${asaasBaseUrl()}${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      access_token: apiKey,
+      ...(init?.headers ?? {}),
+    },
+  });
+  const text = await response.text();
+  const payload = text ? JSON.parse(text) : null;
+  if (!response.ok) {
+    const message = payload?.errors?.[0]?.description || payload?.message || "Erro na API do Asaas.";
+    throw new Error(message);
+  }
+  return payload as T;
+}
+
+async function ensureAsaasCharge({
+  apiKey,
+  charge,
+}: {
+  apiKey: string;
+  charge: {
+    id: string;
+    amount: number;
+    due_date: string;
+    students?: { profiles?: { full_name?: string; email?: string | null; phone?: string | null; cpf?: string | null } } | null;
+  };
+}) {
+  const profile = charge.students?.profiles;
+  const name = profile?.full_name || "Aluno JJ Manager";
+  const phone = normalizeBrazilianPhone(profile?.phone);
+  const existing = await asaasRequest<{ data?: Array<{ id: string; invoiceUrl?: string; bankSlipUrl?: string }> }>(
+    apiKey,
+    `/payments?externalReference=${encodeURIComponent(charge.id)}`,
+    { method: "GET" },
+  );
+  let payment = existing.data?.[0];
+  if (!payment) {
+    const customer = await asaasRequest<{ id: string }>(apiKey, "/customers", {
+      method: "POST",
+      body: JSON.stringify({
+        name,
+        email: profile?.email || undefined,
+        mobilePhone: phone || undefined,
+        cpfCnpj: (profile?.cpf ?? "").replace(/\D/g, "") || undefined,
+      }),
+    });
+    payment = await asaasRequest<{ id: string; invoiceUrl?: string; bankSlipUrl?: string }>(apiKey, "/payments", {
+      method: "POST",
+      body: JSON.stringify({
+        customer: customer.id,
+        billingType: "PIX",
+        value: Number(charge.amount),
+        dueDate: charge.due_date,
+        description: `Mensalidade ${name}`,
+        externalReference: charge.id,
+      }),
+    });
+  }
+  let pixCode: string | null = null;
+  try {
+    const pix = await asaasRequest<{ payload?: string; encodedImage?: string }>(
+      apiKey,
+      `/payments/${payment.id}/pixQrCode`,
+      { method: "GET" },
+    );
+    pixCode = pix.payload ?? pix.encodedImage ?? null;
+  } catch {
+    pixCode = null;
+  }
+  return { invoiceUrl: payment.invoiceUrl ?? payment.bankSlipUrl ?? null, pixCode };
+}
+
 async function requireStaff(accessToken: string, organizationId?: string) {
   const supabase = getUserClient(accessToken);
   const { data: authData, error: authError } = await supabase.auth.getUser();
