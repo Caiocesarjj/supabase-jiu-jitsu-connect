@@ -129,12 +129,6 @@ function monthlyEquivalent(amount: number, freq: Frequency): number {
   return amount / FREQ_MONTHS[freq];
 }
 
-function addMonths(date: Date, months: number): Date {
-  const d = new Date(date);
-  d.setMonth(d.getMonth() + months);
-  return d;
-}
-
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
