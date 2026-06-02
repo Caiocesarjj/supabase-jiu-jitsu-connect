@@ -543,7 +543,10 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
       await Promise.all([
         supabase
           .from("students")
-          .select("id, monthly_fee")
+          .select(
+            `id, monthly_fee, enrollment_date,
+             subscription_records!subscription_records_student_id_fkey(status, plan_id, subscription_plans(amount))`,
+          )
           .eq("organization_id", data.organizationId)
           .eq("status", "active")
           .is("deleted_at", null),
@@ -558,20 +561,29 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
 
     const [year, month] = data.referenceMonth.split("-");
     const referenceMonth = `${year}-${month}-01`;
-    const dueDay = String(settings?.due_day ?? 10).padStart(2, "0");
-    const dueDate = `${year}-${month}-${dueDay}`;
+    const dueDay = Number(settings?.due_day ?? 10);
     const defaultFee = Number(settings?.monthly_fee_default ?? 0);
-    const rows = ((students ?? []) as Array<{ id: string; monthly_fee: number | null }>).map(
-      (student) => ({
+    const rows = ((students ?? []) as Array<{
+      id: string;
+      monthly_fee: number | null;
+      enrollment_date: string | null;
+      subscription_records?: Array<{
+        status: string;
+        subscription_plans: { amount: number | null } | null;
+      }>;
+    }>).map((student) => {
+      const activeSubscription = student.subscription_records?.find((sub) => sub.status === "active");
+      const subscriptionAmount = activeSubscription?.subscription_plans?.amount;
+      return {
         organization_id: data.organizationId,
         student_id: student.id,
-        amount: student.monthly_fee ?? defaultFee,
-        due_date: dueDate,
+        amount: subscriptionAmount ?? student.monthly_fee ?? defaultFee,
+        due_date: dueDateFromEnrollment(data.referenceMonth, student.enrollment_date, dueDay),
         reference_month: referenceMonth,
         status: "pending",
         idempotency_key: `${student.id}_${referenceMonth}`,
-      }),
-    );
+      };
+    });
 
     if (rows.length > 0) {
       const { error } = await supabase
