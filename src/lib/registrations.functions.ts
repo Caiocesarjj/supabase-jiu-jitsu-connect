@@ -627,7 +627,7 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
           .is("deleted_at", null),
         supabase
           .from("organization_settings")
-          .select("monthly_fee_default, due_day")
+          .select("monthly_fee_default, due_day, payment_gateway, payment_gateway_api_key")
           .eq("organization_id", data.organizationId)
           .maybeSingle(),
       ]);
@@ -668,6 +668,34 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
         .from("financial_records")
         .upsert(rows, { onConflict: "idempotency_key", ignoreDuplicates: true });
       if (error) throw error;
+
+      if (settings?.payment_gateway === "asaas" && settings.payment_gateway_api_key) {
+        const { data: charges, error: chargesError } = await supabase
+          .from("financial_records")
+          .select(
+            "id, amount, due_date, students:student_id(profiles:profile_id(full_name, email, phone, cpf))",
+          )
+          .eq("organization_id", data.organizationId)
+          .in("idempotency_key", rows.map((row) => row.idempotency_key));
+        if (chargesError) throw chargesError;
+
+        for (const charge of (charges ?? []) as unknown as Array<{
+          id: string;
+          amount: number;
+          due_date: string;
+          students?: { profiles?: { full_name?: string; email?: string | null; phone?: string | null; cpf?: string | null } } | null;
+        }>) {
+          const asaasCharge = await ensureAsaasCharge({
+            apiKey: settings.payment_gateway_api_key,
+            charge,
+          });
+          await supabase
+            .from("financial_records")
+            .update({ pix_code: asaasCharge.pixCode, invoice_url: asaasCharge.invoiceUrl })
+            .eq("id", charge.id)
+            .eq("organization_id", data.organizationId);
+        }
+      }
     }
 
     return { count: rows.length };
