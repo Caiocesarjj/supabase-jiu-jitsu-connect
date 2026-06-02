@@ -960,7 +960,6 @@ export const upsertSubscriptionPlan = createServerFn({ method: "POST" })
         amount: z.number().min(0),
         frequency: frequencyEnum,
         description: z.string().trim().max(500).nullable().optional(),
-        validUntil: z.string().nullable().optional(),
         newAmountAfter: z.number().min(0).nullable().optional(),
       })
       .parse(input),
@@ -974,7 +973,6 @@ export const upsertSubscriptionPlan = createServerFn({ method: "POST" })
       amount: data.amount,
       frequency: data.frequency,
       description: data.description ?? null,
-      valid_until: data.validUntil ?? null,
       new_amount_after: data.newAmountAfter ?? null,
     };
     if (data.planId) {
