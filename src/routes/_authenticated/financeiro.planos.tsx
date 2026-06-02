@@ -84,7 +84,6 @@ interface Plan {
   frequency: Frequency;
   description: string | null;
   active: boolean;
-  valid_until: string | null;
   new_amount_after: number | null;
 }
 
@@ -110,6 +109,7 @@ interface Subscription {
 interface StudentOption {
   id: string;
   name: string;
+  enrollmentDate: string | null;
 }
 
 function StatusBadge({ status }: { status: SubStatus }) {
@@ -127,12 +127,6 @@ function StatusBadge({ status }: { status: SubStatus }) {
 
 function monthlyEquivalent(amount: number, freq: Frequency): number {
   return amount / FREQ_MONTHS[freq];
-}
-
-function addMonths(date: Date, months: number): Date {
-  const d = new Date(date);
-  d.setMonth(d.getMonth() + months);
-  return d;
 }
 
 function todayISO() {
@@ -153,7 +147,6 @@ function Page() {
   const [planAmount, setPlanAmount] = useState("");
   const [planFreq, setPlanFreq] = useState<Frequency>("monthly");
   const [planDesc, setPlanDesc] = useState("");
-  const [planValidUntil, setPlanValidUntil] = useState("");
   const [planNewAmount, setPlanNewAmount] = useState("");
   const [savingPlan, setSavingPlan] = useState(false);
 
@@ -171,7 +164,7 @@ function Page() {
     const [plansRes, subsRes, studentsRes] = await Promise.all([
       supabase
         .from("subscription_plans")
-        .select("id, name, amount, frequency, description, active, valid_until, new_amount_after")
+        .select("id, name, amount, frequency, description, active, new_amount_after")
         .eq("organization_id", organizationId)
         .order("amount"),
       supabase
@@ -185,7 +178,7 @@ function Page() {
         .order("created_at", { ascending: false }),
       supabase
         .from("students")
-        .select("id, profiles ( full_name )")
+        .select("id, enrollment_date, profiles ( full_name )")
         .eq("organization_id", organizationId)
         .order("created_at", { ascending: false }),
     ]);
@@ -199,9 +192,10 @@ function Page() {
     if (!studentsRes.error) {
       const opts = ((studentsRes.data as unknown as Array<{
         id: string;
+          enrollment_date: string | null;
         profiles: { full_name: string } | null;
       }>) ?? [])
-        .map((s) => ({ id: s.id, name: s.profiles?.full_name ?? "—" }))
+        .map((s) => ({ id: s.id, name: s.profiles?.full_name ?? "—", enrollmentDate: s.enrollment_date }))
         .sort((a, b) => a.name.localeCompare(b.name));
       setStudents(opts);
     }
@@ -233,7 +227,6 @@ function Page() {
     setPlanAmount("");
     setPlanFreq("monthly");
     setPlanDesc("");
-    setPlanValidUntil("");
     setPlanNewAmount("");
     setPlanOpen(true);
   };
@@ -244,7 +237,6 @@ function Page() {
     setPlanAmount(String(p.amount));
     setPlanFreq(p.frequency);
     setPlanDesc(p.description ?? "");
-    setPlanValidUntil(p.valid_until ?? "");
     setPlanNewAmount(p.new_amount_after != null ? String(p.new_amount_after) : "");
     setPlanOpen(true);
   };
@@ -279,9 +271,7 @@ function Page() {
           amount: Number(planAmount),
           frequency: planFreq,
           description: planDesc.trim() || null,
-          validUntil: planValidUntil || null,
-          newAmountAfter:
-            planValidUntil && planNewAmount ? Number(planNewAmount) : null,
+          newAmountAfter: planNewAmount ? Number(planNewAmount) : null,
         },
       });
       toast.success(editingPlan ? "Plano atualizado" : "Plano criado");
@@ -311,18 +301,18 @@ function Page() {
     setSubStudent("");
     setSubPlan("");
     setSubStart(todayISO());
-    setSubNext("");
+    setSubNext(todayISO());
     setSubOpen(true);
   };
 
-  // Auto compute next due when plan or start changes
+  // Usa a data de cadastro do aluno como base do vencimento.
   useEffect(() => {
-    if (!subPlan || !subStart) return;
-    const p = plans.find((pp) => pp.id === subPlan);
-    if (!p) return;
-    const next = addMonths(new Date(subStart + "T00:00:00"), FREQ_MONTHS[p.frequency]);
-    setSubNext(next.toISOString().slice(0, 10));
-  }, [subPlan, subStart, plans]);
+    if (!subStudent) return;
+    const student = students.find((item) => item.id === subStudent);
+    const enrollmentDate = student?.enrollmentDate || todayISO();
+    setSubStart(enrollmentDate);
+    setSubNext(enrollmentDate);
+  }, [subStudent, students]);
 
   const saveSub = async () => {
     if (!organizationId) return;
@@ -422,12 +412,9 @@ function Page() {
                 {p.description && (
                   <p className="text-xs text-muted-foreground">{p.description}</p>
                 )}
-                {p.valid_until && (
+                {p.new_amount_after != null && (
                   <div className="text-xs bg-muted/50 p-2 rounded border border-border">
-                    <strong>Válido até:</strong> {formatDateBR(p.valid_until)}<br/>
-                    {p.new_amount_after && (
-                      <><strong>Próximo valor:</strong> {formatBRL(Number(p.new_amount_after))}</>
-                    )}
+                    <strong>Valor após o cadastro:</strong> {formatBRL(Number(p.new_amount_after))}
                   </div>
                 )}
                 <div className="flex gap-2 pt-1">
@@ -446,7 +433,12 @@ function Page() {
 
       {/* Subscriptions table */}
       <div>
-        <h2 className="text-sm font-semibold text-muted-foreground mb-2">Assinaturas</h2>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-muted-foreground">Assinaturas</h2>
+          <Button variant="outline" onClick={openNewSub} disabled={plans.filter((p) => p.active).length === 0}>
+            <Plus className="mr-2 h-4 w-4" /> Nova assinatura
+          </Button>
+        </div>
         {subs.length === 0 ? (
           <EmptyState
             title="Nenhuma assinatura"
@@ -556,27 +548,15 @@ function Page() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Válido até (opcional)</Label>
-                <Input
-                  type="date"
-                  value={planValidUntil}
-                  onChange={(e) => setPlanValidUntil(e.target.value)}
-                />
-              </div>
-              {planValidUntil && (
-                <div>
-                  <Label>Novo valor após vencimento (R$)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={planNewAmount}
-                    onChange={(e) => setPlanNewAmount(e.target.value)}
-                    placeholder="Ex: 180.00"
-                  />
-                </div>
-              )}
+            <div>
+              <Label>Valor a cobrar após a data de cadastro (R$)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={planNewAmount}
+                onChange={(e) => setPlanNewAmount(e.target.value)}
+                placeholder="Opcional"
+              />
             </div>
             <div>
               <Label>Descrição</Label>
@@ -640,19 +620,19 @@ function Page() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Data de início</Label>
+                <Label>Data de cadastro do aluno</Label>
                 <Input
                   type="date"
                   value={subStart}
-                  onChange={(e) => setSubStart(e.target.value)}
+                  readOnly
                 />
               </div>
               <div>
-                <Label>Próximo vencimento</Label>
+                <Label>Vencimento da cobrança</Label>
                 <Input
                   type="date"
                   value={subNext}
-                  onChange={(e) => setSubNext(e.target.value)}
+                  readOnly
                 />
               </div>
             </div>

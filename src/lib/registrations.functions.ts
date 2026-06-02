@@ -8,6 +8,102 @@ const staffRoles = new Set(["admin", "instructor", "instrutor", "staff"]);
 const authSchema = z.object({ accessToken: z.string().min(10) });
 const orgAuthSchema = authSchema.extend({ organizationId: z.string().uuid() });
 
+function dueDateFromEnrollment(referenceMonth: string, enrollmentDate: string | null, fallbackDay: number) {
+  const [yearRaw, monthRaw] = referenceMonth.split("-").map(Number);
+  const year = Number.isFinite(yearRaw) ? yearRaw : new Date().getFullYear();
+  const month = Number.isFinite(monthRaw) ? monthRaw : new Date().getMonth() + 1;
+  const sourceDate = enrollmentDate ? new Date(`${enrollmentDate}T00:00:00`) : null;
+  const sourceDay = sourceDate && !Number.isNaN(sourceDate.getTime()) ? sourceDate.getDate() : fallbackDay;
+  const lastDay = new Date(year, month, 0).getDate();
+  const day = Math.min(Math.max(sourceDay, 1), lastDay);
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function normalizeBrazilianPhone(phone: string | null | undefined) {
+  const digits = (phone ?? "").replace(/\D/g, "");
+  if (!digits) return null;
+  return digits.startsWith("55") ? digits : `55${digits}`;
+}
+
+function asaasBaseUrl() {
+  return (process.env.ASAAS_BASE_URL || "https://api.asaas.com/v3").replace(/\/$/, "");
+}
+
+async function asaasRequest<T>(apiKey: string, path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${asaasBaseUrl()}${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      access_token: apiKey,
+      ...(init?.headers ?? {}),
+    },
+  });
+  const text = await response.text();
+  const payload = text ? JSON.parse(text) : null;
+  if (!response.ok) {
+    const message = payload?.errors?.[0]?.description || payload?.message || "Erro na API do Asaas.";
+    throw new Error(message);
+  }
+  return payload as T;
+}
+
+async function ensureAsaasCharge({
+  apiKey,
+  charge,
+}: {
+  apiKey: string;
+  charge: {
+    id: string;
+    amount: number;
+    due_date: string;
+    students?: { profiles?: { full_name?: string; email?: string | null; phone?: string | null; cpf?: string | null } } | null;
+  };
+}) {
+  const profile = charge.students?.profiles;
+  const name = profile?.full_name || "Aluno JJ Manager";
+  const phone = normalizeBrazilianPhone(profile?.phone);
+  const existing = await asaasRequest<{ data?: Array<{ id: string; invoiceUrl?: string; bankSlipUrl?: string }> }>(
+    apiKey,
+    `/payments?externalReference=${encodeURIComponent(charge.id)}`,
+    { method: "GET" },
+  );
+  let payment = existing.data?.[0];
+  if (!payment) {
+    const customer = await asaasRequest<{ id: string }>(apiKey, "/customers", {
+      method: "POST",
+      body: JSON.stringify({
+        name,
+        email: profile?.email || undefined,
+        mobilePhone: phone || undefined,
+        cpfCnpj: (profile?.cpf ?? "").replace(/\D/g, "") || undefined,
+      }),
+    });
+    payment = await asaasRequest<{ id: string; invoiceUrl?: string; bankSlipUrl?: string }>(apiKey, "/payments", {
+      method: "POST",
+      body: JSON.stringify({
+        customer: customer.id,
+        billingType: "PIX",
+        value: Number(charge.amount),
+        dueDate: charge.due_date,
+        description: `Mensalidade ${name}`,
+        externalReference: charge.id,
+      }),
+    });
+  }
+  let pixCode: string | null = null;
+  try {
+    const pix = await asaasRequest<{ payload?: string; encodedImage?: string }>(
+      apiKey,
+      `/payments/${payment.id}/pixQrCode`,
+      { method: "GET" },
+    );
+    pixCode = pix.payload ?? pix.encodedImage ?? null;
+  } catch {
+    pixCode = null;
+  }
+  return { invoiceUrl: payment.invoiceUrl ?? payment.bankSlipUrl ?? null, pixCode };
+}
+
 async function requireStaff(accessToken: string, organizationId?: string) {
   const supabase = getUserClient(accessToken);
   const { data: authData, error: authError } = await supabase.auth.getUser();
@@ -108,7 +204,7 @@ export const createStudentRegistration = createServerFn({ method: "POST" })
         belt: z.string().min(2).max(40),
         degrees: z.number().int().min(0).max(10),
         subscriptionPlanId: z.string().uuid().nullable().optional(),
-        validityDate: z.string().optional(),
+        validityDate: z.string().nullable().optional(),
       })
       .parse(input),
   )
@@ -158,14 +254,14 @@ export const createStudentRegistration = createServerFn({ method: "POST" })
     });
     if (graduationError) throw graduationError;
 
-    if (data.subscriptionPlanId && data.validityDate) {
+    if (data.subscriptionPlanId) {
       const { error: subError } = await supabase.from("subscription_records").insert({
         organization_id: data.organizationId,
         student_id: studentId,
         plan_id: data.subscriptionPlanId,
         status: "active",
         started_at: today,
-        next_due_date: data.validityDate,
+        next_due_date: data.validityDate || today,
       });
       if (subError) throw subError;
     }
@@ -522,13 +618,16 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
       await Promise.all([
         supabase
           .from("students")
-          .select("id, monthly_fee")
+          .select(
+            `id, monthly_fee, enrollment_date,
+             subscription_records(status, plan_id, subscription_plans(amount, new_amount_after))`,
+          )
           .eq("organization_id", data.organizationId)
           .eq("status", "active")
           .is("deleted_at", null),
         supabase
           .from("organization_settings")
-          .select("monthly_fee_default, due_day")
+          .select("monthly_fee_default, due_day, payment_gateway, payment_gateway_api_key")
           .eq("organization_id", data.organizationId)
           .maybeSingle(),
       ]);
@@ -537,26 +636,73 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
 
     const [year, month] = data.referenceMonth.split("-");
     const referenceMonth = `${year}-${month}-01`;
-    const dueDay = String(settings?.due_day ?? 10).padStart(2, "0");
-    const dueDate = `${year}-${month}-${dueDay}`;
+    const dueDay = Number(settings?.due_day ?? 10);
     const defaultFee = Number(settings?.monthly_fee_default ?? 0);
-    const rows = ((students ?? []) as Array<{ id: string; monthly_fee: number | null }>).map(
-      (student) => ({
+    const rows = ((students ?? []) as unknown as Array<{
+      id: string;
+      monthly_fee: number | null;
+      enrollment_date: string | null;
+      subscription_records?: Array<{
+        status: string;
+        subscription_plans:
+          | { amount: number | null; new_amount_after: number | null }
+          | Array<{ amount: number | null; new_amount_after: number | null }>
+          | null;
+      }>;
+    }>).map((student) => {
+      const activeSubscription = student.subscription_records?.find((sub) => sub.status === "active");
+      const plan = Array.isArray(activeSubscription?.subscription_plans)
+        ? activeSubscription?.subscription_plans[0]
+        : activeSubscription?.subscription_plans;
+      const enrollmentMonth = student.enrollment_date?.slice(0, 7) ?? data.referenceMonth;
+      const subscriptionAmount =
+        plan?.new_amount_after != null && data.referenceMonth > enrollmentMonth
+          ? plan.new_amount_after
+          : plan?.amount;
+      return {
         organization_id: data.organizationId,
         student_id: student.id,
-        amount: student.monthly_fee ?? defaultFee,
-        due_date: dueDate,
+        amount: subscriptionAmount ?? student.monthly_fee ?? defaultFee,
+        due_date: dueDateFromEnrollment(data.referenceMonth, student.enrollment_date, dueDay),
         reference_month: referenceMonth,
         status: "pending",
         idempotency_key: `${student.id}_${referenceMonth}`,
-      }),
-    );
+      };
+    });
 
     if (rows.length > 0) {
       const { error } = await supabase
         .from("financial_records")
         .upsert(rows, { onConflict: "idempotency_key", ignoreDuplicates: true });
       if (error) throw error;
+
+      if (settings?.payment_gateway === "asaas" && settings.payment_gateway_api_key) {
+        const { data: charges, error: chargesError } = await supabase
+          .from("financial_records")
+          .select(
+            "id, amount, due_date, students:student_id(profiles:profile_id(full_name, email, phone, cpf))",
+          )
+          .eq("organization_id", data.organizationId)
+          .in("idempotency_key", rows.map((row) => row.idempotency_key));
+        if (chargesError) throw chargesError;
+
+        for (const charge of (charges ?? []) as unknown as Array<{
+          id: string;
+          amount: number;
+          due_date: string;
+          students?: { profiles?: { full_name?: string; email?: string | null; phone?: string | null; cpf?: string | null } } | null;
+        }>) {
+          const asaasCharge = await ensureAsaasCharge({
+            apiKey: settings.payment_gateway_api_key,
+            charge,
+          });
+          await supabase
+            .from("financial_records")
+            .update({ pix_code: asaasCharge.pixCode, invoice_url: asaasCharge.invoiceUrl })
+            .eq("id", charge.id)
+            .eq("organization_id", data.organizationId);
+        }
+      }
     }
 
     return { count: rows.length };
@@ -722,7 +868,7 @@ export const sendChargeNotifications = createServerFn({ method: "POST" })
     for (const charge of charges ?? []) {
       const student = (charge as { students?: { profiles?: { full_name?: string; phone?: string } } }).students;
       const profile = student?.profiles;
-      const phone = profile?.phone?.replace(/\D/g, "");
+      const phone = normalizeBrazilianPhone(profile?.phone);
       const name = profile?.full_name ?? "Aluno";
 
       if (!phone) {
@@ -924,7 +1070,6 @@ export const upsertSubscriptionPlan = createServerFn({ method: "POST" })
         amount: z.number().min(0),
         frequency: frequencyEnum,
         description: z.string().trim().max(500).nullable().optional(),
-        validUntil: z.string().nullable().optional(),
         newAmountAfter: z.number().min(0).nullable().optional(),
       })
       .parse(input),
@@ -938,7 +1083,6 @@ export const upsertSubscriptionPlan = createServerFn({ method: "POST" })
       amount: data.amount,
       frequency: data.frequency,
       description: data.description ?? null,
-      valid_until: data.validUntil ?? null,
       new_amount_after: data.newAmountAfter ?? null,
     };
     if (data.planId) {

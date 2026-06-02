@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -9,6 +10,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
+import { generateMonthlyCharges } from "@/lib/registrations.functions";
 import { formatBRL, formatDateBR } from "@/lib/format";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { EmptyState } from "@/components/EmptyState";
@@ -138,6 +140,8 @@ function FinanceiroPage() {
   const [payRecord, setPayRecord] = useState<Record | null>(null);
   const [cancelRecord, setCancelRecord] = useState<Record | null>(null);
   const [revertRecord, setRevertRecord] = useState<Record | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const generateCharges = useServerFn(generateMonthlyCharges);
 
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
@@ -202,6 +206,22 @@ function FinanceiroPage() {
     if (!code) return;
     navigator.clipboard.writeText(code);
     toast.success("Código PIX copiado!");
+  };
+
+  const handleGenerateCharges = async () => {
+    if (!organizationId) return;
+    setGenerating(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida. Faça login novamente.");
+      const result = await generateCharges({ data: { accessToken, organizationId, referenceMonth: filterMonth } });
+      toast.success(`${result.count} cobranças geradas para o mês selecionado.`);
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao gerar cobranças.");
+    }
+    setGenerating(false);
   };
 
   const handleCancel = async () => {
@@ -297,6 +317,10 @@ function FinanceiroPage() {
             </div>
           </div>
         </div>
+        <Button onClick={handleGenerateCharges} disabled={generating}>
+          {generating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Gerar cobranças do mês
+        </Button>
       </div>
 
 
