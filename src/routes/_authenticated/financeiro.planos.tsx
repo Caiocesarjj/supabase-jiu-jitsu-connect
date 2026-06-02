@@ -233,7 +233,6 @@ function Page() {
     setPlanAmount("");
     setPlanFreq("monthly");
     setPlanDesc("");
-    setPlanValidUntil("");
     setPlanNewAmount("");
     setPlanOpen(true);
   };
@@ -244,7 +243,6 @@ function Page() {
     setPlanAmount(String(p.amount));
     setPlanFreq(p.frequency);
     setPlanDesc(p.description ?? "");
-    setPlanValidUntil(p.valid_until ?? "");
     setPlanNewAmount(p.new_amount_after != null ? String(p.new_amount_after) : "");
     setPlanOpen(true);
   };
@@ -279,9 +277,7 @@ function Page() {
           amount: Number(planAmount),
           frequency: planFreq,
           description: planDesc.trim() || null,
-          validUntil: planValidUntil || null,
-          newAmountAfter:
-            planValidUntil && planNewAmount ? Number(planNewAmount) : null,
+          newAmountAfter: planNewAmount ? Number(planNewAmount) : null,
         },
       });
       toast.success(editingPlan ? "Plano atualizado" : "Plano criado");
