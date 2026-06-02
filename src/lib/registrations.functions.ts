@@ -868,7 +868,7 @@ export const sendChargeNotifications = createServerFn({ method: "POST" })
     for (const charge of charges ?? []) {
       const student = (charge as { students?: { profiles?: { full_name?: string; phone?: string } } }).students;
       const profile = student?.profiles;
-      const phone = profile?.phone?.replace(/\D/g, "");
+      const phone = normalizeBrazilianPhone(profile?.phone);
       const name = profile?.full_name ?? "Aluno";
 
       if (!phone) {
