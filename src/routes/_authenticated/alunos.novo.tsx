@@ -81,7 +81,6 @@ function NovoAlunoPage() {
   const [degrees, setDegrees] = useState("0");
   const [status, setStatus] = useState("active");
   const [planId, setPlanId] = useState<string>("");
-  const [validityDate, setValidityDate] = useState<string>("");
   const [plans, setPlans] = useState<PlanOption[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -106,16 +105,6 @@ function NovoAlunoPage() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationId]);
-
-  // auto compute validity when plan changes
-  useEffect(() => {
-    if (!planId) return;
-    const p = plans.find((pp) => pp.id === planId);
-    if (!p) return;
-    const d = new Date();
-    d.setMonth(d.getMonth() + FREQ_MONTHS[p.frequency]);
-    setValidityDate(d.toISOString().slice(0, 10));
-  }, [planId, plans]);
 
   const save = async () => {
     if (!organizationId) {
@@ -147,7 +136,7 @@ function NovoAlunoPage() {
           belt,
           degrees: Number(degrees) || 0,
           subscriptionPlanId: planId || null,
-          validityDate: planId && validityDate ? validityDate : undefined,
+          validityDate: null,
         },
       });
 
@@ -261,8 +250,7 @@ function NovoAlunoPage() {
               />
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-
+          <div className="grid grid-cols-1 gap-3">
             <div>
               <Label>Plano</Label>
               <Select value={planId || "none"} onValueChange={(v) => setPlanId(v === "none" ? "" : v)}>
@@ -278,15 +266,6 @@ function NovoAlunoPage() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>Validade</Label>
-              <Input
-                type="date"
-                value={validityDate}
-                onChange={(e) => setValidityDate(e.target.value)}
-                disabled={!planId}
-              />
             </div>
           </div>
         </section>
