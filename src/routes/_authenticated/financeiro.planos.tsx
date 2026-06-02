@@ -418,12 +418,9 @@ function Page() {
                 {p.description && (
                   <p className="text-xs text-muted-foreground">{p.description}</p>
                 )}
-                {p.valid_until && (
+                {p.new_amount_after != null && (
                   <div className="text-xs bg-muted/50 p-2 rounded border border-border">
-                    <strong>Válido até:</strong> {formatDateBR(p.valid_until)}<br/>
-                    {p.new_amount_after && (
-                      <><strong>Próximo valor:</strong> {formatBRL(Number(p.new_amount_after))}</>
-                    )}
+                    <strong>Valor após o cadastro:</strong> {formatBRL(Number(p.new_amount_after))}
                   </div>
                 )}
                 <div className="flex gap-2 pt-1">
@@ -552,27 +549,15 @@ function Page() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Válido até (opcional)</Label>
-                <Input
-                  type="date"
-                  value={planValidUntil}
-                  onChange={(e) => setPlanValidUntil(e.target.value)}
-                />
-              </div>
-              {planValidUntil && (
-                <div>
-                  <Label>Novo valor após vencimento (R$)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={planNewAmount}
-                    onChange={(e) => setPlanNewAmount(e.target.value)}
-                    placeholder="Ex: 180.00"
-                  />
-                </div>
-              )}
+            <div>
+              <Label>Valor a cobrar após a data de cadastro (R$)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={planNewAmount}
+                onChange={(e) => setPlanNewAmount(e.target.value)}
+                placeholder="Opcional"
+              />
             </div>
             <div>
               <Label>Descrição</Label>
