@@ -1071,6 +1071,7 @@ export const upsertSubscriptionPlan = createServerFn({ method: "POST" })
         frequency: frequencyEnum,
         description: z.string().trim().max(500).nullable().optional(),
         newAmountAfter: z.number().min(0).nullable().optional(),
+        validityMonths: z.number().int().min(0).max(120).nullable().optional(),
       })
       .parse(input),
   )
@@ -1084,6 +1085,7 @@ export const upsertSubscriptionPlan = createServerFn({ method: "POST" })
       frequency: data.frequency,
       description: data.description ?? null,
       new_amount_after: data.newAmountAfter ?? null,
+      validity_months: data.validityMonths ?? null,
     };
     if (data.planId) {
       const { error } = await admin
