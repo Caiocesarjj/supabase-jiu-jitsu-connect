@@ -85,6 +85,7 @@ interface Plan {
   description: string | null;
   active: boolean;
   new_amount_after: number | null;
+  validity_months: number | null;
 }
 
 interface Subscription {
