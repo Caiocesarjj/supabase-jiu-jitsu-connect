@@ -276,6 +276,7 @@ function Page() {
           frequency: planFreq,
           description: planDesc.trim() || null,
           newAmountAfter: planNewAmount ? Number(planNewAmount) : null,
+          validityMonths: planValidity ? Number(planValidity) : null,
         },
       });
       toast.success(editingPlan ? "Plano atualizado" : "Plano criado");
