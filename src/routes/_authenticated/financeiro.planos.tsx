@@ -417,9 +417,14 @@ function Page() {
                 {p.description && (
                   <p className="text-xs text-muted-foreground">{p.description}</p>
                 )}
-                {p.new_amount_after != null && (
-                  <div className="text-xs bg-muted/50 p-2 rounded border border-border">
-                    <strong>Valor após o cadastro:</strong> {formatBRL(Number(p.new_amount_after))}
+                {(p.validity_months != null || p.new_amount_after != null) && (
+                  <div className="text-xs bg-muted/50 p-2 rounded border border-border space-y-0.5">
+                    {p.validity_months != null && (
+                      <div><strong>Validade:</strong> {p.validity_months} {p.validity_months === 1 ? "mês" : "meses"}</div>
+                    )}
+                    {p.new_amount_after != null && (
+                      <div><strong>Valor após a validade:</strong> {formatBRL(Number(p.new_amount_after))}</div>
+                    )}
                   </div>
                 )}
                 <div className="flex gap-2 pt-1">
