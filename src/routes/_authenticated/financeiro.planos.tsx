@@ -149,6 +149,7 @@ function Page() {
   const [planFreq, setPlanFreq] = useState<Frequency>("monthly");
   const [planDesc, setPlanDesc] = useState("");
   const [planNewAmount, setPlanNewAmount] = useState("");
+  const [planValidity, setPlanValidity] = useState("");
   const [savingPlan, setSavingPlan] = useState(false);
 
   // Subscription modal
