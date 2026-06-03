@@ -85,6 +85,7 @@ interface Plan {
   description: string | null;
   active: boolean;
   new_amount_after: number | null;
+  validity_months: number | null;
 }
 
 interface Subscription {
@@ -148,6 +149,7 @@ function Page() {
   const [planFreq, setPlanFreq] = useState<Frequency>("monthly");
   const [planDesc, setPlanDesc] = useState("");
   const [planNewAmount, setPlanNewAmount] = useState("");
+  const [planValidity, setPlanValidity] = useState("");
   const [savingPlan, setSavingPlan] = useState(false);
 
   // Subscription modal
@@ -164,7 +166,7 @@ function Page() {
     const [plansRes, subsRes, studentsRes] = await Promise.all([
       supabase
         .from("subscription_plans")
-        .select("id, name, amount, frequency, description, active, new_amount_after")
+        .select("id, name, amount, frequency, description, active, new_amount_after, validity_months")
         .eq("organization_id", organizationId)
         .order("amount"),
       supabase
@@ -228,6 +230,7 @@ function Page() {
     setPlanFreq("monthly");
     setPlanDesc("");
     setPlanNewAmount("");
+    setPlanValidity("");
     setPlanOpen(true);
   };
 
@@ -238,6 +241,7 @@ function Page() {
     setPlanFreq(p.frequency);
     setPlanDesc(p.description ?? "");
     setPlanNewAmount(p.new_amount_after != null ? String(p.new_amount_after) : "");
+    setPlanValidity(p.validity_months != null ? String(p.validity_months) : "");
     setPlanOpen(true);
   };
 
@@ -272,6 +276,7 @@ function Page() {
           frequency: planFreq,
           description: planDesc.trim() || null,
           newAmountAfter: planNewAmount ? Number(planNewAmount) : null,
+          validityMonths: planValidity ? Number(planValidity) : null,
         },
       });
       toast.success(editingPlan ? "Plano atualizado" : "Plano criado");
@@ -412,9 +417,14 @@ function Page() {
                 {p.description && (
                   <p className="text-xs text-muted-foreground">{p.description}</p>
                 )}
-                {p.new_amount_after != null && (
-                  <div className="text-xs bg-muted/50 p-2 rounded border border-border">
-                    <strong>Valor após o cadastro:</strong> {formatBRL(Number(p.new_amount_after))}
+                {(p.validity_months != null || p.new_amount_after != null) && (
+                  <div className="text-xs bg-muted/50 p-2 rounded border border-border space-y-0.5">
+                    {p.validity_months != null && (
+                      <div><strong>Validade:</strong> {p.validity_months} {p.validity_months === 1 ? "mês" : "meses"}</div>
+                    )}
+                    {p.new_amount_after != null && (
+                      <div><strong>Valor após a validade:</strong> {formatBRL(Number(p.new_amount_after))}</div>
+                    )}
                   </div>
                 )}
                 <div className="flex gap-2 pt-1">
@@ -548,16 +558,32 @@ function Page() {
                 </Select>
               </div>
             </div>
-            <div>
-              <Label>Valor a cobrar após a data de cadastro (R$)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={planNewAmount}
-                onChange={(e) => setPlanNewAmount(e.target.value)}
-                placeholder="Opcional"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Validade (meses)</Label>
+                <Input
+                  type="number"
+                  step="1"
+                  min="0"
+                  value={planValidity}
+                  onChange={(e) => setPlanValidity(e.target.value)}
+                  placeholder="Ex: 12"
+                />
+              </div>
+              <div>
+                <Label>Valor após a validade (R$)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={planNewAmount}
+                  onChange={(e) => setPlanNewAmount(e.target.value)}
+                  placeholder="Opcional"
+                />
+              </div>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Após a validade (contada a partir da data de cadastro do aluno), a cobrança passa a usar este novo valor automaticamente.
+            </p>
             <div>
               <Label>Descrição</Label>
               <Textarea
