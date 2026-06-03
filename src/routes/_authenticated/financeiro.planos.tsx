@@ -558,16 +558,32 @@ function Page() {
                 </Select>
               </div>
             </div>
-            <div>
-              <Label>Valor a cobrar após a data de cadastro (R$)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={planNewAmount}
-                onChange={(e) => setPlanNewAmount(e.target.value)}
-                placeholder="Opcional"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Validade (meses)</Label>
+                <Input
+                  type="number"
+                  step="1"
+                  min="0"
+                  value={planValidity}
+                  onChange={(e) => setPlanValidity(e.target.value)}
+                  placeholder="Ex: 12"
+                />
+              </div>
+              <div>
+                <Label>Valor após a validade (R$)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={planNewAmount}
+                  onChange={(e) => setPlanNewAmount(e.target.value)}
+                  placeholder="Opcional"
+                />
+              </div>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Após a validade (contada a partir da data de cadastro do aluno), a cobrança passa a usar este novo valor automaticamente.
+            </p>
             <div>
               <Label>Descrição</Label>
               <Textarea
