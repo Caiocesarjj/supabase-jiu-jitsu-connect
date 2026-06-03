@@ -166,7 +166,7 @@ function Page() {
     const [plansRes, subsRes, studentsRes] = await Promise.all([
       supabase
         .from("subscription_plans")
-        .select("id, name, amount, frequency, description, active, new_amount_after")
+        .select("id, name, amount, frequency, description, active, new_amount_after, validity_months")
         .eq("organization_id", organizationId)
         .order("amount"),
       supabase
