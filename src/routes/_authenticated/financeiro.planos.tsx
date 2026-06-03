@@ -230,6 +230,7 @@ function Page() {
     setPlanFreq("monthly");
     setPlanDesc("");
     setPlanNewAmount("");
+    setPlanValidity("");
     setPlanOpen(true);
   };
 
@@ -240,6 +241,7 @@ function Page() {
     setPlanFreq(p.frequency);
     setPlanDesc(p.description ?? "");
     setPlanNewAmount(p.new_amount_after != null ? String(p.new_amount_after) : "");
+    setPlanValidity(p.validity_months != null ? String(p.validity_months) : "");
     setPlanOpen(true);
   };
 
