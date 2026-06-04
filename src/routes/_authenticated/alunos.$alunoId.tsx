@@ -1,8 +1,14 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, UserPlus, Trash2, MoreHorizontal, Copy, Pencil } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { ArrowLeft, UserPlus, Trash2, MoreHorizontal, Copy, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
+import {
+  getStudentSubscription,
+  listSubscriptionPlansForOrg,
+  createSubscriptionRecord,
+} from "@/lib/registrations.functions";
 import { useAuth } from "@/hooks/useAuth";
 import { Avatar } from "@/components/Avatar";
 import { BeltBadge } from "@/components/BeltBadge";
