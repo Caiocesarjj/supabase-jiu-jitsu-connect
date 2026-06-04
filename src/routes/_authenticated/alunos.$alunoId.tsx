@@ -324,7 +324,12 @@ function AlunoFichaPage() {
           <TurmasTab studentId={student.id} organizationId={organizationId!} />
         </TabsContent>
         <TabsContent value="financeiro">
-          <FinanceiroTab financial={financial} onChange={reload} />
+          <FinanceiroTab
+            financial={financial}
+            onChange={reload}
+            studentId={student.id}
+            organizationId={organizationId!}
+          />
         </TabsContent>
         <TabsContent value="presenca">
           <PresencaTab attendance={attendance} promotionDate={grad?.promotion_date ?? null} />
