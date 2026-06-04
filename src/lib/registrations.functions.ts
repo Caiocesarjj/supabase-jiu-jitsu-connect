@@ -1216,3 +1216,79 @@ export const listSubscriptionPlansForOrg = createServerFn({ method: "POST" })
     return { plans: rows ?? [] };
   });
 
+
+export const getStudentSubscription = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema.extend({ studentId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+    const { data: row, error } = await admin
+      .from("subscription_records")
+      .select(
+        "id, status, started_at, next_due_date, plan_id, subscription_plans(id, name, amount, frequency, description)",
+      )
+      .eq("student_id", data.studentId)
+      .eq("organization_id", data.organizationId)
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return { subscription: row ?? null };
+  });
+
+const DEFAULT_WHATSAPP_TEMPLATES = {
+  due_soon:
+    "🥋 Olá, {name}!\n\nSua mensalidade está próxima do vencimento.\n\n📦 Plano: {plan_name}\n📅 Vencimento: {expires_at}\n💰 Valor: {plan_price}\n\nPara continuar treinando normalmente, realize sua renovação através do link abaixo:\n\n👉 {payment_link}\n\nApós o pagamento, envie o comprovante.\n\nOss!\nEquipe {academy_name}",
+  overdue:
+    "⚠️ Olá, {name}!\n\nIdentificamos que sua mensalidade encontra-se vencida.\n\n📦 Plano: {plan_name}\n📅 Vencimento: {expires_at}\n💰 Valor: {plan_price}\n\nRegularize sua situação para continuar participando dos treinos.\n\n👉 {payment_link}\n\nEm caso de dúvidas procure a secretaria.\n\nOss!\nEquipe {academy_name}",
+  paid:
+    "✅ Pagamento Confirmado!\n\nOlá, {name}!\n\nRecebemos sua renovação com sucesso.\n\n📦 Plano: {plan_name}\n📅 Próximo vencimento: {expires_at}\n💰 Valor pago: {plan_price}\n\nSua matrícula permanece ativa.\nContinue firme nos treinos e na evolução.\n\nOss!\nEquipe {academy_name}",
+};
+
+export const getWhatsappTemplates = createServerFn({ method: "POST" })
+  .inputValidator((input) => orgAuthSchema.parse(input))
+  .handler(async ({ data }) => {
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+    const { data: row, error } = await admin
+      .from("organization_settings")
+      .select("whatsapp_templates")
+      .eq("organization_id", data.organizationId)
+      .maybeSingle();
+    if (error) throw error;
+    const stored = (row?.whatsapp_templates ?? {}) as Record<string, string>;
+    return {
+      templates: { ...DEFAULT_WHATSAPP_TEMPLATES, ...stored },
+      defaults: DEFAULT_WHATSAPP_TEMPLATES,
+    };
+  });
+
+export const updateWhatsappTemplates = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema
+      .extend({
+        templates: z.object({
+          due_soon: z.string().max(2000),
+          overdue: z.string().max(2000),
+          paid: z.string().max(2000),
+        }),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+    const { error } = await admin
+      .from("organization_settings")
+      .upsert(
+        {
+          organization_id: data.organizationId,
+          whatsapp_templates: data.templates,
+        },
+        { onConflict: "organization_id" },
+      );
+    if (error) throw error;
+    return { ok: true };
+  });
