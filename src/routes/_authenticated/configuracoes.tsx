@@ -154,12 +154,13 @@ function ConfiguracoesPage() {
           <PlanSection org={org} />
         </TabsContent>
 
-        <TabsContent value="whatsapp" className="mt-6">
+        <TabsContent value="whatsapp" className="mt-6 space-y-6">
           <WhatsappSection
             settings={settings}
             organizationId={organizationId!}
             onSaved={load}
           />
+          <WhatsappTemplatesSection organizationId={organizationId!} />
         </TabsContent>
 
         <TabsContent value="integracoes" className="mt-6">
