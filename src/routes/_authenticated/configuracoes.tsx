@@ -11,7 +11,10 @@ import {
   updateAcademyConfig,
   updateIntegrationsConfig,
   updateWhatsappConfig,
+  getWhatsappTemplates,
+  updateWhatsappTemplates,
 } from "@/lib/registrations.functions";
+import { Textarea } from "@/components/ui/textarea";
 import { formatDateBR } from "@/lib/format";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Button } from "@/components/ui/button";
