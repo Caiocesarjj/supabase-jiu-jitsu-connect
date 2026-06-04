@@ -1180,7 +1180,17 @@ function EditGraduationModal({
 }
 
 
-function FinanceiroTab({ financial, onChange }: { financial: any[]; onChange: () => void }) {
+function FinanceiroTab({
+  financial,
+  onChange,
+  studentId,
+  organizationId,
+}: {
+  financial: any[];
+  onChange: () => void;
+  studentId: string;
+  organizationId: string;
+}) {
   const now = new Date();
   const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
@@ -1216,11 +1226,14 @@ function FinanceiroTab({ financial, onChange }: { financial: any[]; onChange: ()
 
   return (
     <div className="space-y-4">
+      <PlanoAtualSection studentId={studentId} organizationId={organizationId} />
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <SummaryCard label="Pago no mês" value={formatBRL(totals.paidMonth)} />
         <SummaryCard label="Em aberto" value={formatBRL(totals.open)} />
         <SummaryCard label="Vencidos" value={String(totals.overdueCount)} />
       </div>
+
 
       <div className="rounded-lg border bg-card p-2">
         <Table>
