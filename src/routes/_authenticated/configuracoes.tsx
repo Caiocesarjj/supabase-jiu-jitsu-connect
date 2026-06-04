@@ -11,7 +11,10 @@ import {
   updateAcademyConfig,
   updateIntegrationsConfig,
   updateWhatsappConfig,
+  getWhatsappTemplates,
+  updateWhatsappTemplates,
 } from "@/lib/registrations.functions";
+import { Textarea } from "@/components/ui/textarea";
 import { formatDateBR } from "@/lib/format";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Button } from "@/components/ui/button";
@@ -154,12 +157,13 @@ function ConfiguracoesPage() {
           <PlanSection org={org} />
         </TabsContent>
 
-        <TabsContent value="whatsapp" className="mt-6">
+        <TabsContent value="whatsapp" className="mt-6 space-y-6">
           <WhatsappSection
             settings={settings}
             organizationId={organizationId!}
             onSaved={load}
           />
+          <WhatsappTemplatesSection organizationId={organizationId!} />
         </TabsContent>
 
         <TabsContent value="integracoes" className="mt-6">
@@ -606,6 +610,144 @@ function AccountSection({ userEmail, userName }: { userEmail: string; userName: 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+const TAGS = [
+  { tag: "{name}", desc: "Nome do aluno" },
+  { tag: "{plan_name}", desc: "Nome do plano" },
+  { tag: "{plan_price}", desc: "Valor da mensalidade" },
+  { tag: "{expires_at}", desc: "Data de vencimento" },
+  { tag: "{academy_name}", desc: "Nome da academia" },
+  { tag: "{payment_link}", desc: "Link de pagamento" },
+];
+
+function applyPreview(text: string, academyName: string) {
+  return text
+    .replaceAll("{name}", "João Silva")
+    .replaceAll("{plan_name}", "Plano Mensal")
+    .replaceAll("{plan_price}", "R$ 150,00")
+    .replaceAll("{expires_at}", "10/12/2026")
+    .replaceAll("{academy_name}", academyName || "Sua Academia")
+    .replaceAll("{payment_link}", "https://pag.exemplo.com/123");
+}
+
+function WhatsappTemplatesSection({ organizationId }: { organizationId: string }) {
+  const fetchTpl = useServerFn(getWhatsappTemplates);
+  const saveTpl = useServerFn(updateWhatsappTemplates);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [defaults, setDefaults] = useState<Record<string, string>>({});
+  const [dueSoon, setDueSoon] = useState("");
+  const [overdue, setOverdue] = useState("");
+  const [paid, setPaid] = useState("");
+  const [academyName, setAcademyName] = useState("Sua Academia");
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (!accessToken) throw new Error("Sessão inválida.");
+        const res = await fetchTpl({ data: { accessToken, organizationId } });
+        setDefaults(res.defaults);
+        setDueSoon(res.templates.due_soon);
+        setOverdue(res.templates.overdue);
+        setPaid(res.templates.paid);
+        const { data: org } = await supabase
+          .from("organizations").select("name").eq("id", organizationId).maybeSingle();
+        if (org?.name) setAcademyName(org.name as string);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Erro ao carregar templates");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [organizationId, fetchTpl]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida.");
+      await saveTpl({
+        data: {
+          accessToken,
+          organizationId,
+          templates: { due_soon: dueSoon, overdue, paid },
+        },
+      });
+      toast.success("Templates salvos");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar templates");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const restore = (which: "due_soon" | "overdue" | "paid") => {
+    if (which === "due_soon") setDueSoon(defaults.due_soon ?? "");
+    if (which === "overdue") setOverdue(defaults.overdue ?? "");
+    if (which === "paid") setPaid(defaults.paid ?? "");
+  };
+
+  if (loading) return <p className="text-sm text-muted-foreground">Carregando templates…</p>;
+
+  const items: Array<{ key: "due_soon" | "overdue" | "paid"; title: string; value: string; setter: (v: string) => void }> = [
+    { key: "due_soon", title: "Aviso de Vencimento", value: dueSoon, setter: setDueSoon },
+    { key: "overdue", title: "Mensalidade Vencida", value: overdue, setter: setOverdue },
+    { key: "paid", title: "Pagamento Confirmado", value: paid, setter: setPaid },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <SectionHeader title="Templates de Mensagens" />
+      <div className="rounded-md border bg-muted/30 p-3 text-xs">
+        <p className="font-medium mb-1">Tags disponíveis:</p>
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
+          {TAGS.map((t) => (
+            <span key={t.tag}>
+              <code className="bg-background px-1 rounded">{t.tag}</code> {t.desc}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {items.map((item) => (
+        <div key={item.key} className="rounded-md border p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="font-medium">{item.title}</h3>
+            <Button type="button" size="sm" variant="ghost" onClick={() => restore(item.key)}>
+              Restaurar padrão
+            </Button>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <div>
+              <Label className="text-xs">Editor</Label>
+              <Textarea
+                value={item.value}
+                onChange={(e) => item.setter(e.target.value)}
+                rows={10}
+                className="font-mono text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Preview</Label>
+              <div className="whitespace-pre-wrap rounded-md border bg-background p-3 text-sm min-h-[12rem]">
+                {applyPreview(item.value, academyName)}
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+
+      <Button onClick={handleSave} disabled={saving}>
+        {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        Salvar templates
+      </Button>
     </div>
   );
 }
