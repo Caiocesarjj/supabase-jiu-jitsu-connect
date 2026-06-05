@@ -460,6 +460,9 @@ function Page() {
                   <Button size="sm" variant="ghost" onClick={() => togglePlanActive(p)}>
                     {p.active ? "Desativar" : "Ativar"}
                   </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setPlanToDelete(p)} title="Excluir plano">
+                    <Trash2 className="h-3 w-3 text-destructive" />
+                  </Button>
                 </div>
               </div>
             ))}
@@ -701,6 +704,18 @@ function Page() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {planToDelete && (
+        <ConfirmModal
+          open={!!planToDelete}
+          onOpenChange={(open) => !open && !deletingPlan && setPlanToDelete(null)}
+          title={`Excluir plano "${planToDelete.name}"?`}
+          description="O plano e os vínculos de assinatura ligados a ele serão removidos. Esta ação não pode ser desfeita."
+          confirmLabel={deletingPlan ? "Excluindo..." : "Excluir plano"}
+          destructive
+          onConfirm={deletePlan}
+        />
+      )}
     </div>
   );
 }
