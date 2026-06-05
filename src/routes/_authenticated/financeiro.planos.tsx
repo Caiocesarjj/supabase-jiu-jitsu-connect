@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, MoreHorizontal, Loader2, Pencil } from "lucide-react";
+import { Plus, MoreHorizontal, Loader2, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -13,10 +13,12 @@ import {
   listSubscriptionPlansForOrg,
   listSubscriptionRecordsForOrg,
   listStudentsForOrg,
+  deleteSubscriptionPlan,
 } from "@/lib/registrations.functions";
 import { formatBRL, formatDateBR } from "@/lib/format";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { EmptyState } from "@/components/EmptyState";
+import { ConfirmModal } from "@/components/ConfirmModal";
 import { Button } from "@/components/ui/button";
 
 import { Input } from "@/components/ui/input";
@@ -154,6 +156,8 @@ function Page() {
   const [planNewAmount, setPlanNewAmount] = useState("");
   const [planValidity, setPlanValidity] = useState("");
   const [savingPlan, setSavingPlan] = useState(false);
+  const [planToDelete, setPlanToDelete] = useState<Plan | null>(null);
+  const [deletingPlan, setDeletingPlan] = useState(false);
 
   // Subscription modal
   const [subOpen, setSubOpen] = useState(false);
@@ -239,6 +243,7 @@ function Page() {
 
   const upsertPlanFn = useServerFn(upsertSubscriptionPlan);
   const togglePlanFn = useServerFn(toggleSubscriptionPlan);
+  const deletePlanFn = useServerFn(deleteSubscriptionPlan);
   const createSubFn = useServerFn(createSubscriptionRecord);
   const updateSubStatusFn = useServerFn(updateSubscriptionStatus);
 
@@ -290,6 +295,24 @@ function Page() {
       load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao atualizar");
+    }
+  };
+
+  const deletePlan = async () => {
+    if (!organizationId || !planToDelete) return;
+    setDeletingPlan(true);
+    try {
+      const accessToken = await getToken();
+      await deletePlanFn({
+        data: { accessToken, organizationId, planId: planToDelete.id },
+      });
+      toast.success("Plano excluído");
+      setPlanToDelete(null);
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao excluir plano");
+    } finally {
+      setDeletingPlan(false);
     }
   };
 
@@ -436,6 +459,9 @@ function Page() {
                   </Button>
                   <Button size="sm" variant="ghost" onClick={() => togglePlanActive(p)}>
                     {p.active ? "Desativar" : "Ativar"}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setPlanToDelete(p)} title="Excluir plano">
+                    <Trash2 className="h-3 w-3 text-destructive" />
                   </Button>
                 </div>
               </div>
@@ -678,6 +704,18 @@ function Page() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {planToDelete && (
+        <ConfirmModal
+          open={!!planToDelete}
+          onOpenChange={(open) => !open && !deletingPlan && setPlanToDelete(null)}
+          title={`Excluir plano "${planToDelete.name}"?`}
+          description="O plano e os vínculos de assinatura ligados a ele serão removidos. Esta ação não pode ser desfeita."
+          confirmLabel={deletingPlan ? "Excluindo..." : "Excluir plano"}
+          destructive
+          onConfirm={deletePlan}
+        />
+      )}
     </div>
   );
 }

@@ -25,6 +25,40 @@ function normalizeBrazilianPhone(phone: string | null | undefined) {
   return digits.startsWith("55") ? digits : `55${digits}`;
 }
 
+function formatMoneyBR(value: number | null | undefined) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value ?? 0));
+}
+
+function formatDateBRValue(value: string | null | undefined) {
+  if (!value) return "—";
+  const [year, month, day] = value.slice(0, 10).split("-").map(Number);
+  if (!year || !month || !day) return value;
+  return `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}`;
+}
+
+function renderWhatsappTemplate(template: string, values: Record<string, string>) {
+  return template.replace(/\{([a-zA-Z0-9_]+)\}/g, (_, key: string) => values[key] ?? `{${key}}`);
+}
+
+async function sendBotBotMessage(settings: { botbot_app_key?: string | null; botbot_auth_key?: string | null }, phone: string, message: string) {
+  if (!settings.botbot_app_key || !settings.botbot_auth_key) {
+    throw new Error("Credenciais BotBot não configuradas em Configurações → WhatsApp.");
+  }
+  const response = await fetch("https://api.botbot.chat/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${settings.botbot_auth_key}`,
+      "X-App-Key": settings.botbot_app_key,
+    },
+    body: JSON.stringify({ phone, message, template: false }),
+  });
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`BotBot retornou ${response.status}${body ? `: ${body}` : ""}`);
+  }
+}
+
 function asaasBaseUrl() {
   return (process.env.ASAAS_BASE_URL || "https://api.asaas.com/v3").replace(/\/$/, "");
 }
@@ -275,7 +309,8 @@ export const deleteStudentRegistration = createServerFn({ method: "POST" })
     orgAuthSchema.extend({ studentId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data }) => {
-    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
+    await requireStaff(data.accessToken, data.organizationId);
+    const supabase = getAdminClient();
 
     const { data: studentRow, error: fetchError } = await supabase
       .from("students")
@@ -290,11 +325,17 @@ export const deleteStudentRegistration = createServerFn({ method: "POST" })
     const profileId = studentRow.profile_id as string | null;
 
     // Remove dependent rows first (in case FKs do not cascade)
-    await supabase.from("attendance").delete().eq("student_id", studentId);
-    await supabase.from("financial_records").delete().eq("student_id", studentId);
-    await supabase.from("graduation_history").delete().eq("student_id", studentId);
-    await supabase.from("graduations").delete().eq("student_id", studentId);
-    await supabase.from("student_guardians").delete().eq("student_id", studentId);
+    const dependentDeletes = await Promise.all([
+      supabase.from("attendance").delete().eq("student_id", studentId),
+      supabase.from("financial_records").delete().eq("student_id", studentId),
+      supabase.from("graduation_history").delete().eq("student_id", studentId),
+      supabase.from("graduations").delete().eq("student_id", studentId),
+      supabase.from("student_guardians").delete().eq("student_id", studentId),
+      supabase.from("student_class_enrollments").delete().eq("student_id", studentId),
+      supabase.from("subscription_records").delete().eq("student_id", studentId),
+    ]);
+    const dependentError = dependentDeletes.find((result) => result.error)?.error;
+    if (dependentError) throw dependentError;
 
     const { error: studentError } = await supabase
       .from("students")
@@ -620,7 +661,7 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
           .from("students")
           .select(
             `id, monthly_fee, enrollment_date,
-             subscription_records(status, plan_id, subscription_plans(amount, new_amount_after, validity_months))`,
+      subscription_records(status, plan_id, subscription_plans(amount, new_amount_after, validity_months))`,
           )
           .eq("organization_id", data.organizationId)
           .eq("status", "active")
@@ -655,26 +696,16 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
         ? activeSubscription?.subscription_plans[0]
         : activeSubscription?.subscription_plans;
 
-      // Meses passados desde o cadastro do aluno até o mês de referência da cobrança
-      let monthsSinceEnrollment = 0;
-      if (student.enrollment_date) {
-        const [ey, em] = student.enrollment_date.slice(0, 7).split("-").map(Number);
-        const [ry, rm] = data.referenceMonth.split("-").map(Number);
-        monthsSinceEnrollment = (ry - ey) * 12 + (rm - em);
-      }
-
-      const pastValidity =
-        plan?.validity_months != null && monthsSinceEnrollment >= plan.validity_months;
-      const subscriptionAmount =
-        pastValidity && plan?.new_amount_after != null
-          ? plan.new_amount_after
-          : plan?.amount;
+      const planDueDay = plan?.validity_months ?? dueDay;
+      const dueDate = dueDateFromEnrollment(data.referenceMonth, null, planDueDay);
+      const isPastDue = dueDate < new Date().toISOString().slice(0, 10);
+      const subscriptionAmount = isPastDue && plan?.new_amount_after != null ? plan.new_amount_after : plan?.amount;
 
       return {
         organization_id: data.organizationId,
         student_id: student.id,
         amount: subscriptionAmount ?? student.monthly_fee ?? defaultFee,
-        due_date: dueDateFromEnrollment(data.referenceMonth, student.enrollment_date, dueDay),
+        due_date: dueDate,
         reference_month: referenceMonth,
         status: "pending",
         idempotency_key: `${student.id}_${referenceMonth}`,
@@ -845,71 +876,125 @@ export const updateWhatsappConfig = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const sendChargeNotifications = createServerFn({ method: "POST" })
-  .inputValidator((input) => orgAuthSchema.parse(input))
-  .handler(async ({ data }) => {
-    await requireStaff(data.accessToken, data.organizationId);
-    const admin = getAdminClient();
+export async function runAutomaticWhatsappNotifications({
+  organizationId,
+  manual = false,
+}: {
+  organizationId?: string;
+  manual?: boolean;
+}) {
+  const admin = getAdminClient();
+  const today = new Date().toISOString().slice(0, 10);
+  const settingsQuery = admin
+    .from("organization_settings")
+    .select("organization_id, whatsapp_notifications, botbot_app_key, botbot_auth_key, charge_reminder_days, whatsapp_templates");
+  const { data: settingsRows, error: settingsErr } = organizationId
+    ? await settingsQuery.eq("organization_id", organizationId)
+    : await settingsQuery.eq("whatsapp_notifications", true);
+  if (settingsErr) throw settingsErr;
 
-    const { data: settings, error: settingsErr } = await admin
-      .from("organization_settings")
-      .select("botbot_app_key, botbot_auth_key")
-      .eq("organization_id", data.organizationId)
-      .maybeSingle();
-    if (settingsErr) throw settingsErr;
-    if (!settings?.botbot_app_key || !settings?.botbot_auth_key) {
-      throw new Error("Credenciais BotBot não configuradas em Configurações → WhatsApp.");
+  const enabledSettings = (settingsRows ?? []).filter(
+    (row: any) => manual || (row.whatsapp_notifications && row.botbot_app_key && row.botbot_auth_key),
+  );
+  if (enabledSettings.length === 0) return { sent: 0, skipped: 0, total: 0 };
+
+  const orgIds = enabledSettings.map((row: any) => row.organization_id as string);
+  const { data: orgRows } = await admin.from("organizations").select("id, name").in("id", orgIds);
+  const orgNames = new Map((orgRows ?? []).map((row: any) => [row.id, row.name ?? "Academia"]));
+
+  let sent = 0;
+  let skipped = 0;
+  let total = 0;
+  const errors: string[] = [];
+
+  for (const settings of enabledSettings as Array<any>) {
+    if (!settings.botbot_app_key || !settings.botbot_auth_key) {
+      if (manual) throw new Error("Credenciais BotBot não configuradas em Configurações → WhatsApp.");
+      continue;
     }
 
-    const monthStart = new Date();
-    monthStart.setDate(1);
-    const monthStartIso = monthStart.toISOString().slice(0, 10);
+    const days = Array.isArray(settings.charge_reminder_days) ? settings.charge_reminder_days : [];
+    if (!manual && days.length === 0) continue;
 
     const { data: charges, error: chargesErr } = await admin
       .from("financial_records")
-      .select("id, amount, due_date, student_id, students:student_id(profiles:profile_id(full_name, phone))")
-      .eq("organization_id", data.organizationId)
-      .eq("status", "pending")
-      .gte("reference_month", monthStartIso);
+      .select(
+        `id, amount, due_date, status, invoice_url, pix_code, notifications_sent,
+         students:student_id(
+           profiles:profile_id(full_name, phone),
+           subscription_records(status, subscription_plans(name, amount))
+         )`,
+      )
+      .eq("organization_id", settings.organization_id)
+      .in("status", ["pending", "overdue"]);
     if (chargesErr) throw chargesErr;
 
-    let sent = 0;
-    let skipped = 0;
+    for (const charge of (charges ?? []) as Array<any>) {
+      const dueDate = String(charge.due_date ?? "").slice(0, 10);
+      if (!dueDate) {
+        skipped++;
+        continue;
+      }
+      const daysFromDue = Math.round((new Date(`${today}T00:00:00`).getTime() - new Date(`${dueDate}T00:00:00`).getTime()) / 86400000);
+      if (!manual && !days.includes(daysFromDue)) continue;
 
-    for (const charge of charges ?? []) {
-      const student = (charge as { students?: { profiles?: { full_name?: string; phone?: string } } }).students;
-      const profile = student?.profiles;
+      total++;
+      const sentKey = `whatsapp_${daysFromDue}`;
+      const sentLog = charge.notifications_sent && typeof charge.notifications_sent === "object" ? charge.notifications_sent : {};
+      if (!manual && sentLog[sentKey]) {
+        skipped++;
+        continue;
+      }
+
+      const student = Array.isArray(charge.students) ? charge.students[0] : charge.students;
+      const profile = Array.isArray(student?.profiles) ? student?.profiles[0] : student?.profiles;
       const phone = normalizeBrazilianPhone(profile?.phone);
-      const name = profile?.full_name ?? "Aluno";
-
       if (!phone) {
         skipped++;
         continue;
       }
 
-      const amount = Number(charge.amount).toFixed(2);
-      const due = new Date(charge.due_date).toLocaleDateString("pt-BR");
-      const message = `Olá ${name}! Sua mensalidade de R$ ${amount} vence em ${due}. Pague via PIX ou boleto. 🥋`;
+      const activeSub = Array.isArray(student?.subscription_records)
+        ? student.subscription_records.find((sub: any) => sub.status === "active")
+        : null;
+      const plan = Array.isArray(activeSub?.subscription_plans)
+        ? activeSub.subscription_plans[0]
+        : activeSub?.subscription_plans;
+      const templates = { ...DEFAULT_WHATSAPP_TEMPLATES, ...((settings.whatsapp_templates ?? {}) as Record<string, string>) };
+      const templateKey = daysFromDue > 0 || charge.status === "overdue" ? "overdue" : "due_soon";
+      const message = renderWhatsappTemplate(templates[templateKey], {
+        name: profile?.full_name ?? "Aluno",
+        plan_name: plan?.name ?? "Mensalidade",
+        plan_price: formatMoneyBR(charge.amount),
+        expires_at: formatDateBRValue(dueDate),
+        academy_name: orgNames.get(settings.organization_id) ?? "Academia",
+        payment_link: charge.invoice_url || (charge.pix_code ? `PIX copia e cola: ${charge.pix_code}` : "Procure a secretaria"),
+      });
 
       try {
-        const res = await fetch("https://api.botbot.chat/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${settings.botbot_auth_key}`,
-            "X-App-Key": settings.botbot_app_key,
-          },
-          body: JSON.stringify({ phone, message, template: false }),
-        });
-        if (res.ok) sent++;
-        else skipped++;
-      } catch (e) {
-        console.error("BotBot send failed:", e);
+        await sendBotBotMessage(settings, phone, message);
+        sent++;
+        await admin
+          .from("financial_records")
+          .update({ notifications_sent: { ...sentLog, [sentKey]: new Date().toISOString() } })
+          .eq("id", charge.id);
+      } catch (error) {
         skipped++;
+        const msg = error instanceof Error ? error.message : "Erro desconhecido no BotBot";
+        console.error("BotBot send failed:", msg);
+        if (errors.length < 3) errors.push(msg);
       }
     }
+  }
 
-    return { sent, skipped, total: charges?.length ?? 0 };
+  return { sent, skipped, total, errors };
+}
+
+export const sendChargeNotifications = createServerFn({ method: "POST" })
+  .inputValidator((input) => orgAuthSchema.parse(input))
+  .handler(async ({ data }) => {
+    await requireStaff(data.accessToken, data.organizationId);
+    return runAutomaticWhatsappNotifications({ organizationId: data.organizationId, manual: true });
   });
 
 
@@ -1126,6 +1211,30 @@ export const toggleSubscriptionPlan = createServerFn({ method: "POST" })
     const { error } = await admin
       .from("subscription_plans")
       .update({ active: data.active })
+      .eq("id", data.planId)
+      .eq("organization_id", data.organizationId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const deleteSubscriptionPlan = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema.extend({ planId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+
+    const { error: subscriptionsError } = await admin
+      .from("subscription_records")
+      .delete()
+      .eq("organization_id", data.organizationId)
+      .eq("plan_id", data.planId);
+    if (subscriptionsError) throw subscriptionsError;
+
+    const { error } = await admin
+      .from("subscription_plans")
+      .delete()
       .eq("id", data.planId)
       .eq("organization_id", data.organizationId);
     if (error) throw error;
