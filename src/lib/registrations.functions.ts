@@ -1217,6 +1217,30 @@ export const toggleSubscriptionPlan = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const deleteSubscriptionPlan = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema.extend({ planId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+
+    const { error: subscriptionsError } = await admin
+      .from("subscription_records")
+      .delete()
+      .eq("organization_id", data.organizationId)
+      .eq("plan_id", data.planId);
+    if (subscriptionsError) throw subscriptionsError;
+
+    const { error } = await admin
+      .from("subscription_plans")
+      .delete()
+      .eq("id", data.planId)
+      .eq("organization_id", data.organizationId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
 export const createSubscriptionRecord = createServerFn({ method: "POST" })
   .inputValidator((input) =>
     orgAuthSchema
