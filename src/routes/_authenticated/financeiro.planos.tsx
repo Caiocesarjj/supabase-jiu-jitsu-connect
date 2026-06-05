@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, MoreHorizontal, Loader2, Pencil } from "lucide-react";
+import { Plus, MoreHorizontal, Loader2, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -13,10 +13,12 @@ import {
   listSubscriptionPlansForOrg,
   listSubscriptionRecordsForOrg,
   listStudentsForOrg,
+  deleteSubscriptionPlan,
 } from "@/lib/registrations.functions";
 import { formatBRL, formatDateBR } from "@/lib/format";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { EmptyState } from "@/components/EmptyState";
+import { ConfirmModal } from "@/components/ConfirmModal";
 import { Button } from "@/components/ui/button";
 
 import { Input } from "@/components/ui/input";
