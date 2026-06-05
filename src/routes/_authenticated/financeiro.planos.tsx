@@ -552,14 +552,15 @@ function Page() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Validade (meses)</Label>
+                <Label>Dia de vencimento (1-31)</Label>
                 <Input
                   type="number"
                   step="1"
-                  min="0"
+                  min="1"
+                  max="31"
                   value={planValidity}
                   onChange={(e) => setPlanValidity(e.target.value)}
-                  placeholder="Ex: 12"
+                  placeholder="Ex: 10"
                 />
               </div>
               <div>
@@ -574,7 +575,7 @@ function Page() {
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Após a validade (contada a partir da data de cadastro do aluno), a cobrança passa a usar este novo valor automaticamente.
+              O dia de vencimento define em que dia do mês a cobrança vence. O próximo vencimento é calculado automaticamente a partir da data de cadastro do aluno e da frequência do plano.
             </p>
             <div>
               <Label>Descrição</Label>
