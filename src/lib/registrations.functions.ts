@@ -25,6 +25,40 @@ function normalizeBrazilianPhone(phone: string | null | undefined) {
   return digits.startsWith("55") ? digits : `55${digits}`;
 }
 
+function formatMoneyBR(value: number | null | undefined) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value ?? 0));
+}
+
+function formatDateBRValue(value: string | null | undefined) {
+  if (!value) return "—";
+  const [year, month, day] = value.slice(0, 10).split("-").map(Number);
+  if (!year || !month || !day) return value;
+  return `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}`;
+}
+
+function renderWhatsappTemplate(template: string, values: Record<string, string>) {
+  return template.replace(/\{([a-zA-Z0-9_]+)\}/g, (_, key: string) => values[key] ?? `{${key}}`);
+}
+
+async function sendBotBotMessage(settings: { botbot_app_key?: string | null; botbot_auth_key?: string | null }, phone: string, message: string) {
+  if (!settings.botbot_app_key || !settings.botbot_auth_key) {
+    throw new Error("Credenciais BotBot não configuradas em Configurações → WhatsApp.");
+  }
+  const response = await fetch("https://api.botbot.chat/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${settings.botbot_auth_key}`,
+      "X-App-Key": settings.botbot_app_key,
+    },
+    body: JSON.stringify({ phone, message, template: false }),
+  });
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`BotBot retornou ${response.status}${body ? `: ${body}` : ""}`);
+  }
+}
+
 function asaasBaseUrl() {
   return (process.env.ASAAS_BASE_URL || "https://api.asaas.com/v3").replace(/\/$/, "");
 }
