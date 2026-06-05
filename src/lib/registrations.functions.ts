@@ -880,67 +880,7 @@ export const sendChargeNotifications = createServerFn({ method: "POST" })
   .inputValidator((input) => orgAuthSchema.parse(input))
   .handler(async ({ data }) => {
     await requireStaff(data.accessToken, data.organizationId);
-    const admin = getAdminClient();
-
-    const { data: settings, error: settingsErr } = await admin
-      .from("organization_settings")
-      .select("botbot_app_key, botbot_auth_key")
-      .eq("organization_id", data.organizationId)
-      .maybeSingle();
-    if (settingsErr) throw settingsErr;
-    if (!settings?.botbot_app_key || !settings?.botbot_auth_key) {
-      throw new Error("Credenciais BotBot não configuradas em Configurações → WhatsApp.");
-    }
-
-    const monthStart = new Date();
-    monthStart.setDate(1);
-    const monthStartIso = monthStart.toISOString().slice(0, 10);
-
-    const { data: charges, error: chargesErr } = await admin
-      .from("financial_records")
-      .select("id, amount, due_date, student_id, students:student_id(profiles:profile_id(full_name, phone))")
-      .eq("organization_id", data.organizationId)
-      .eq("status", "pending")
-      .gte("reference_month", monthStartIso);
-    if (chargesErr) throw chargesErr;
-
-    let sent = 0;
-    let skipped = 0;
-
-    for (const charge of charges ?? []) {
-      const student = (charge as { students?: { profiles?: { full_name?: string; phone?: string } } }).students;
-      const profile = student?.profiles;
-      const phone = normalizeBrazilianPhone(profile?.phone);
-      const name = profile?.full_name ?? "Aluno";
-
-      if (!phone) {
-        skipped++;
-        continue;
-      }
-
-      const amount = Number(charge.amount).toFixed(2);
-      const due = new Date(charge.due_date).toLocaleDateString("pt-BR");
-      const message = `Olá ${name}! Sua mensalidade de R$ ${amount} vence em ${due}. Pague via PIX ou boleto. 🥋`;
-
-      try {
-        const res = await fetch("https://api.botbot.chat/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${settings.botbot_auth_key}`,
-            "X-App-Key": settings.botbot_app_key,
-          },
-          body: JSON.stringify({ phone, message, template: false }),
-        });
-        if (res.ok) sent++;
-        else skipped++;
-      } catch (e) {
-        console.error("BotBot send failed:", e);
-        skipped++;
-      }
-    }
-
-    return { sent, skipped, total: charges?.length ?? 0 };
+    return runAutomaticWhatsappNotifications({ organizationId: data.organizationId, manual: true });
   });
 
 
