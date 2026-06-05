@@ -1209,11 +1209,43 @@ export const listSubscriptionPlansForOrg = createServerFn({ method: "POST" })
     const admin = getAdminClient();
     const { data: rows, error } = await admin
       .from("subscription_plans")
-      .select("id, name, amount, frequency, description, active")
+      .select("id, name, amount, frequency, description, active, new_amount_after, validity_months")
       .eq("organization_id", data.organizationId)
       .order("amount");
     if (error) throw error;
     return { plans: rows ?? [] };
+  });
+
+export const listSubscriptionRecordsForOrg = createServerFn({ method: "POST" })
+  .inputValidator((input) => orgAuthSchema.parse(input))
+  .handler(async ({ data }) => {
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+    const { data: rows, error } = await admin
+      .from("subscription_records")
+      .select(
+        `id, status, started_at, next_due_date, notes, plan_id, student_id,
+         subscription_plans ( name, amount, frequency ),
+         students ( id, profiles ( full_name, phone ) )`,
+      )
+      .eq("organization_id", data.organizationId)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return { subscriptions: rows ?? [] };
+  });
+
+export const listStudentsForOrg = createServerFn({ method: "POST" })
+  .inputValidator((input) => orgAuthSchema.parse(input))
+  .handler(async ({ data }) => {
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+    const { data: rows, error } = await admin
+      .from("students")
+      .select("id, enrollment_date, profiles ( full_name )")
+      .eq("organization_id", data.organizationId)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return { students: rows ?? [] };
   });
 
 
