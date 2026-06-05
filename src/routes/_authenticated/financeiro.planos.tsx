@@ -10,6 +10,9 @@ import {
   toggleSubscriptionPlan,
   createSubscriptionRecord,
   updateSubscriptionStatus,
+  listSubscriptionPlansForOrg,
+  listSubscriptionRecordsForOrg,
+  listStudentsForOrg,
 } from "@/lib/registrations.functions";
 import { formatBRL, formatDateBR } from "@/lib/format";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
@@ -160,48 +163,37 @@ function Page() {
   const [subNext, setSubNext] = useState("");
   const [savingSub, setSavingSub] = useState(false);
 
+  const listPlansFn = useServerFn(listSubscriptionPlansForOrg);
+  const listSubsFn = useServerFn(listSubscriptionRecordsForOrg);
+  const listStudentsFn = useServerFn(listStudentsForOrg);
+
   const load = async () => {
     if (!organizationId) return;
     setLoading(true);
-    const [plansRes, subsRes, studentsRes] = await Promise.all([
-      supabase
-        .from("subscription_plans")
-        .select("id, name, amount, frequency, description, active, new_amount_after, validity_months")
-        .eq("organization_id", organizationId)
-        .order("amount"),
-      supabase
-        .from("subscription_records")
-        .select(
-          `id, status, started_at, next_due_date, notes, plan_id, student_id,
-           subscription_plans ( name, amount, frequency ),
-           students ( id, profiles ( full_name, phone ) )`,
-        )
-        .eq("organization_id", organizationId)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("students")
-        .select("id, enrollment_date, profiles ( full_name )")
-        .eq("organization_id", organizationId)
-        .order("created_at", { ascending: false }),
-    ]);
-
-    if (plansRes.error) toast.error("Erro ao carregar planos");
-    else setPlans((plansRes.data as Plan[]) ?? []);
-
-    if (subsRes.error) toast.error("Erro ao carregar assinaturas");
-    else setSubs((subsRes.data as unknown as Subscription[]) ?? []);
-
-    if (!studentsRes.error) {
-      const opts = ((studentsRes.data as unknown as Array<{
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida.");
+      const [plansRes, subsRes, studentsRes] = await Promise.all([
+        listPlansFn({ data: { accessToken, organizationId } }),
+        listSubsFn({ data: { accessToken, organizationId } }),
+        listStudentsFn({ data: { accessToken, organizationId } }),
+      ]);
+      setPlans((plansRes.plans as Plan[]) ?? []);
+      setSubs((subsRes.subscriptions as unknown as Subscription[]) ?? []);
+      const opts = ((studentsRes.students as unknown as Array<{
         id: string;
-          enrollment_date: string | null;
+        enrollment_date: string | null;
         profiles: { full_name: string } | null;
       }>) ?? [])
         .map((s) => ({ id: s.id, name: s.profiles?.full_name ?? "—", enrollmentDate: s.enrollment_date }))
         .sort((a, b) => a.name.localeCompare(b.name));
       setStudents(opts);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao carregar");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -310,14 +302,25 @@ function Page() {
     setSubOpen(true);
   };
 
-  // Usa a data de cadastro do aluno como base do vencimento.
+  // Usa a data de cadastro do aluno + frequência/dia de vencimento do plano.
   useEffect(() => {
     if (!subStudent) return;
     const student = students.find((item) => item.id === subStudent);
     const enrollmentDate = student?.enrollmentDate || todayISO();
     setSubStart(enrollmentDate);
-    setSubNext(enrollmentDate);
-  }, [subStudent, students]);
+    const plan = plans.find((p) => p.id === subPlan);
+    if (!plan) { setSubNext(enrollmentDate); return; }
+    const monthsToAdd = FREQ_MONTHS[plan.frequency];
+    const base = new Date(`${enrollmentDate}T00:00:00`);
+    const target = new Date(base.getFullYear(), base.getMonth() + monthsToAdd, 1);
+    const dueDay = plan.validity_months ?? base.getDate();
+    const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+    const day = Math.min(Math.max(dueDay, 1), lastDay);
+    const yyyy = target.getFullYear();
+    const mm = String(target.getMonth() + 1).padStart(2, "0");
+    const dd = String(day).padStart(2, "0");
+    setSubNext(`${yyyy}-${mm}-${dd}`);
+  }, [subStudent, subPlan, students, plans]);
 
   const saveSub = async () => {
     if (!organizationId) return;
@@ -420,7 +423,7 @@ function Page() {
                 {(p.validity_months != null || p.new_amount_after != null) && (
                   <div className="text-xs bg-muted/50 p-2 rounded border border-border space-y-0.5">
                     {p.validity_months != null && (
-                      <div><strong>Validade:</strong> {p.validity_months} {p.validity_months === 1 ? "mês" : "meses"}</div>
+                      <div><strong>Dia de vencimento:</strong> todo dia {p.validity_months}</div>
                     )}
                     {p.new_amount_after != null && (
                       <div><strong>Valor após a validade:</strong> {formatBRL(Number(p.new_amount_after))}</div>
@@ -560,14 +563,15 @@ function Page() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Validade (meses)</Label>
+                <Label>Dia de vencimento (1-31)</Label>
                 <Input
                   type="number"
                   step="1"
-                  min="0"
+                  min="1"
+                  max="31"
                   value={planValidity}
                   onChange={(e) => setPlanValidity(e.target.value)}
-                  placeholder="Ex: 12"
+                  placeholder="Ex: 10"
                 />
               </div>
               <div>
@@ -582,7 +586,7 @@ function Page() {
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Após a validade (contada a partir da data de cadastro do aluno), a cobrança passa a usar este novo valor automaticamente.
+              O dia de vencimento define em que dia do mês a cobrança vence. O próximo vencimento é calculado automaticamente a partir da data de cadastro do aluno e da frequência do plano.
             </p>
             <div>
               <Label>Descrição</Label>
