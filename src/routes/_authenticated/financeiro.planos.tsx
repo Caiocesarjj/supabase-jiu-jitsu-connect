@@ -163,48 +163,37 @@ function Page() {
   const [subNext, setSubNext] = useState("");
   const [savingSub, setSavingSub] = useState(false);
 
+  const listPlansFn = useServerFn(listSubscriptionPlansForOrg);
+  const listSubsFn = useServerFn(listSubscriptionRecordsForOrg);
+  const listStudentsFn = useServerFn(listStudentsForOrg);
+
   const load = async () => {
     if (!organizationId) return;
     setLoading(true);
-    const [plansRes, subsRes, studentsRes] = await Promise.all([
-      supabase
-        .from("subscription_plans")
-        .select("id, name, amount, frequency, description, active, new_amount_after, validity_months")
-        .eq("organization_id", organizationId)
-        .order("amount"),
-      supabase
-        .from("subscription_records")
-        .select(
-          `id, status, started_at, next_due_date, notes, plan_id, student_id,
-           subscription_plans ( name, amount, frequency ),
-           students ( id, profiles ( full_name, phone ) )`,
-        )
-        .eq("organization_id", organizationId)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("students")
-        .select("id, enrollment_date, profiles ( full_name )")
-        .eq("organization_id", organizationId)
-        .order("created_at", { ascending: false }),
-    ]);
-
-    if (plansRes.error) toast.error("Erro ao carregar planos");
-    else setPlans((plansRes.data as Plan[]) ?? []);
-
-    if (subsRes.error) toast.error("Erro ao carregar assinaturas");
-    else setSubs((subsRes.data as unknown as Subscription[]) ?? []);
-
-    if (!studentsRes.error) {
-      const opts = ((studentsRes.data as unknown as Array<{
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida.");
+      const [plansRes, subsRes, studentsRes] = await Promise.all([
+        listPlansFn({ data: { accessToken, organizationId } }),
+        listSubsFn({ data: { accessToken, organizationId } }),
+        listStudentsFn({ data: { accessToken, organizationId } }),
+      ]);
+      setPlans((plansRes.plans as Plan[]) ?? []);
+      setSubs((subsRes.subscriptions as unknown as Subscription[]) ?? []);
+      const opts = ((studentsRes.students as unknown as Array<{
         id: string;
-          enrollment_date: string | null;
+        enrollment_date: string | null;
         profiles: { full_name: string } | null;
       }>) ?? [])
         .map((s) => ({ id: s.id, name: s.profiles?.full_name ?? "—", enrollmentDate: s.enrollment_date }))
         .sort((a, b) => a.name.localeCompare(b.name));
       setStudents(opts);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao carregar");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
