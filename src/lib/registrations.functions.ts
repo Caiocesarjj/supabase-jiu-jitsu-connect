@@ -275,7 +275,8 @@ export const deleteStudentRegistration = createServerFn({ method: "POST" })
     orgAuthSchema.extend({ studentId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data }) => {
-    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
+    await requireStaff(data.accessToken, data.organizationId);
+    const supabase = getAdminClient();
 
     const { data: studentRow, error: fetchError } = await supabase
       .from("students")
@@ -290,11 +291,17 @@ export const deleteStudentRegistration = createServerFn({ method: "POST" })
     const profileId = studentRow.profile_id as string | null;
 
     // Remove dependent rows first (in case FKs do not cascade)
-    await supabase.from("attendance").delete().eq("student_id", studentId);
-    await supabase.from("financial_records").delete().eq("student_id", studentId);
-    await supabase.from("graduation_history").delete().eq("student_id", studentId);
-    await supabase.from("graduations").delete().eq("student_id", studentId);
-    await supabase.from("student_guardians").delete().eq("student_id", studentId);
+    const dependentDeletes = await Promise.all([
+      supabase.from("attendance").delete().eq("student_id", studentId),
+      supabase.from("financial_records").delete().eq("student_id", studentId),
+      supabase.from("graduation_history").delete().eq("student_id", studentId),
+      supabase.from("graduations").delete().eq("student_id", studentId),
+      supabase.from("student_guardians").delete().eq("student_id", studentId),
+      supabase.from("student_class_enrollments").delete().eq("student_id", studentId),
+      supabase.from("subscription_records").delete().eq("student_id", studentId),
+    ]);
+    const dependentError = dependentDeletes.find((result) => result.error)?.error;
+    if (dependentError) throw dependentError;
 
     const { error: studentError } = await supabase
       .from("students")
