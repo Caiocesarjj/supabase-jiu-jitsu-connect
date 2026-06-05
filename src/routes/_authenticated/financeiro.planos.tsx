@@ -302,14 +302,25 @@ function Page() {
     setSubOpen(true);
   };
 
-  // Usa a data de cadastro do aluno como base do vencimento.
+  // Usa a data de cadastro do aluno + frequência/dia de vencimento do plano.
   useEffect(() => {
     if (!subStudent) return;
     const student = students.find((item) => item.id === subStudent);
     const enrollmentDate = student?.enrollmentDate || todayISO();
     setSubStart(enrollmentDate);
-    setSubNext(enrollmentDate);
-  }, [subStudent, students]);
+    const plan = plans.find((p) => p.id === subPlan);
+    if (!plan) { setSubNext(enrollmentDate); return; }
+    const monthsToAdd = FREQ_MONTHS[plan.frequency];
+    const base = new Date(`${enrollmentDate}T00:00:00`);
+    const target = new Date(base.getFullYear(), base.getMonth() + monthsToAdd, 1);
+    const dueDay = plan.validity_months ?? base.getDate();
+    const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+    const day = Math.min(Math.max(dueDay, 1), lastDay);
+    const yyyy = target.getFullYear();
+    const mm = String(target.getMonth() + 1).padStart(2, "0");
+    const dd = String(day).padStart(2, "0");
+    setSubNext(`${yyyy}-${mm}-${dd}`);
+  }, [subStudent, subPlan, students, plans]);
 
   const saveSub = async () => {
     if (!organizationId) return;
