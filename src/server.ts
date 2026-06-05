@@ -2,6 +2,7 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { runAutomaticWhatsappNotifications } from "./lib/registrations.functions";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -75,6 +76,13 @@ export default {
     } catch (error) {
       console.error(error);
       return brandedErrorResponse();
+    }
+  },
+  async scheduled() {
+    try {
+      await runAutomaticWhatsappNotifications({ manual: false });
+    } catch (error) {
+      console.error("automatic whatsapp notifications failed:", error);
     }
   },
 };
