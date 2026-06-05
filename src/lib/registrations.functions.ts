@@ -876,6 +876,120 @@ export const updateWhatsappConfig = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export async function runAutomaticWhatsappNotifications({
+  organizationId,
+  manual = false,
+}: {
+  organizationId?: string;
+  manual?: boolean;
+}) {
+  const admin = getAdminClient();
+  const today = new Date().toISOString().slice(0, 10);
+  const settingsQuery = admin
+    .from("organization_settings")
+    .select("organization_id, whatsapp_notifications, botbot_app_key, botbot_auth_key, charge_reminder_days, whatsapp_templates");
+  const { data: settingsRows, error: settingsErr } = organizationId
+    ? await settingsQuery.eq("organization_id", organizationId)
+    : await settingsQuery.eq("whatsapp_notifications", true);
+  if (settingsErr) throw settingsErr;
+
+  const enabledSettings = (settingsRows ?? []).filter(
+    (row: any) => manual || (row.whatsapp_notifications && row.botbot_app_key && row.botbot_auth_key),
+  );
+  if (enabledSettings.length === 0) return { sent: 0, skipped: 0, total: 0 };
+
+  const orgIds = enabledSettings.map((row: any) => row.organization_id as string);
+  const { data: orgRows } = await admin.from("organizations").select("id, name").in("id", orgIds);
+  const orgNames = new Map((orgRows ?? []).map((row: any) => [row.id, row.name ?? "Academia"]));
+
+  let sent = 0;
+  let skipped = 0;
+  let total = 0;
+  const errors: string[] = [];
+
+  for (const settings of enabledSettings as Array<any>) {
+    if (!settings.botbot_app_key || !settings.botbot_auth_key) {
+      if (manual) throw new Error("Credenciais BotBot não configuradas em Configurações → WhatsApp.");
+      continue;
+    }
+
+    const days = Array.isArray(settings.charge_reminder_days) ? settings.charge_reminder_days : [];
+    if (!manual && days.length === 0) continue;
+
+    const { data: charges, error: chargesErr } = await admin
+      .from("financial_records")
+      .select(
+        `id, amount, due_date, status, invoice_url, pix_code, notifications_sent,
+         students:student_id(
+           profiles:profile_id(full_name, phone),
+           subscription_records(status, subscription_plans(name, amount))
+         )`,
+      )
+      .eq("organization_id", settings.organization_id)
+      .in("status", ["pending", "overdue"]);
+    if (chargesErr) throw chargesErr;
+
+    for (const charge of (charges ?? []) as Array<any>) {
+      const dueDate = String(charge.due_date ?? "").slice(0, 10);
+      if (!dueDate) {
+        skipped++;
+        continue;
+      }
+      const daysFromDue = Math.round((new Date(`${today}T00:00:00`).getTime() - new Date(`${dueDate}T00:00:00`).getTime()) / 86400000);
+      if (!manual && !days.includes(daysFromDue)) continue;
+
+      total++;
+      const sentKey = `whatsapp_${daysFromDue}`;
+      const sentLog = charge.notifications_sent && typeof charge.notifications_sent === "object" ? charge.notifications_sent : {};
+      if (!manual && sentLog[sentKey]) {
+        skipped++;
+        continue;
+      }
+
+      const student = Array.isArray(charge.students) ? charge.students[0] : charge.students;
+      const profile = Array.isArray(student?.profiles) ? student?.profiles[0] : student?.profiles;
+      const phone = normalizeBrazilianPhone(profile?.phone);
+      if (!phone) {
+        skipped++;
+        continue;
+      }
+
+      const activeSub = Array.isArray(student?.subscription_records)
+        ? student.subscription_records.find((sub: any) => sub.status === "active")
+        : null;
+      const plan = Array.isArray(activeSub?.subscription_plans)
+        ? activeSub.subscription_plans[0]
+        : activeSub?.subscription_plans;
+      const templates = { ...DEFAULT_WHATSAPP_TEMPLATES, ...((settings.whatsapp_templates ?? {}) as Record<string, string>) };
+      const templateKey = daysFromDue > 0 || charge.status === "overdue" ? "overdue" : "due_soon";
+      const message = renderWhatsappTemplate(templates[templateKey], {
+        name: profile?.full_name ?? "Aluno",
+        plan_name: plan?.name ?? "Mensalidade",
+        plan_price: formatMoneyBR(charge.amount),
+        expires_at: formatDateBRValue(dueDate),
+        academy_name: orgNames.get(settings.organization_id) ?? "Academia",
+        payment_link: charge.invoice_url || (charge.pix_code ? `PIX copia e cola: ${charge.pix_code}` : "Procure a secretaria"),
+      });
+
+      try {
+        await sendBotBotMessage(settings, phone, message);
+        sent++;
+        await admin
+          .from("financial_records")
+          .update({ notifications_sent: { ...sentLog, [sentKey]: new Date().toISOString() } })
+          .eq("id", charge.id);
+      } catch (error) {
+        skipped++;
+        const msg = error instanceof Error ? error.message : "Erro desconhecido no BotBot";
+        console.error("BotBot send failed:", msg);
+        if (errors.length < 3) errors.push(msg);
+      }
+    }
+  }
+
+  return { sent, skipped, total, errors };
+}
+
 export const sendChargeNotifications = createServerFn({ method: "POST" })
   .inputValidator((input) => orgAuthSchema.parse(input))
   .handler(async ({ data }) => {
