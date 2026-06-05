@@ -1082,7 +1082,7 @@ export const upsertSubscriptionPlan = createServerFn({ method: "POST" })
         frequency: frequencyEnum,
         description: z.string().trim().max(500).nullable().optional(),
         newAmountAfter: z.number().min(0).nullable().optional(),
-        validityMonths: z.number().int().min(0).max(120).nullable().optional(),
+        validityMonths: z.number().int().min(0).max(31).nullable().optional(),
       })
       .parse(input),
   )
