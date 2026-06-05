@@ -156,6 +156,8 @@ function Page() {
   const [planNewAmount, setPlanNewAmount] = useState("");
   const [planValidity, setPlanValidity] = useState("");
   const [savingPlan, setSavingPlan] = useState(false);
+  const [planToDelete, setPlanToDelete] = useState<Plan | null>(null);
+  const [deletingPlan, setDeletingPlan] = useState(false);
 
   // Subscription modal
   const [subOpen, setSubOpen] = useState(false);
@@ -241,6 +243,7 @@ function Page() {
 
   const upsertPlanFn = useServerFn(upsertSubscriptionPlan);
   const togglePlanFn = useServerFn(toggleSubscriptionPlan);
+  const deletePlanFn = useServerFn(deleteSubscriptionPlan);
   const createSubFn = useServerFn(createSubscriptionRecord);
   const updateSubStatusFn = useServerFn(updateSubscriptionStatus);
 
@@ -292,6 +295,24 @@ function Page() {
       load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao atualizar");
+    }
+  };
+
+  const deletePlan = async () => {
+    if (!organizationId || !planToDelete) return;
+    setDeletingPlan(true);
+    try {
+      const accessToken = await getToken();
+      await deletePlanFn({
+        data: { accessToken, organizationId, planId: planToDelete.id },
+      });
+      toast.success("Plano excluído");
+      setPlanToDelete(null);
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao excluir plano");
+    } finally {
+      setDeletingPlan(false);
     }
   };
 
