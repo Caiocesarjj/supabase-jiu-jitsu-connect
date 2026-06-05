@@ -412,7 +412,7 @@ function Page() {
                 {(p.validity_months != null || p.new_amount_after != null) && (
                   <div className="text-xs bg-muted/50 p-2 rounded border border-border space-y-0.5">
                     {p.validity_months != null && (
-                      <div><strong>Validade:</strong> {p.validity_months} {p.validity_months === 1 ? "mês" : "meses"}</div>
+                      <div><strong>Dia de vencimento:</strong> todo dia {p.validity_months}</div>
                     )}
                     {p.new_amount_after != null && (
                       <div><strong>Valor após a validade:</strong> {formatBRL(Number(p.new_amount_after))}</div>
