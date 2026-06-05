@@ -627,7 +627,7 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
           .from("students")
           .select(
             `id, monthly_fee, enrollment_date,
-             subscription_records(status, plan_id, subscription_plans(amount, new_amount_after, validity_months))`,
+      subscription_records(status, plan_id, subscription_plans(amount, new_amount_after, validity_months))`,
           )
           .eq("organization_id", data.organizationId)
           .eq("status", "active")
@@ -662,26 +662,16 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
         ? activeSubscription?.subscription_plans[0]
         : activeSubscription?.subscription_plans;
 
-      // Meses passados desde o cadastro do aluno até o mês de referência da cobrança
-      let monthsSinceEnrollment = 0;
-      if (student.enrollment_date) {
-        const [ey, em] = student.enrollment_date.slice(0, 7).split("-").map(Number);
-        const [ry, rm] = data.referenceMonth.split("-").map(Number);
-        monthsSinceEnrollment = (ry - ey) * 12 + (rm - em);
-      }
-
-      const pastValidity =
-        plan?.validity_months != null && monthsSinceEnrollment >= plan.validity_months;
-      const subscriptionAmount =
-        pastValidity && plan?.new_amount_after != null
-          ? plan.new_amount_after
-          : plan?.amount;
+      const planDueDay = plan?.validity_months ?? dueDay;
+      const dueDate = dueDateFromEnrollment(data.referenceMonth, null, planDueDay);
+      const isPastDue = dueDate < new Date().toISOString().slice(0, 10);
+      const subscriptionAmount = isPastDue && plan?.new_amount_after != null ? plan.new_amount_after : plan?.amount;
 
       return {
         organization_id: data.organizationId,
         student_id: student.id,
         amount: subscriptionAmount ?? student.monthly_fee ?? defaultFee,
-        due_date: dueDateFromEnrollment(data.referenceMonth, student.enrollment_date, dueDay),
+        due_date: dueDate,
         reference_month: referenceMonth,
         status: "pending",
         idempotency_key: `${student.id}_${referenceMonth}`,
