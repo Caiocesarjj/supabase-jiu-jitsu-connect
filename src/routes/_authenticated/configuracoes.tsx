@@ -13,6 +13,7 @@ import {
   updateWhatsappConfig,
   getWhatsappTemplates,
   updateWhatsappTemplates,
+  sendTestWhatsappMessage,
 } from "@/lib/registrations.functions";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDateBR } from "@/lib/format";
