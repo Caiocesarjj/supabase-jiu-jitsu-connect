@@ -13,6 +13,7 @@ import {
   updateWhatsappConfig,
   getWhatsappTemplates,
   updateWhatsappTemplates,
+  sendTestWhatsappMessage,
 } from "@/lib/registrations.functions";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDateBR } from "@/lib/format";
@@ -72,6 +73,7 @@ interface Settings {
   charge_reminder_days: number[] | null;
   payment_gateway: string | null;
   payment_gateway_api_key: string | null;
+  whatsapp_templates: Record<string, unknown> | null;
 }
 
 function maskPhone(v: string) {
@@ -317,8 +319,18 @@ function WhatsappSection({
   const [dMinus3, setDMinus3] = useState(initialDays.includes(-3));
   const [dZero, setDZero] = useState(initialDays.includes(0));
   const [dPlus3, setDPlus3] = useState(initialDays.includes(3));
+  const initialHours = Array.isArray((settings.whatsapp_templates as any)?.__hours)
+    ? ((settings.whatsapp_templates as any).__hours as number[])
+    : [];
+  const [hour1, setHour1] = useState<string>(String(initialHours[0] ?? 9));
+  const [hour2, setHour2] = useState<string>(initialHours[1] !== undefined ? String(initialHours[1]) : "none");
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
+  // Test message state
+  const [testPhone, setTestPhone] = useState("");
+  const [testMessage, setTestMessage] = useState("Teste de mensagem do JJ Manager ✅");
+  const [testSending, setTestSending] = useState(false);
+  const sendTest = useServerFn(sendTestWhatsappMessage);
   const updateWhatsapp = useServerFn(updateWhatsappConfig);
   const sendNotifications = useServerFn(sendChargeNotifications);
 
@@ -335,6 +347,10 @@ function WhatsappSection({
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
       if (!accessToken) throw new Error("Sessão inválida. Faça login novamente.");
+      const hours = [
+        Number(hour1),
+        hour2 !== "none" ? Number(hour2) : null,
+      ].filter((v): v is number => v !== null && !Number.isNaN(v));
       await updateWhatsapp({
         data: {
           accessToken,
@@ -344,6 +360,7 @@ function WhatsappSection({
           botbotAppKey: enabled ? appKey : null,
           botbotAuthKey: enabled ? authKey : null,
           chargeReminderDays: enabled ? days : [],
+          notificationHours: enabled ? hours : [],
         },
       });
       toast.success("Notificações atualizadas.");
@@ -367,6 +384,23 @@ function WhatsappSection({
     }
     setSending(false);
   };
+
+  const handleSendTest = async () => {
+    setTestSending(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida. Faça login novamente.");
+      const result = await sendTest({
+        data: { accessToken, organizationId, phone: testPhone, message: testMessage },
+      });
+      toast.success(`Mensagem de teste enviada para ${result.phone}.`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao enviar teste.");
+    }
+    setTestSending(false);
+  };
+
 
 
   return (
@@ -448,6 +482,65 @@ function WhatsappSection({
                 D+3 (3 dias após o vencimento)
               </Label>
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Horários de envio (até 2)</Label>
+            <p className="text-xs text-muted-foreground">
+              As notificações automáticas serão disparadas apenas nestes horários (fuso de Brasília).
+            </p>
+            <div className="grid grid-cols-2 gap-2 max-w-sm">
+              <div className="space-y-1">
+                <Label className="text-xs">Horário 1</Label>
+                <Select value={hour1} onValueChange={setHour1}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent className="max-h-64">
+                    {Array.from({ length: 24 }, (_, h) => (
+                      <SelectItem key={h} value={String(h)}>{String(h).padStart(2, "0")}:00</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Horário 2 (opcional)</Label>
+                <Select value={hour2} onValueChange={setHour2}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent className="max-h-64">
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {Array.from({ length: 24 }, (_, h) => (
+                      <SelectItem key={h} value={String(h)}>{String(h).padStart(2, "0")}:00</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-md border border-border bg-muted/30 p-3 space-y-3">
+            <p className="text-sm font-medium">Enviar mensagem de teste</p>
+            <div className="space-y-1">
+              <Label>Número (formato internacional)</Label>
+              <Input
+                value={testPhone}
+                onChange={(e) => setTestPhone(e.target.value.replace(/\D/g, "").slice(0, 15))}
+                placeholder="5511999999999"
+                inputMode="numeric"
+              />
+              <p className="text-xs text-muted-foreground">
+                Formato: <strong>55</strong> (país) + <strong>DDD</strong> (2 dígitos) + <strong>número</strong>. Ex: 5511999999999
+              </p>
+            </div>
+            <div className="space-y-1">
+              <Label>Mensagem</Label>
+              <Textarea
+                value={testMessage}
+                onChange={(e) => setTestMessage(e.target.value)}
+                rows={3}
+              />
+            </div>
+            <Button type="button" variant="outline" onClick={handleSendTest} disabled={testSending || !testPhone}>
+              {testSending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Enviar teste agora
+            </Button>
           </div>
         </div>
       )}
