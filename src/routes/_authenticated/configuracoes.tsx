@@ -483,6 +483,65 @@ function WhatsappSection({
               </Label>
             </div>
           </div>
+          <div className="space-y-2">
+            <Label>Horários de envio (até 2)</Label>
+            <p className="text-xs text-muted-foreground">
+              As notificações automáticas serão disparadas apenas nestes horários (fuso de Brasília).
+            </p>
+            <div className="grid grid-cols-2 gap-2 max-w-sm">
+              <div className="space-y-1">
+                <Label className="text-xs">Horário 1</Label>
+                <Select value={hour1} onValueChange={setHour1}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent className="max-h-64">
+                    {Array.from({ length: 24 }, (_, h) => (
+                      <SelectItem key={h} value={String(h)}>{String(h).padStart(2, "0")}:00</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Horário 2 (opcional)</Label>
+                <Select value={hour2} onValueChange={setHour2}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent className="max-h-64">
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {Array.from({ length: 24 }, (_, h) => (
+                      <SelectItem key={h} value={String(h)}>{String(h).padStart(2, "0")}:00</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-md border border-border bg-muted/30 p-3 space-y-3">
+            <p className="text-sm font-medium">Enviar mensagem de teste</p>
+            <div className="space-y-1">
+              <Label>Número (formato internacional)</Label>
+              <Input
+                value={testPhone}
+                onChange={(e) => setTestPhone(e.target.value.replace(/\D/g, "").slice(0, 15))}
+                placeholder="5511999999999"
+                inputMode="numeric"
+              />
+              <p className="text-xs text-muted-foreground">
+                Formato: <strong>55</strong> (país) + <strong>DDD</strong> (2 dígitos) + <strong>número</strong>. Ex: 5511999999999
+              </p>
+            </div>
+            <div className="space-y-1">
+              <Label>Mensagem</Label>
+              <Textarea
+                value={testMessage}
+                onChange={(e) => setTestMessage(e.target.value)}
+                rows={3}
+              />
+            </div>
+            <Button type="button" variant="outline" onClick={handleSendTest} disabled={testSending || !testPhone}>
+              {testSending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Enviar teste agora
+            </Button>
+          </div>
         </div>
       )}
       <div className="flex flex-wrap gap-2">
