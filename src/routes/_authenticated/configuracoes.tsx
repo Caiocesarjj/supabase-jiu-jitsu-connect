@@ -347,6 +347,10 @@ function WhatsappSection({
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
       if (!accessToken) throw new Error("Sessão inválida. Faça login novamente.");
+      const hours = [
+        Number(hour1),
+        hour2 !== "none" ? Number(hour2) : null,
+      ].filter((v): v is number => v !== null && !Number.isNaN(v));
       await updateWhatsapp({
         data: {
           accessToken,
@@ -356,6 +360,7 @@ function WhatsappSection({
           botbotAppKey: enabled ? appKey : null,
           botbotAuthKey: enabled ? authKey : null,
           chargeReminderDays: enabled ? days : [],
+          notificationHours: enabled ? hours : [],
         },
       });
       toast.success("Notificações atualizadas.");
