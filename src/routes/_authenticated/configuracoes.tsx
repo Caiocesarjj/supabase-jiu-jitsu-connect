@@ -319,8 +319,18 @@ function WhatsappSection({
   const [dMinus3, setDMinus3] = useState(initialDays.includes(-3));
   const [dZero, setDZero] = useState(initialDays.includes(0));
   const [dPlus3, setDPlus3] = useState(initialDays.includes(3));
+  const initialHours = Array.isArray((settings.whatsapp_templates as any)?.__hours)
+    ? ((settings.whatsapp_templates as any).__hours as number[])
+    : [];
+  const [hour1, setHour1] = useState<string>(String(initialHours[0] ?? 9));
+  const [hour2, setHour2] = useState<string>(initialHours[1] !== undefined ? String(initialHours[1]) : "none");
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
+  // Test message state
+  const [testPhone, setTestPhone] = useState("");
+  const [testMessage, setTestMessage] = useState("Teste de mensagem do JJ Manager ✅");
+  const [testSending, setTestSending] = useState(false);
+  const sendTest = useServerFn(sendTestWhatsappMessage);
   const updateWhatsapp = useServerFn(updateWhatsappConfig);
   const sendNotifications = useServerFn(sendChargeNotifications);
 
