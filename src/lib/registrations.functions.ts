@@ -44,29 +44,36 @@ async function sendBotBotMessage(settings: { botbot_app_key?: string | null; bot
   if (!settings.botbot_app_key || !settings.botbot_auth_key) {
     throw new Error("Credenciais BotBot não configuradas em Configurações → WhatsApp.");
   }
-  const url = `https://botbot.chat/user/api?appKey=${encodeURIComponent(settings.botbot_app_key)}&authKey=${encodeURIComponent(settings.botbot_auth_key)}`;
-  let response: Response;
+
   try {
-    response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ number: phone, phone, text: message, message }),
-    });
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    throw new Error(`Não foi possível conectar ao BotBot. Detalhe: ${reason}`);
-  }
-  const bodyText = await response.text().catch(() => "");
-  if (!response.ok) {
-    throw new Error(`BotBot retornou ${response.status}${bodyText ? `: ${bodyText.slice(0, 240)}` : ""}`);
-  }
-  // Some providers return 200 with an error payload; surface it.
-  try {
-    const parsed = JSON.parse(bodyText);
-    if (parsed && (parsed.error || parsed.success === false)) {
-      throw new Error(`BotBot: ${parsed.error || parsed.message || bodyText.slice(0, 240)}`);
+    const response = await fetch('https://botbot.chat/api/v2/sendText', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'appKey': settings.botbot_app_key,
+        'authKey': settings.botbot_auth_key,
+      },
+      body: JSON.stringify({
+        to: phone.replace(/\D/g, ''),
+        message: message,
+        typingDelay: 1,
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(\`BotBot retornou \${response.status}: \${JSON.stringify(data)}\`)
     }
-  } catch {
+
+    if (data && (data.error || data.success === false)) {
+      throw new Error(\`BotBot: \${data.error || data.message || 'Erro ao enviar'}\`)
+    }
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error)
+    throw new Error(\`Não foi possível enviar mensagem WhatsApp. Detalhe: \${reason}\`)
+  }
+} catch {
     // not JSON — assume success when status ok
   }
 }
