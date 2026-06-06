@@ -385,6 +385,23 @@ function WhatsappSection({
     setSending(false);
   };
 
+  const handleSendTest = async () => {
+    setTestSending(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida. Faça login novamente.");
+      const result = await sendTest({
+        data: { accessToken, organizationId, phone: testPhone, message: testMessage },
+      });
+      toast.success(`Mensagem de teste enviada para ${result.phone}.`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao enviar teste.");
+    }
+    setTestSending(false);
+  };
+
+
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
