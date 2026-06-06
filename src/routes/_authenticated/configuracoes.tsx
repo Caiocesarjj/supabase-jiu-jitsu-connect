@@ -73,6 +73,7 @@ interface Settings {
   charge_reminder_days: number[] | null;
   payment_gateway: string | null;
   payment_gateway_api_key: string | null;
+  whatsapp_templates: Record<string, unknown> | null;
 }
 
 function maskPhone(v: string) {
