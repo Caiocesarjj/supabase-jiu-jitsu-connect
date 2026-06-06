@@ -853,12 +853,20 @@ export const updateWhatsappConfig = createServerFn({ method: "POST" })
         botbotAppKey: z.string().nullable().optional(),
         botbotAuthKey: z.string().nullable().optional(),
         chargeReminderDays: z.array(z.number().int().min(-30).max(30)).max(10),
+        notificationHours: z.array(z.number().int().min(0).max(23)).max(2).optional(),
       })
       .parse(input),
   )
   .handler(async ({ data }) => {
     await requireStaff(data.accessToken, data.organizationId);
     const admin = getAdminClient();
+    const { data: existing } = await admin
+      .from("organization_settings")
+      .select("whatsapp_templates")
+      .eq("organization_id", data.organizationId)
+      .maybeSingle();
+    const currentTemplates = (existing?.whatsapp_templates ?? {}) as Record<string, unknown>;
+    const nextTemplates = { ...currentTemplates, __hours: data.notificationHours ?? [] };
     const { error } = await admin
       .from("organization_settings")
       .upsert(
@@ -869,11 +877,38 @@ export const updateWhatsappConfig = createServerFn({ method: "POST" })
           botbot_app_key: data.whatsappNotifications ? data.botbotAppKey || null : null,
           botbot_auth_key: data.whatsappNotifications ? data.botbotAuthKey || null : null,
           charge_reminder_days: data.whatsappNotifications ? data.chargeReminderDays : [],
+          whatsapp_templates: nextTemplates,
         },
         { onConflict: "organization_id" },
       );
     if (error) throw error;
     return { ok: true };
+  });
+
+export const sendTestWhatsappMessage = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema
+      .extend({
+        phone: z.string().trim().min(10).max(20),
+        message: z.string().trim().min(1).max(1000),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+    const { data: settings, error } = await admin
+      .from("organization_settings")
+      .select("botbot_app_key, botbot_auth_key")
+      .eq("organization_id", data.organizationId)
+      .maybeSingle();
+    if (error) throw error;
+    const digits = data.phone.replace(/\D/g, "");
+    if (digits.length < 12 || digits.length > 15) {
+      throw new Error("Número inválido. Use o formato internacional: 55 + DDD + número (ex: 5511999999999).");
+    }
+    await sendBotBotMessage(settings ?? {}, digits, data.message);
+    return { ok: true, phone: digits };
   });
 
 export async function runAutomaticWhatsappNotifications({
