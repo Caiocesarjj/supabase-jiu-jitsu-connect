@@ -44,18 +44,27 @@ async function sendBotBotMessage(settings: { botbot_app_key?: string | null; bot
   if (!settings.botbot_app_key || !settings.botbot_auth_key) {
     throw new Error("Credenciais BotBot não configuradas em Configurações → WhatsApp.");
   }
-  const response = await fetch("https://api.botbot.chat/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${settings.botbot_auth_key}`,
-      "X-App-Key": settings.botbot_app_key,
-    },
-    body: JSON.stringify({ phone, message, template: false }),
-  });
+  const endpoint = process.env.BOTBOT_API_URL || "https://api.botbot.com.br/v1/messages";
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${settings.botbot_auth_key}`,
+        "X-App-Key": settings.botbot_app_key,
+      },
+      body: JSON.stringify({ phone, message, template: false }),
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Não foi possível conectar ao provedor de WhatsApp (${endpoint}). Verifique o endpoint/credenciais ou defina BOTBOT_API_URL. Detalhe: ${reason}`,
+    );
+  }
   if (!response.ok) {
     const body = await response.text().catch(() => "");
-    throw new Error(`BotBot retornou ${response.status}${body ? `: ${body}` : ""}`);
+    throw new Error(`Provedor WhatsApp retornou ${response.status}${body ? `: ${body.slice(0, 200)}` : ""}`);
   }
 }
 
