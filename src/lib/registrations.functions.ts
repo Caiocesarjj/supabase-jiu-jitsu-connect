@@ -951,6 +951,19 @@ export async function runAutomaticWhatsappNotifications({
     const days = Array.isArray(settings.charge_reminder_days) ? settings.charge_reminder_days : [];
     if (!manual && days.length === 0) continue;
 
+    // Respect notification hours window stored in whatsapp_templates.__hours
+    if (!manual) {
+      const tpls = (settings.whatsapp_templates ?? {}) as Record<string, unknown>;
+      const hours = Array.isArray(tpls.__hours) ? (tpls.__hours as number[]) : [];
+      if (hours.length > 0) {
+        // Brazil timezone (UTC-3)
+        const nowUtc = new Date();
+        const brHour = (nowUtc.getUTCHours() - 3 + 24) % 24;
+        if (!hours.includes(brHour)) continue;
+      }
+    }
+
+
     const { data: charges, error: chargesErr } = await admin
       .from("financial_records")
       .select(
