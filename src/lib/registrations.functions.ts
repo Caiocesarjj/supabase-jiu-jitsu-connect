@@ -44,27 +44,30 @@ async function sendBotBotMessage(settings: { botbot_app_key?: string | null; bot
   if (!settings.botbot_app_key || !settings.botbot_auth_key) {
     throw new Error("Credenciais BotBot não configuradas em Configurações → WhatsApp.");
   }
-  const endpoint = process.env.BOTBOT_API_URL || "https://api.botbot.com.br/v1/messages";
+  const url = `https://botbot.chat/user/api?appKey=${encodeURIComponent(settings.botbot_app_key)}&authKey=${encodeURIComponent(settings.botbot_auth_key)}`;
   let response: Response;
   try {
-    response = await fetch(endpoint, {
+    response = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${settings.botbot_auth_key}`,
-        "X-App-Key": settings.botbot_app_key,
-      },
-      body: JSON.stringify({ phone, message, template: false }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ number: phone, phone, text: message, message }),
     });
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      `Não foi possível conectar ao provedor de WhatsApp (${endpoint}). Verifique o endpoint/credenciais ou defina BOTBOT_API_URL. Detalhe: ${reason}`,
-    );
+    throw new Error(`Não foi possível conectar ao BotBot. Detalhe: ${reason}`);
   }
+  const bodyText = await response.text().catch(() => "");
   if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    throw new Error(`Provedor WhatsApp retornou ${response.status}${body ? `: ${body.slice(0, 200)}` : ""}`);
+    throw new Error(`BotBot retornou ${response.status}${bodyText ? `: ${bodyText.slice(0, 240)}` : ""}`);
+  }
+  // Some providers return 200 with an error payload; surface it.
+  try {
+    const parsed = JSON.parse(bodyText);
+    if (parsed && (parsed.error || parsed.success === false)) {
+      throw new Error(`BotBot: ${parsed.error || parsed.message || bodyText.slice(0, 240)}`);
+    }
+  } catch {
+    // not JSON — assume success when status ok
   }
 }
 
