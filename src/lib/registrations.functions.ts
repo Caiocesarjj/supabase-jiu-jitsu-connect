@@ -704,6 +704,10 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
     if (studentsError) throw studentsError;
     if (settingsError) throw settingsError;
 
+    const admin = getAdminClient();
+    const paymentConfig = await getActivePaymentConfig(admin, data.organizationId);
+    const staticPaymentUrl = getStaticPaymentUrl(paymentConfig);
+
     const [year, month] = data.referenceMonth.split("-");
     const referenceMonth = `${year}-${month}-01`;
     const dueDay = Number(settings?.due_day ?? 10);
@@ -754,7 +758,22 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
         .upsert(rows, { onConflict: "idempotency_key", ignoreDuplicates: true });
       if (error) throw error;
 
-      if (settings?.payment_gateway === "asaas" && settings.payment_gateway_api_key) {
+      if (staticPaymentUrl) {
+        const { error: linkError } = await supabase
+          .from("financial_records")
+          .update({ invoice_url: staticPaymentUrl })
+          .eq("organization_id", data.organizationId)
+          .in("idempotency_key", rows.map((row) => row.idempotency_key))
+          .is("invoice_url", null);
+        if (linkError) throw linkError;
+      }
+
+      const asaasApiKey = paymentConfig.provider === "asaas" && typeof paymentConfig.credentials.apiKey === "string"
+        ? paymentConfig.credentials.apiKey
+        : settings?.payment_gateway === "asaas"
+          ? settings.payment_gateway_api_key
+          : null;
+      if (asaasApiKey) {
         const { data: charges, error: chargesError } = await supabase
           .from("financial_records")
           .select(
@@ -771,7 +790,7 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
           students?: { profiles?: { full_name?: string; email?: string | null; phone?: string | null; cpf?: string | null } } | null;
         }>) {
           const asaasCharge = await ensureAsaasCharge({
-            apiKey: settings.payment_gateway_api_key,
+            apiKey: asaasApiKey,
             charge,
           });
           await supabase
