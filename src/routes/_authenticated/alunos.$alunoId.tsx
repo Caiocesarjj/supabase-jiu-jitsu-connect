@@ -1562,7 +1562,7 @@ function EditStudentModal({
   const [sex, setSex] = useState<Sex | "">(normalizeSex(student.sex));
   const [weightKg, setWeightKg] = useState<string>(student.weight != null ? String(student.weight) : "");
   const [enrollmentDate, setEnrollmentDate] = useState(student.enrollment_date ?? "");
-  const [status, setStatus] = useState<string>(student.status ?? "active");
+  const status = student.status === "active" ? "active" : "inactive";
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -1575,7 +1575,6 @@ function EditStudentModal({
     setSex(normalizeSex(student.sex));
     setWeightKg(student.weight != null ? String(student.weight) : "");
     setEnrollmentDate(student.enrollment_date ?? "");
-    setStatus(student.status ?? "active");
   }, [open, student]);
 
 
