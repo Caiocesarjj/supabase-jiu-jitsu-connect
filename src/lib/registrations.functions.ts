@@ -1967,7 +1967,8 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
 
     const now = new Date();
     const referenceMonth =
@@ -1976,7 +1977,7 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
 
     const [{ data: student, error: studentError }, { data: settings, error: settingsError }] =
       await Promise.all([
-        supabase
+        admin
           .from("students")
           .select(
             `id, monthly_fee, enrollment_date,
@@ -1986,7 +1987,7 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
           .eq("id", data.studentId)
           .eq("organization_id", data.organizationId)
           .maybeSingle(),
-        supabase
+        admin
           .from("organization_settings")
           .select("monthly_fee_default, due_day, payment_gateway, payment_gateway_api_key")
           .eq("organization_id", data.organizationId)
