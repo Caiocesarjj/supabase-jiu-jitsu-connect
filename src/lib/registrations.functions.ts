@@ -441,8 +441,7 @@ export const updateStudentGraduation = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    await requireStaff(data.accessToken, data.organizationId);
-    const admin = getAdminClient();
+    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
     const { error } = await supabase
       .from("graduations")
       .update({
@@ -687,7 +686,7 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
     const { supabase } = await requireStaff(data.accessToken, data.organizationId);
     const [{ data: students, error: studentsError }, { data: settings, error: settingsError }] =
       await Promise.all([
-        admin
+        supabase
           .from("students")
           .select(
             `id, monthly_fee, enrollment_date,
@@ -696,7 +695,7 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
           .eq("organization_id", data.organizationId)
           .eq("status", "active")
           .is("deleted_at", null),
-        admin
+        supabase
           .from("organization_settings")
           .select("monthly_fee_default, due_day, payment_gateway, payment_gateway_api_key")
           .eq("organization_id", data.organizationId)
