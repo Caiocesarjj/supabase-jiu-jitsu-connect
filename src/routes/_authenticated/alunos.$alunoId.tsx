@@ -1330,6 +1330,13 @@ function FinanceiroTab({
         destructive
         onConfirm={() => { if (confirmCancel) void cancelRecord(confirmCancel); }}
       />
+
+      <WhatsappChargeModal
+        open={whatsappOpen}
+        onOpenChange={setWhatsappOpen}
+        studentId={studentId}
+        organizationId={organizationId}
+      />
     </div>
   );
 }
