@@ -115,7 +115,7 @@ async function createPendingChargeForSubscription({
 
   const { error: syncError } = await admin
     .from("financial_records")
-    .update({ amount, due_date: dueDate })
+    .update({ amount, due_date: dueDate, invoice_url: null, pix_code: null })
     .eq("organization_id", organizationId)
     .eq("idempotency_key", `${studentId}_${referenceMonthDate}`)
     .in("status", ["pending", "overdue"]);
