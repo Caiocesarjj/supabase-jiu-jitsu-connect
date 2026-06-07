@@ -1389,6 +1389,15 @@ export const createSubscriptionRecord = createServerFn({ method: "POST" })
       next_due_date: normalizedDue,
     });
     if (error) throw error;
+
+    const { error: studentError } = await admin
+      .from("students")
+      .update({ status: "inactive" })
+      .eq("id", data.studentId)
+      .eq("organization_id", data.organizationId)
+      .neq("status", "active");
+    if (studentError) throw studentError;
+
     return { ok: true };
   });
 
