@@ -1517,6 +1517,62 @@ export const updateWhatsappTemplates = createServerFn({ method: "POST" })
 // ============================================================
 
 const paymentProviderEnum = z.enum(["manual", "link", "asaas", "mercadopago", "pagseguro", "infinitepay"]);
+type PaymentProvider = z.infer<typeof paymentProviderEnum>;
+
+function isMissingPaymentIntegrationsTable(error: unknown) {
+  const err = error as { code?: string; message?: string } | null | undefined;
+  const message = err?.message ?? "";
+  return (
+    err?.code === "PGRST205" ||
+    err?.code === "42P01" ||
+    /payment_integrations/i.test(message) && /schema cache|does not exist|could not find/i.test(message)
+  );
+}
+
+function legacyCredentials(provider: PaymentProvider, value: string | null | undefined) {
+  const credential = value ?? "";
+  if (provider === "asaas") {
+    return {
+      apiKey: credential,
+      environment: credential.includes("prod") ? "production" : "sandbox",
+    };
+  }
+  if (provider === "mercadopago") return { accessToken: credential };
+  if (provider === "pagseguro") return { token: credential };
+  if (provider === "infinitepay") return { baseUrl: credential };
+  if (provider === "link") return { paymentUrl: credential };
+  return {};
+}
+
+function legacyCredentialValue(provider: PaymentProvider, credentials: Record<string, unknown>) {
+  const pick = (...keys: string[]) => keys.map((key) => credentials[key]).find((value) => typeof value === "string") as string | undefined;
+  if (provider === "asaas") return pick("apiKey");
+  if (provider === "mercadopago") return pick("accessToken", "publicKey");
+  if (provider === "pagseguro") return pick("token", "email");
+  if (provider === "infinitepay") return pick("baseUrl");
+  if (provider === "link") return pick("paymentUrl");
+  return null;
+}
+
+async function listLegacyPaymentIntegration(admin: ReturnType<typeof getAdminClient>, organizationId: string) {
+  const { data: settings, error } = await admin
+    .from("organization_settings")
+    .select("payment_gateway, payment_gateway_api_key")
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+  if (error) throw error;
+  const provider = paymentProviderEnum.safeParse(settings?.payment_gateway).success
+    ? (settings?.payment_gateway as PaymentProvider)
+    : null;
+  if (!provider) return [];
+  return [{
+    id: `legacy-${provider}`,
+    provider,
+    credentials_json: legacyCredentials(provider, settings?.payment_gateway_api_key),
+    active: true,
+    updated_at: new Date().toISOString(),
+  }];
+}
 
 export const listPaymentIntegrations = createServerFn({ method: "POST" })
   .inputValidator((input) => orgAuthSchema.parse(input))
@@ -1527,6 +1583,10 @@ export const listPaymentIntegrations = createServerFn({ method: "POST" })
       .from("payment_integrations")
       .select("id, provider, credentials_json, active, updated_at")
       .eq("organization_id", data.organizationId);
+    if (isMissingPaymentIntegrationsTable(error)) {
+      console.warn("payment_integrations indisponível no schema cache; usando organization_settings como compatibilidade.");
+      return { integrations: await listLegacyPaymentIntegration(admin, data.organizationId) };
+    }
     if (error) throw error;
     return { integrations: rows ?? [] };
   });
@@ -1545,6 +1605,29 @@ export const savePaymentIntegration = createServerFn({ method: "POST" })
     await requireStaff(data.accessToken, data.organizationId);
     const admin = getAdminClient();
 
+    if (data.setActive) {
+      const { error: deactErr } = await admin
+        .from("payment_integrations")
+        .update({ active: false })
+        .eq("organization_id", data.organizationId);
+      if (isMissingPaymentIntegrationsTable(deactErr)) {
+        console.warn("payment_integrations indisponível no schema cache; salvando em organization_settings como compatibilidade.");
+        const { error: legacyError } = await admin
+          .from("organization_settings")
+          .upsert(
+            {
+              organization_id: data.organizationId,
+              payment_gateway: data.provider,
+              payment_gateway_api_key: legacyCredentialValue(data.provider, data.credentials) || null,
+            },
+            { onConflict: "organization_id" },
+          );
+        if (legacyError) throw legacyError;
+        return { ok: true };
+      }
+      if (deactErr) throw deactErr;
+    }
+
     // Upsert this provider's credentials
     const { error: upErr } = await admin
       .from("payment_integrations")
@@ -1557,17 +1640,22 @@ export const savePaymentIntegration = createServerFn({ method: "POST" })
         },
         { onConflict: "organization_id,provider" },
       );
-    if (upErr) throw upErr;
-
-    // If setting active, deactivate the others first
-    if (data.setActive) {
-      const { error: deactErr } = await admin
-        .from("payment_integrations")
-        .update({ active: false })
-        .eq("organization_id", data.organizationId)
-        .neq("provider", data.provider);
-      if (deactErr) throw deactErr;
+    if (isMissingPaymentIntegrationsTable(upErr)) {
+      console.warn("payment_integrations indisponível no schema cache; salvando em organization_settings como compatibilidade.");
+      const { error: legacyError } = await admin
+        .from("organization_settings")
+        .upsert(
+          {
+            organization_id: data.organizationId,
+            payment_gateway: data.provider,
+            payment_gateway_api_key: legacyCredentialValue(data.provider, data.credentials) || null,
+          },
+          { onConflict: "organization_id" },
+        );
+      if (legacyError) throw legacyError;
+      return { ok: true };
     }
+    if (upErr) throw upErr;
     return { ok: true };
   });
 
@@ -1584,6 +1672,15 @@ export const setActivePaymentIntegration = createServerFn({ method: "POST" })
       .from("payment_integrations")
       .update({ active: false })
       .eq("organization_id", data.organizationId);
+    if (isMissingPaymentIntegrationsTable(deactErr)) {
+      console.warn("payment_integrations indisponível no schema cache; ativando em organization_settings como compatibilidade.");
+      const { error: legacyError } = await admin
+        .from("organization_settings")
+        .update({ payment_gateway: data.provider })
+        .eq("organization_id", data.organizationId);
+      if (legacyError) throw legacyError;
+      return { ok: true };
+    }
     if (deactErr) throw deactErr;
 
     // Activate chosen one
