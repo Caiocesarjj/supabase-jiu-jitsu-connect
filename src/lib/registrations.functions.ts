@@ -2152,7 +2152,7 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
         admin
           .from("students")
           .select(
-            `id, monthly_fee, enrollment_date,
+            `id, enrollment_date,
              profiles:profile_id(full_name, email, phone, cpf),
              subscription_records(status, plan_id, subscription_plans(amount, new_amount_after, validity_months))`,
           )
@@ -2181,6 +2181,10 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
       ? activeSubscription?.subscription_plans[0]
       : activeSubscription?.subscription_plans;
 
+    if (!activeSubscription || !plan) {
+      throw new Error("Vincule um plano ao aluno antes de gerar cobrança.");
+    }
+
     const [yearRef, monthRef] = referenceMonth.split("-").map(Number);
     const lastDayOfMonth = new Date(yearRef, monthRef, 0).getDate();
     const normalDueDate = dueDateFromEnrollment(referenceMonth, null, dueDay);
@@ -2192,11 +2196,10 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
       : normalDueDate;
     const amount =
       (isPastDue && hasAfterPrice ? plan!.new_amount_after : plan?.amount) ??
-      (student as any).monthly_fee ??
       defaultFee;
 
     if (!amount || Number(amount) <= 0) {
-      throw new Error("Aluno sem plano/valor configurado. Defina o plano ou a mensalidade antes de gerar.");
+      throw new Error("Plano sem valor configurado. Ajuste o plano antes de gerar cobrança.");
     }
 
 
