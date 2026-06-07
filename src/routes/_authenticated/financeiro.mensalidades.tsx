@@ -271,6 +271,13 @@ function FinanceiroPage() {
         <SummaryCard label="Vencido" value={totals.vencido} tone="red" />
       </div>
 
+      {/* Alunos pendentes — pagamento rápido */}
+      <PendingStudentsPanel
+        records={records}
+        loading={loading}
+        onPay={(r) => setPayRecord(r)}
+      />
+
       {/* Filters */}
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div className="flex flex-col gap-2 md:flex-row md:items-end">
