@@ -1561,9 +1561,6 @@ function EditStudentModal({
   const [sex, setSex] = useState<Sex | "">(normalizeSex(student.sex));
   const [weightKg, setWeightKg] = useState<string>(student.weight != null ? String(student.weight) : "");
   const [enrollmentDate, setEnrollmentDate] = useState(student.enrollment_date ?? "");
-  const [monthlyFee, setMonthlyFee] = useState<string>(
-    student.monthly_fee != null ? String(student.monthly_fee) : "",
-  );
   const [status, setStatus] = useState<string>(student.status ?? "active");
   const [saving, setSaving] = useState(false);
 
@@ -1577,9 +1574,9 @@ function EditStudentModal({
     setSex(normalizeSex(student.sex));
     setWeightKg(student.weight != null ? String(student.weight) : "");
     setEnrollmentDate(student.enrollment_date ?? "");
-    setMonthlyFee(student.monthly_fee != null ? String(student.monthly_fee) : "");
     setStatus(student.status ?? "active");
   }, [open, student]);
+
 
   const save = async () => {
     if (!fullName.trim()) {
@@ -1608,11 +1605,11 @@ function EditStudentModal({
           sex: sex || null,
           weight: weightKg === "" ? null : Number(weightKg),
           enrollment_date: enrollmentDate || null,
-          monthly_fee: monthlyFee === "" ? null : Number(monthlyFee),
           status,
         })
         .eq("id", student.id);
       if (se) throw se;
+
 
       toast.success("Aluno atualizado");
       onSaved();
@@ -1681,30 +1678,19 @@ function EditStudentModal({
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Mensalidade (R$)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={monthlyFee}
-                onChange={(e) => setMonthlyFee(e.target.value)}
-                placeholder="Padrão da academia"
-              />
-            </div>
-            <div>
-              <Label>Status</Label>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Ativo</SelectItem>
-                  <SelectItem value="inactive">Inativo</SelectItem>
-                  <SelectItem value="suspended">Suspenso</SelectItem>
-                  <SelectItem value="trial">Experimental</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div>
+            <Label>Status</Label>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Ativo</SelectItem>
+                <SelectItem value="inactive">Inativo</SelectItem>
+                <SelectItem value="suspended">Suspenso</SelectItem>
+                <SelectItem value="trial">Experimental</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
