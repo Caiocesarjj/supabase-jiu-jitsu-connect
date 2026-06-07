@@ -229,7 +229,14 @@ async function ensureAsaasCharge({
     );
   }
   const existing = await asaasRequest<{
-    data?: Array<{ id: string; invoiceUrl?: string; bankSlipUrl?: string }>;
+    data?: Array<{
+      id: string;
+      value?: number;
+      dueDate?: string;
+      status?: string;
+      invoiceUrl?: string;
+      bankSlipUrl?: string;
+    }>;
   }>(apiKey, `/payments?externalReference=${encodeURIComponent(charge.id)}`, { method: "GET" });
   let payment = existing.data?.[0];
   if (!payment) {
@@ -257,6 +264,24 @@ async function ensureAsaasCharge({
         }),
       },
     );
+  } else if (
+    (!nearlySameMoney(payment.value, charge.amount) || payment.dueDate !== charge.due_date) &&
+    !["RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH"].includes(String(payment.status ?? ""))
+  ) {
+    payment = await asaasRequest<{
+      id: string;
+      value?: number;
+      dueDate?: string;
+      status?: string;
+      invoiceUrl?: string;
+      bankSlipUrl?: string;
+    }>(apiKey, `/payments/${payment.id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        value: Number(charge.amount),
+        dueDate: charge.due_date,
+      }),
+    });
   }
   let pixCode: string | null = null;
   try {
