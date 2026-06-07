@@ -53,9 +53,7 @@ function DegreeDots({ degrees }: { degrees: number }) {
 function StatusPill({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
     active: { label: "Ativo", cls: "bg-emerald-100 text-emerald-800 border-emerald-300" },
-    inactive: { label: "Inativo", cls: "bg-gray-100 text-gray-700 border-gray-300" },
-    suspended: { label: "Suspenso", cls: "bg-yellow-100 text-yellow-800 border-yellow-300" },
-    trial: { label: "Experimental", cls: "bg-blue-100 text-blue-800 border-blue-300" },
+    inactive: { label: "Aguardando pagamento", cls: "bg-yellow-100 text-yellow-800 border-yellow-300" },
   };
   const cfg = map[status] ?? { label: status, cls: "bg-gray-100 text-gray-700 border-gray-300" };
   return (
@@ -184,8 +182,7 @@ function AlunosListPage() {
           <SelectContent>
             <SelectItem value="all">Todos status</SelectItem>
             <SelectItem value="active">Ativo</SelectItem>
-            <SelectItem value="inactive">Inativo</SelectItem>
-            <SelectItem value="suspended">Suspenso</SelectItem>
+            <SelectItem value="inactive">Aguardando pagamento</SelectItem>
           </SelectContent>
         </Select>
         <Select value={beltFilter} onValueChange={setBeltFilter}>
