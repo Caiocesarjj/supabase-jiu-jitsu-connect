@@ -1510,3 +1510,184 @@ export const updateWhatsappTemplates = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true };
   });
+
+// ============================================================
+// Payment integrations (Fase 1)
+// Multi-provider per-organization credentials + test-connection.
+// ============================================================
+
+const paymentProviderEnum = z.enum(["manual", "link", "asaas", "mercadopago", "pagseguro", "infinitepay"]);
+
+export const listPaymentIntegrations = createServerFn({ method: "POST" })
+  .inputValidator((input) => orgAuthSchema.parse(input))
+  .handler(async ({ data }) => {
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+    const { data: rows, error } = await admin
+      .from("payment_integrations")
+      .select("id, provider, credentials_json, active, updated_at")
+      .eq("organization_id", data.organizationId);
+    if (error) throw error;
+    return { integrations: rows ?? [] };
+  });
+
+export const savePaymentIntegration = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema
+      .extend({
+        provider: paymentProviderEnum,
+        credentials: z.record(z.string(), z.any()),
+        setActive: z.boolean().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+
+    // Upsert this provider's credentials
+    const { error: upErr } = await admin
+      .from("payment_integrations")
+      .upsert(
+        {
+          organization_id: data.organizationId,
+          provider: data.provider,
+          credentials_json: data.credentials,
+          active: data.setActive ?? false,
+        },
+        { onConflict: "organization_id,provider" },
+      );
+    if (upErr) throw upErr;
+
+    // If setting active, deactivate the others first
+    if (data.setActive) {
+      const { error: deactErr } = await admin
+        .from("payment_integrations")
+        .update({ active: false })
+        .eq("organization_id", data.organizationId)
+        .neq("provider", data.provider);
+      if (deactErr) throw deactErr;
+    }
+    return { ok: true };
+  });
+
+export const setActivePaymentIntegration = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema.extend({ provider: paymentProviderEnum }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+
+    // Deactivate all
+    const { error: deactErr } = await admin
+      .from("payment_integrations")
+      .update({ active: false })
+      .eq("organization_id", data.organizationId);
+    if (deactErr) throw deactErr;
+
+    // Activate chosen one
+    const { error: actErr } = await admin
+      .from("payment_integrations")
+      .update({ active: true })
+      .eq("organization_id", data.organizationId)
+      .eq("provider", data.provider);
+    if (actErr) throw actErr;
+
+    return { ok: true };
+  });
+
+export const testPaymentIntegration = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema
+      .extend({
+        provider: paymentProviderEnum,
+        credentials: z.record(z.string(), z.any()),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    await requireStaff(data.accessToken, data.organizationId);
+
+    const c = data.credentials as Record<string, string | undefined>;
+
+    try {
+      if (data.provider === "asaas") {
+        const apiKey = (c.apiKey ?? "").trim();
+        const env = (c.environment ?? "sandbox").trim();
+        if (!apiKey) throw new Error("API Key obrigatória.");
+        const base = env === "production"
+          ? "https://www.asaas.com/api/v3"
+          : "https://sandbox.asaas.com/api/v3";
+        const res = await fetch(`${base}/myAccount`, {
+          method: "GET",
+          headers: { access_token: apiKey, "Content-Type": "application/json" },
+        });
+        const raw = await res.text();
+        console.info("Asaas test", { status: res.status, raw: raw.slice(0, 200) });
+        if (!res.ok) throw new Error(`Asaas ${res.status}: ${raw.slice(0, 160)}`);
+        return { ok: true, provider: "asaas", info: "Conexão Asaas OK." };
+      }
+
+      if (data.provider === "mercadopago") {
+        const token = (c.accessToken ?? "").trim();
+        if (!token) throw new Error("Access Token obrigatório.");
+        const res = await fetch("https://api.mercadopago.com/users/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const raw = await res.text();
+        console.info("MP test", { status: res.status, raw: raw.slice(0, 200) });
+        if (!res.ok) throw new Error(`Mercado Pago ${res.status}: ${raw.slice(0, 160)}`);
+        return { ok: true, provider: "mercadopago", info: "Conexão Mercado Pago OK." };
+      }
+
+      if (data.provider === "pagseguro") {
+        const token = (c.token ?? "").trim();
+        if (!token) throw new Error("Token obrigatório.");
+        const res = await fetch("https://api.pagseguro.com/public-keys", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ type: "card" }),
+        });
+        const raw = await res.text();
+        console.info("PagSeguro test", { status: res.status, raw: raw.slice(0, 200) });
+        if (res.status === 401 || res.status === 403) {
+          throw new Error(`PagSeguro: token inválido (${res.status}).`);
+        }
+        return { ok: true, provider: "pagseguro", info: "Token PagSeguro válido." };
+      }
+
+      if (data.provider === "infinitepay") {
+        const url = (c.baseUrl ?? "").trim();
+        if (!url) throw new Error("Link Base obrigatório.");
+        try {
+          new URL(url);
+        } catch {
+          throw new Error("URL inválida.");
+        }
+        return { ok: true, provider: "infinitepay", info: "Link de cobrança válido." };
+      }
+
+      if (data.provider === "link" || data.provider === "manual") {
+        const url = (c.paymentUrl ?? "").trim();
+        if (data.provider === "link") {
+          if (!url) throw new Error("URL de pagamento obrigatória.");
+          try {
+            new URL(url);
+          } catch {
+            throw new Error("URL inválida.");
+          }
+        }
+        return { ok: true, provider: data.provider, info: "Configuração válida." };
+      }
+
+      throw new Error("Provedor não suportado.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Falha no teste.";
+      console.error("testPaymentIntegration failed", { provider: data.provider, msg });
+      throw new Error(msg);
+    }
+  });
