@@ -110,6 +110,7 @@ interface Subscription {
   } | null;
   students: {
     id: string;
+    status: string | null;
     profiles: { full_name: string; phone: string | null } | null;
   } | null;
 }
@@ -518,6 +519,9 @@ function Page() {
                       <td className="px-3 py-2">{plan ? FREQ_LABEL[plan.frequency] : "—"}</td>
                       <td className="px-3 py-2">
                         <StatusBadge status={s.status} />
+                        {s.status === "active" && s.students?.status !== "active" && (
+                          <div className="mt-1 text-xs text-muted-foreground">Aluno aguardando pagamento</div>
+                        )}
                       </td>
                       <td className="px-3 py-2">
                         {s.next_due_date ? formatDateBR(s.next_due_date) : "—"}
