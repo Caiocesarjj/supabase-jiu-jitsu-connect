@@ -263,7 +263,7 @@ export const createStudentRegistration = createServerFn({ method: "POST" })
         sex: z.enum(["M", "F"]).nullable().optional(),
         weightKg: z.number().positive().max(500).nullable().optional(),
         monthlyFee: z.number().nullable().optional(),
-        status: z.enum(["active", "trial", "inactive"]),
+        status: z.string().max(40).optional(),
         belt: z.string().min(2).max(40),
         degrees: z.number().int().min(0).max(10),
         subscriptionPlanId: z.string().uuid().nullable().optional(),
@@ -294,11 +294,10 @@ export const createStudentRegistration = createServerFn({ method: "POST" })
       .insert({
         profile_id: profileId,
         organization_id: data.organizationId,
-        status: data.status,
+        status: "inactive",
         birth_date: data.birthDate || null,
         sex: data.sex ?? null,
         weight: data.weightKg ?? null,
-        monthly_fee: data.monthlyFee ?? null,
         enrollment_date: today,
       })
       .select("id")
@@ -318,13 +317,20 @@ export const createStudentRegistration = createServerFn({ method: "POST" })
     if (graduationError) throw graduationError;
 
     if (data.subscriptionPlanId) {
+      const { data: settings } = await supabase
+        .from("organization_settings")
+        .select("due_day")
+        .eq("organization_id", data.organizationId)
+        .maybeSingle();
+      const dueDay = Number(settings?.due_day ?? 10);
+      const initialDueDate = dueDateFromEnrollment(today.slice(0, 7), null, dueDay);
       const { error: subError } = await supabase.from("subscription_records").insert({
         organization_id: data.organizationId,
         student_id: studentId,
         plan_id: data.subscriptionPlanId,
         status: "active",
         started_at: today,
-        next_due_date: data.validityDate || today,
+        next_due_date: data.validityDate || initialDueDate,
       });
       if (subError) throw subError;
     }
