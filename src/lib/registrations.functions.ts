@@ -695,11 +695,10 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
         supabase
           .from("students")
           .select(
-            `id, monthly_fee, enrollment_date,
+            `id, enrollment_date,
       subscription_records(status, plan_id, subscription_plans(amount, new_amount_after, validity_months))`,
           )
           .eq("organization_id", data.organizationId)
-          .eq("status", "active")
           .is("deleted_at", null),
         supabase
           .from("organization_settings")
@@ -720,7 +719,6 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
     const defaultFee = Number(settings?.monthly_fee_default ?? 0);
     const rows = ((students ?? []) as unknown as Array<{
       id: string;
-      monthly_fee: number | null;
       enrollment_date: string | null;
       subscription_records?: Array<{
         status: string;
@@ -734,6 +732,7 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
       const plan = Array.isArray(activeSubscription?.subscription_plans)
         ? activeSubscription?.subscription_plans[0]
         : activeSubscription?.subscription_plans;
+      if (!activeSubscription || !plan) return null;
 
       const [yRef, mRef] = data.referenceMonth.split("-").map(Number);
       const lastDay = new Date(yRef, mRef, 0).getDate();
@@ -749,13 +748,13 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
       return {
         organization_id: data.organizationId,
         student_id: student.id,
-        amount: subscriptionAmount ?? student.monthly_fee ?? defaultFee,
+        amount: subscriptionAmount ?? defaultFee,
         due_date: dueDate,
         reference_month: referenceMonth,
         status: "pending",
         idempotency_key: `${student.id}_${referenceMonth}`,
       };
-    });
+    }).filter((row): row is NonNullable<typeof row> => !!row && Number(row.amount) > 0);
 
 
     if (rows.length > 0) {
