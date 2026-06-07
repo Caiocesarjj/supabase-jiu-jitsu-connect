@@ -2,12 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import {
-  MoreHorizontal,
-  AlertCircle,
-  Search,
-  Loader2,
-} from "lucide-react";
+import { MoreHorizontal, AlertCircle, Search, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { generateMonthlyCharges, registerManualPayment } from "@/lib/registrations.functions";
@@ -215,7 +210,9 @@ function FinanceiroPage() {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
       if (!accessToken) throw new Error("Sessão inválida. Faça login novamente.");
-      const result = await generateCharges({ data: { accessToken, organizationId, referenceMonth: filterMonth } });
+      const result = await generateCharges({
+        data: { accessToken, organizationId, referenceMonth: filterMonth },
+      });
       toast.success(`${result.count} cobranças geradas para o mês selecionado.`);
       await load();
     } catch (err) {
@@ -262,7 +259,6 @@ function FinanceiroPage() {
     <div className="space-y-6">
       {/* (Header e sub-nav vivem no layout pai /financeiro) */}
 
-
       {/* Summary cards */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <SummaryCard label="Total cobrado" value={totals.cobrado} tone="gray" />
@@ -272,11 +268,7 @@ function FinanceiroPage() {
       </div>
 
       {/* Alunos pendentes — pagamento rápido */}
-      <PendingStudentsPanel
-        records={records}
-        loading={loading}
-        onPay={(r) => setPayRecord(r)}
-      />
+      <PendingStudentsPanel records={records} loading={loading} onPay={(r) => setPayRecord(r)} />
 
       {/* Filters */}
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
@@ -330,7 +322,6 @@ function FinanceiroPage() {
         </Button>
       </div>
 
-
       {/* Records table */}
       {loading ? (
         <LoadingSpinner label="Carregando..." />
@@ -358,8 +349,7 @@ function FinanceiroPage() {
                 const studentId = r.students?.id;
                 const disc = Number(r.discount_amount ?? 0);
                 const finalAmount = Number(r.amount) - disc;
-                const overdue =
-                  r.status === "overdue" || isOverdueDate(r.due_date, r.status);
+                const overdue = r.status === "overdue" || isOverdueDate(r.due_date, r.status);
                 return (
                   <tr key={r.id} className="border-t border-border">
                     <td className="px-3 py-2">
@@ -393,9 +383,7 @@ function FinanceiroPage() {
                       )}
                     </td>
                     <td className="px-3 py-2">
-                      <div
-                        className={`flex items-center gap-1 ${overdue ? "text-red-600" : ""}`}
-                      >
+                      <div className={`flex items-center gap-1 ${overdue ? "text-red-600" : ""}`}>
                         {overdue && <AlertCircle className="h-4 w-4" />}
                         {formatDateBR(r.due_date)}
                       </div>
@@ -435,8 +423,7 @@ function FinanceiroPage() {
                               <DropdownMenuItem
                                 disabled={!r.invoice_url}
                                 onClick={() =>
-                                  r.invoice_url &&
-                                  window.open(r.invoice_url, "_blank")
+                                  r.invoice_url && window.open(r.invoice_url, "_blank")
                                 }
                               >
                                 Ver recibo
@@ -463,7 +450,6 @@ function FinanceiroPage() {
       )}
 
       {/* Cobranças são geradas automaticamente pelo cron no dia 1 do mês */}
-
 
       {/* Cancel confirm */}
       <ConfirmModal
@@ -523,9 +509,7 @@ function SummaryCard({
   return (
     <div className={`rounded-md border p-4 ${toneClass}`}>
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className={`mt-1 text-2xl font-semibold ${textClass}`}>
-        {formatBRL(value)}
-      </div>
+      <div className={`mt-1 text-2xl font-semibold ${textClass}`}>{formatBRL(value)}</div>
     </div>
   );
 }
@@ -615,19 +599,11 @@ function PaymentModal({
           </div>
           <div className="space-y-1">
             <Label>Data do pagamento</Label>
-            <Input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
           <div className="space-y-1">
             <Label>Observações</Label>
-            <Textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-            />
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
           </div>
         </div>
         <DialogFooter>
@@ -667,8 +643,7 @@ function PendingStudentsPanel({
         <div>
           <h2 className="text-sm font-semibold">Alunos pendentes</h2>
           <p className="text-xs text-muted-foreground">
-            Alunos com plano em aberto — registre pagamentos em dinheiro,
-            cartão ou PIX direto.
+            Alunos com plano em aberto — registre pagamentos em dinheiro, cartão ou PIX direto.
           </p>
         </div>
         <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
@@ -683,13 +658,9 @@ function PendingStudentsPanel({
         <ul className="divide-y divide-border max-h-[360px] overflow-y-auto">
           {pending.map((r) => {
             const name = r.students?.profiles?.full_name ?? "—";
-            const overdue =
-              r.status === "overdue" || isOverdueDate(r.due_date, r.status);
+            const overdue = r.status === "overdue" || isOverdueDate(r.due_date, r.status);
             return (
-              <li
-                key={r.id}
-                className="flex items-center justify-between gap-3 px-4 py-2"
-              >
+              <li key={r.id} className="flex items-center justify-between gap-3 px-4 py-2">
                 <div className="flex items-center gap-3 min-w-0">
                   <Avatar name={name} size={32} />
                   <div className="min-w-0">

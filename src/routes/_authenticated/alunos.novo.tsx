@@ -27,7 +27,6 @@ export const Route = createFileRoute("/_authenticated/alunos/novo")({
   component: NovoAlunoPage,
 });
 
-
 const BELTS: Belt[] = [
   "branca",
   "azul",
@@ -143,7 +142,6 @@ function NovoAlunoPage() {
     }
   };
 
-
   const maxDeg = belt === "preta" ? 10 : 4;
 
   return (
@@ -189,7 +187,9 @@ function NovoAlunoPage() {
             <div>
               <Label>Sexo</Label>
               <Select value={sex} onValueChange={(v) => setSex(v as Sex)}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="M">Masculino</SelectItem>
                   <SelectItem value="F">Feminino</SelectItem>
@@ -219,14 +219,21 @@ function NovoAlunoPage() {
         <section className="space-y-3">
           <h2 className="text-sm font-semibold text-muted-foreground">Matrícula</h2>
           <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-            O aluno começa aguardando o primeiro pagamento e só fica ativo após registrar a cobrança como paga.
+            O aluno começa aguardando o primeiro pagamento e só fica ativo após registrar a cobrança
+            como paga.
           </div>
           <div className="grid grid-cols-1 gap-3">
             <div>
               <Label>Plano *</Label>
               <Select value={planId} onValueChange={setPlanId}>
                 <SelectTrigger>
-                  <SelectValue placeholder={plans.length ? "Selecione um plano" : "Cadastre um plano em Financeiro > Planos"} />
+                  <SelectValue
+                    placeholder={
+                      plans.length
+                        ? "Selecione um plano"
+                        : "Cadastre um plano em Financeiro > Planos"
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {plans.map((p) => (
@@ -237,12 +244,12 @@ function NovoAlunoPage() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">
-                A cobrança do aluno será gerada pelo valor do plano, não por mensalidade solta no cadastro.
+                A cobrança do aluno será gerada pelo valor do plano, não por mensalidade solta no
+                cadastro.
               </p>
             </div>
           </div>
         </section>
-
 
         <section className="space-y-3">
           <h2 className="text-sm font-semibold text-muted-foreground">Graduação inicial</h2>

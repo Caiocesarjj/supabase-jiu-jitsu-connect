@@ -1,7 +1,17 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, UserPlus, Trash2, MoreHorizontal, Copy, Pencil, Plus, MessageCircle, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  UserPlus,
+  Trash2,
+  MoreHorizontal,
+  Copy,
+  Pencil,
+  Plus,
+  MessageCircle,
+  Loader2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import {
@@ -14,7 +24,6 @@ import {
   generateChargeForStudent,
   registerManualPayment,
   updateStudentBasics,
-
 } from "@/lib/registrations.functions";
 import { useAuth } from "@/hooks/useAuth";
 import { Avatar } from "@/components/Avatar";
@@ -114,11 +123,16 @@ function DegreeDots({ degrees, size = 8 }: { degrees: number; size?: number }) {
 function StudentStatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
     active: { label: "Ativo", cls: "bg-emerald-100 text-emerald-800 border-emerald-300" },
-    inactive: { label: "Aguardando pagamento", cls: "bg-yellow-100 text-yellow-800 border-yellow-300" },
+    inactive: {
+      label: "Aguardando pagamento",
+      cls: "bg-yellow-100 text-yellow-800 border-yellow-300",
+    },
   };
   const cfg = map[status] ?? { label: status, cls: "bg-gray-100 text-gray-700 border-gray-300" };
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${cfg.cls}`}>
+    <span
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${cfg.cls}`}
+    >
       {cfg.label}
     </span>
   );
@@ -239,22 +253,22 @@ function AlunoFichaPage() {
   }
 
   const profile = student.profiles ?? {};
-  const grad = Array.isArray(student.graduations)
-    ? student.graduations[0]
-    : student.graduations;
+  const grad = Array.isArray(student.graduations) ? student.graduations[0] : student.graduations;
   const currentBelt: Belt = grad?.belt ?? "branca";
   const currentDegrees: number = grad?.degrees ?? 0;
   const age = calcAge(student.birth_date);
   const isAptForPromotion =
-    grad?.minimum_next_promotion_date &&
-    new Date(grad.minimum_next_promotion_date) <= new Date();
+    grad?.minimum_next_promotion_date && new Date(grad.minimum_next_promotion_date) <= new Date();
 
   const canPromote = userRole === "admin" || userRole === "instructor";
 
   return (
     <div className="space-y-4">
       {/* Back */}
-      <Link to="/alunos" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+      <Link
+        to="/alunos"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+      >
         <ArrowLeft className="h-4 w-4" /> Alunos
       </Link>
 
@@ -278,7 +292,8 @@ function AlunoFichaPage() {
               {[
                 profile.cpf,
                 profile.phone,
-                student.enrollment_date && `Matrícula desde ${formatDateBR(student.enrollment_date)}`,
+                student.enrollment_date &&
+                  `Matrícula desde ${formatDateBR(student.enrollment_date)}`,
                 age != null && age < 18 && "Menor de idade",
               ]
                 .filter(Boolean)
@@ -315,12 +330,17 @@ function AlunoFichaPage() {
           <TabsTrigger value="turmas">Turmas</TabsTrigger>
           <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
           <TabsTrigger value="presenca">Presença</TabsTrigger>
-          
+
           <TabsTrigger value="observacoes">Observações</TabsTrigger>
         </TabsList>
 
         <TabsContent value="geral">
-          <GeralTab student={student} age={age} onChange={reload} organizationId={organizationId!} />
+          <GeralTab
+            student={student}
+            age={age}
+            onChange={reload}
+            organizationId={organizationId!}
+          />
         </TabsContent>
         <TabsContent value="graduacao">
           <GraduacaoTab
@@ -402,15 +422,25 @@ function GeralTab({
           </Button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-          <Field label="Data de nascimento" value={`${formatDateBR(student.birth_date)}${age != null ? ` (${age} anos)` : ""}`} />
+          <Field
+            label="Data de nascimento"
+            value={`${formatDateBR(student.birth_date)}${age != null ? ` (${age} anos)` : ""}`}
+          />
           <Field label="CPF" value={profile.cpf ?? "—"} />
           <Field label="Telefone" value={profile.phone ?? "—"} />
           <Field label="E-mail" value={profile.email ?? "—"} />
-          <Field label="Sexo" value={student.sex === "M" ? "Masculino" : student.sex === "F" ? "Feminino" : "—"} />
+          <Field
+            label="Sexo"
+            value={student.sex === "M" ? "Masculino" : student.sex === "F" ? "Feminino" : "—"}
+          />
           <Field label="Peso" value={student.weight != null ? `${student.weight} kg` : "—"} />
           <Field label="Data de matrícula" value={formatDateBR(student.enrollment_date)} />
           {(() => {
-            const cat = getWeightCategory({ birthDate: student.birth_date, sex: student.sex, weightKg: student.weight });
+            const cat = getWeightCategory({
+              birthDate: student.birth_date,
+              sex: student.sex,
+              weightKg: student.weight,
+            });
             return (
               <div className="md:col-span-2">
                 <div className="text-xs text-muted-foreground">Categoria FBJJ</div>
@@ -420,7 +450,9 @@ function GeralTab({
           })()}
           <div>
             <div className="text-xs text-muted-foreground">Status</div>
-            <div className="mt-1"><StudentStatusBadge status={student.status} /></div>
+            <div className="mt-1">
+              <StudentStatusBadge status={student.status} />
+            </div>
           </div>
         </div>
       </section>
@@ -430,9 +462,11 @@ function GeralTab({
         onOpenChange={setEditOpen}
         student={student}
         organizationId={organizationId}
-        onSaved={() => { setEditOpen(false); onChange(); }}
+        onSaved={() => {
+          setEditOpen(false);
+          onChange();
+        }}
       />
-
 
       <section className="rounded-lg border bg-card p-4">
         <div className="mb-3 flex items-center justify-between">
@@ -493,7 +527,9 @@ function GeralTab({
         title="Remover responsável?"
         description="Esta ação remove apenas o vínculo com o aluno."
         destructive
-        onConfirm={() => { if (confirmRemove) void removeGuardian(confirmRemove); }}
+        onConfirm={() => {
+          if (confirmRemove) void removeGuardian(confirmRemove);
+        }}
       />
     </div>
   );
@@ -508,13 +544,25 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Tag({ children, color }: { children: React.ReactNode; color: "blue" | "purple" | "green" }) {
+function Tag({
+  children,
+  color,
+}: {
+  children: React.ReactNode;
+  color: "blue" | "purple" | "green";
+}) {
   const map = {
     blue: "bg-blue-100 text-blue-800 border-blue-300",
     purple: "bg-purple-100 text-purple-800 border-purple-300",
     green: "bg-emerald-100 text-emerald-800 border-emerald-300",
   };
-  return <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${map[color]}`}>{children}</span>;
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${map[color]}`}
+    >
+      {children}
+    </span>
+  );
 }
 
 function AddGuardianModal({
@@ -541,8 +589,14 @@ function AddGuardianModal({
   const [saving, setSaving] = useState(false);
 
   const reset = () => {
-    setFullName(""); setCpf(""); setPhone(""); setEmail("");
-    setRel("mae"); setFin(false); setLegal(false); setPrimary(false);
+    setFullName("");
+    setCpf("");
+    setPhone("");
+    setEmail("");
+    setRel("mae");
+    setFin(false);
+    setLegal(false);
+    setPrimary(false);
   };
 
   const save = async () => {
@@ -629,10 +683,14 @@ function AddGuardianModal({
           <div>
             <Label>Tipo de relacionamento</Label>
             <Select value={rel} onValueChange={setRel}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 {Object.entries(RELATIONSHIP_LABELS).map(([k, v]) => (
-                  <SelectItem key={k} value={k}>{v}</SelectItem>
+                  <SelectItem key={k} value={k}>
+                    {v}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -645,13 +703,18 @@ function AddGuardianModal({
               <Checkbox checked={legal} onCheckedChange={(c) => setLegal(!!c)} /> Responsável legal
             </label>
             <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={primary} onCheckedChange={(c) => setPrimary(!!c)} /> Marcar como contato principal
+              <Checkbox checked={primary} onCheckedChange={(c) => setPrimary(!!c)} /> Marcar como
+              contato principal
             </label>
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={save} disabled={saving}>Salvar</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={save} disabled={saving}>
+            Salvar
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -706,9 +769,7 @@ function GraduacaoTab({
 
   const presencesSincePromotion = useMemo(() => {
     if (!grad?.promotion_date) return 0;
-    return attendance.filter(
-      (a) => a.present && a.class_date >= grad.promotion_date,
-    ).length;
+    return attendance.filter((a) => a.present && a.class_date >= grad.promotion_date).length;
   }, [attendance, grad?.promotion_date]);
 
   const maxDeg = getMaxDegrees(belt);
@@ -728,8 +789,8 @@ function GraduacaoTab({
     }
   }
 
-  const history = [...(student.graduation_history ?? [])].sort(
-    (a: any, b: any) => (b.promotion_date ?? "").localeCompare(a.promotion_date ?? ""),
+  const history = [...(student.graduation_history ?? [])].sort((a: any, b: any) =>
+    (b.promotion_date ?? "").localeCompare(a.promotion_date ?? ""),
   );
 
   return (
@@ -759,7 +820,8 @@ function GraduacaoTab({
             <p className="text-sm">Promovido em {formatDateBR(grad.promotion_date)}</p>
           )}
           <p className="text-sm">
-            <span className="font-medium">{presencesSincePromotion}</span> presenças desde a última promoção
+            <span className="font-medium">{presencesSincePromotion}</span> presenças desde a última
+            promoção
           </p>
         </div>
 
@@ -780,15 +842,14 @@ function GraduacaoTab({
           {belt === "preta" && (
             <p className="text-sm text-muted-foreground">
               Próximo grau ({degrees + 1}°) requer{" "}
-              {BLACK_BELT_DEGREE_YEARS[degrees + 1] === Infinity || !BLACK_BELT_DEGREE_YEARS[degrees + 1]
+              {BLACK_BELT_DEGREE_YEARS[degrees + 1] === Infinity ||
+              !BLACK_BELT_DEGREE_YEARS[degrees + 1]
                 ? "—"
                 : `${BLACK_BELT_DEGREE_YEARS[degrees + 1]} anos`}{" "}
               totais de faixa preta.
             </p>
           )}
-          {canPromote && (
-            <Button onClick={() => setModalOpen(true)}>Registrar promoção</Button>
-          )}
+          {canPromote && <Button onClick={() => setModalOpen(true)}>Registrar promoção</Button>}
         </div>
       </div>
 
@@ -815,7 +876,12 @@ function GraduacaoTab({
           <TableBody>
             {history.length === 0 && (
               <TableRow>
-                <TableCell colSpan={canPromote ? 5 : 4} className="text-center text-muted-foreground">Sem promoções registradas</TableCell>
+                <TableCell
+                  colSpan={canPromote ? 5 : 4}
+                  className="text-center text-muted-foreground"
+                >
+                  Sem promoções registradas
+                </TableCell>
               </TableRow>
             )}
             {history.map((h: any) => (
@@ -861,7 +927,10 @@ function GraduacaoTab({
         onOpenChange={setPastOpen}
         studentId={student.id}
         organizationId={organizationId}
-        onSaved={() => { setPastOpen(false); onChange(); }}
+        onSaved={() => {
+          setPastOpen(false);
+          onChange();
+        }}
       />
 
       <ConfirmModal
@@ -871,7 +940,9 @@ function GraduacaoTab({
         description="Esta ação remove o registro de graduação do histórico. Não pode ser desfeita."
         confirmLabel={deletingHistory ? "Excluindo..." : "Excluir"}
         destructive
-        onConfirm={() => { if (confirmDeleteHistory) void handleDeleteHistory(confirmDeleteHistory); }}
+        onConfirm={() => {
+          if (confirmDeleteHistory) void handleDeleteHistory(confirmDeleteHistory);
+        }}
       />
 
       <PromotionModal
@@ -892,7 +963,10 @@ function GraduacaoTab({
           onOpenChange={setEditOpen}
           graduation={grad}
           organizationId={organizationId}
-          onSaved={() => { setEditOpen(false); onChange(); }}
+          onSaved={() => {
+            setEditOpen(false);
+            onChange();
+          }}
         />
       )}
     </div>
@@ -935,7 +1009,11 @@ function PromotionModal({
 
   const [selectedBelt, setSelectedBelt] = useState<Belt>(available[0] ?? currentBelt);
   const isSame = selectedBelt === currentBelt;
-  const initialDegrees = isSame ? Math.min(currentDegrees + 1, getMaxDegrees(selectedBelt)) : selectedBelt === "preta" ? 1 : 0;
+  const initialDegrees = isSame
+    ? Math.min(currentDegrees + 1, getMaxDegrees(selectedBelt))
+    : selectedBelt === "preta"
+      ? 1
+      : 0;
   const [newDegrees, setNewDegrees] = useState<number>(initialDegrees);
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
@@ -949,7 +1027,11 @@ function PromotionModal({
   useEffect(() => {
     const same = selectedBelt === currentBelt;
     setNewDegrees(
-      same ? Math.min(currentDegrees + 1, getMaxDegrees(selectedBelt)) : selectedBelt === "preta" ? 1 : 0,
+      same
+        ? Math.min(currentDegrees + 1, getMaxDegrees(selectedBelt))
+        : selectedBelt === "preta"
+          ? 1
+          : 0,
     );
   }, [selectedBelt, currentBelt, currentDegrees]);
 
@@ -960,9 +1042,10 @@ function PromotionModal({
   );
 
   const maxDeg = getMaxDegrees(selectedBelt);
-  const degOptions = selectedBelt === "preta"
-    ? Array.from({ length: maxDeg }, (_, i) => i + 1)
-    : Array.from({ length: maxDeg + 1 }, (_, i) => i);
+  const degOptions =
+    selectedBelt === "preta"
+      ? Array.from({ length: maxDeg }, (_, i) => i + 1)
+      : Array.from({ length: maxDeg + 1 }, (_, i) => i);
 
   const confirm = async () => {
     if (!grad) {
@@ -1016,7 +1099,9 @@ function PromotionModal({
               <div>
                 <Label>Faixa</Label>
                 <Select value={selectedBelt} onValueChange={(v) => setSelectedBelt(v as Belt)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {available.map((b) => (
                       <SelectItem key={b} value={b}>
@@ -1035,10 +1120,14 @@ function PromotionModal({
               <div>
                 <Label>Grau</Label>
                 <Select value={String(newDegrees)} onValueChange={(v) => setNewDegrees(Number(v))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {degOptions.map((d) => (
-                      <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+                      <SelectItem key={d} value={String(d)}>
+                        {d}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -1047,7 +1136,8 @@ function PromotionModal({
               {selectedBelt === "preta" && (
                 <p className="text-xs text-muted-foreground">
                   Grau {newDegrees} →{" "}
-                  {BLACK_BELT_DEGREE_YEARS[newDegrees + 1] === Infinity || !BLACK_BELT_DEGREE_YEARS[newDegrees + 1]
+                  {BLACK_BELT_DEGREE_YEARS[newDegrees + 1] === Infinity ||
+                  !BLACK_BELT_DEGREE_YEARS[newDegrees + 1]
                     ? "sem próximo grau"
                     : `requer ${BLACK_BELT_DEGREE_YEARS[newDegrees + 1]} anos totais na faixa preta para o próximo`}
                 </p>
@@ -1066,8 +1156,12 @@ function PromotionModal({
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={confirm} disabled={saving || available.length === 0}>Confirmar promoção</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={confirm} disabled={saving || available.length === 0}>
+            Confirmar promoção
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1092,9 +1186,7 @@ function EditGraduationModal({
   const [promotionDate, setPromotionDate] = useState<string>(
     graduation.promotion_date ?? todayISO(),
   );
-  const [minDate, setMinDate] = useState<string>(
-    graduation.minimum_next_promotion_date ?? "",
-  );
+  const [minDate, setMinDate] = useState<string>(graduation.minimum_next_promotion_date ?? "");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -1107,16 +1199,31 @@ function EditGraduationModal({
   }, [open, graduation]);
 
   const allBelts: Belt[] = [
-    "branca","azul","roxa","marrom","preta","coral","vermelha",
-    "cinza_branco","cinza","cinza_preto",
-    "amarela_branco","amarela","amarela_preto",
-    "laranja_branco","laranja","laranja_preto",
-    "verde_branco","verde","verde_preto",
+    "branca",
+    "azul",
+    "roxa",
+    "marrom",
+    "preta",
+    "coral",
+    "vermelha",
+    "cinza_branco",
+    "cinza",
+    "cinza_preto",
+    "amarela_branco",
+    "amarela",
+    "amarela_preto",
+    "laranja_branco",
+    "laranja",
+    "laranja_preto",
+    "verde_branco",
+    "verde",
+    "verde_preto",
   ];
   const maxDeg = getMaxDegrees(belt);
-  const degOptions = belt === "preta"
-    ? Array.from({ length: maxDeg }, (_, i) => i + 1)
-    : Array.from({ length: maxDeg + 1 }, (_, i) => i);
+  const degOptions =
+    belt === "preta"
+      ? Array.from({ length: maxDeg }, (_, i) => i + 1)
+      : Array.from({ length: maxDeg + 1 }, (_, i) => i);
 
   const save = async () => {
     setSaving(true);
@@ -1155,10 +1262,14 @@ function EditGraduationModal({
           <div>
             <Label>Faixa</Label>
             <Select value={belt} onValueChange={(v) => setBelt(v as Belt)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 {allBelts.map((b) => (
-                  <SelectItem key={b} value={b}>{getBeltLabel(b)}</SelectItem>
+                  <SelectItem key={b} value={b}>
+                    {getBeltLabel(b)}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -1166,17 +1277,25 @@ function EditGraduationModal({
           <div>
             <Label>Grau</Label>
             <Select value={String(degrees)} onValueChange={(v) => setDegrees(Number(v))}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 {degOptions.map((d) => (
-                  <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+                  <SelectItem key={d} value={String(d)}>
+                    {d}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div>
             <Label>Data da promoção</Label>
-            <Input type="date" value={promotionDate} onChange={(e) => setPromotionDate(e.target.value)} />
+            <Input
+              type="date"
+              value={promotionDate}
+              onChange={(e) => setPromotionDate(e.target.value)}
+            />
           </div>
           <div>
             <Label>Próxima promoção disponível em (opcional)</Label>
@@ -1184,14 +1303,17 @@ function EditGraduationModal({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={save} disabled={saving}>Salvar</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={save} disabled={saving}>
+            Salvar
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
-
 
 function FinanceiroTab({
   financial,
@@ -1247,7 +1369,10 @@ function FinanceiroTab({
   };
 
   const cancelRecord = async (id: string) => {
-    const { error } = await supabase.from("financial_records").update({ status: "canceled" }).eq("id", id);
+    const { error } = await supabase
+      .from("financial_records")
+      .update({ status: "canceled" })
+      .eq("id", id);
     if (error) toast.error("Erro ao cancelar");
     else {
       toast.success("Cobrança cancelada");
@@ -1278,9 +1403,6 @@ function FinanceiroTab({
         <SummaryCard label="Vencidos" value={String(totals.overdueCount)} />
       </div>
 
-
-
-
       <div className="rounded-lg border bg-card p-2">
         <Table>
           <TableHeader>
@@ -1295,7 +1417,9 @@ function FinanceiroTab({
           <TableBody>
             {financial.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">Nenhum registro financeiro</TableCell>
+                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                  Nenhum registro financeiro
+                </TableCell>
               </TableRow>
             )}
             {financial.map((f) => {
@@ -1305,25 +1429,41 @@ function FinanceiroTab({
                   <TableCell>{ref}</TableCell>
                   <TableCell>{formatBRL(Number(f.amount))}</TableCell>
                   <TableCell>{formatDateBR(f.due_date)}</TableCell>
-                  <TableCell><StatusBadge status={f.status} /></TableCell>
+                  <TableCell>
+                    <StatusBadge status={f.status} />
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="inline-flex items-center gap-1">
                       {(f.status === "pending" || f.status === "overdue") && (
                         <>
-                          <Button size="sm" variant="outline" onClick={() => copyPix(f.pix_code)} disabled={!f.pix_code}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => copyPix(f.pix_code)}
+                            disabled={!f.pix_code}
+                          >
                             <Copy className="mr-1 h-3 w-3" /> PIX
                           </Button>
-                          <Button size="sm" onClick={() => setPayOpen(f)}>Registrar pagamento</Button>
+                          <Button size="sm" onClick={() => setPayOpen(f)}>
+                            Registrar pagamento
+                          </Button>
                         </>
                       )}
                       {f.status === "paid" && (
-                        <Button size="sm" variant="outline" disabled={!f.invoice_url} onClick={() => f.invoice_url && window.open(f.invoice_url, "_blank")}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={!f.invoice_url}
+                          onClick={() => f.invoice_url && window.open(f.invoice_url, "_blank")}
+                        >
                           Ver recibo
                         </Button>
                       )}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button>
+                          <Button size="icon" variant="ghost">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
@@ -1344,14 +1484,23 @@ function FinanceiroTab({
         </Table>
       </div>
 
-      <PayModal record={payOpen} onClose={() => setPayOpen(null)} onSaved={() => { setPayOpen(null); onChange(); }} />
+      <PayModal
+        record={payOpen}
+        onClose={() => setPayOpen(null)}
+        onSaved={() => {
+          setPayOpen(null);
+          onChange();
+        }}
+      />
 
       <ConfirmModal
         open={!!confirmCancel}
         onOpenChange={(o) => !o && setConfirmCancel(null)}
         title="Cancelar cobrança?"
         destructive
-        onConfirm={() => { if (confirmCancel) void cancelRecord(confirmCancel); }}
+        onConfirm={() => {
+          if (confirmCancel) void cancelRecord(confirmCancel);
+        }}
       />
 
       <WhatsappChargeModal
@@ -1373,7 +1522,15 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PayModal({ record, onClose, onSaved }: { record: any; onClose: () => void; onSaved: () => void }) {
+function PayModal({
+  record,
+  onClose,
+  onSaved,
+}: {
+  record: any;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
   const [method, setMethod] = useState("pix");
   const [saving, setSaving] = useState(false);
   const registerPayment = useServerFn(registerManualPayment);
@@ -1407,12 +1564,16 @@ function PayModal({ record, onClose, onSaved }: { record: any; onClose: () => vo
   return (
     <Dialog open={!!record} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
-        <DialogHeader><DialogTitle>Registrar pagamento</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Registrar pagamento</DialogTitle>
+        </DialogHeader>
         <div className="space-y-3">
           <div>
             <Label>Método</Label>
             <Select value={method} onValueChange={setMethod}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="cash">Dinheiro</SelectItem>
                 <SelectItem value="card">Cartão</SelectItem>
@@ -1423,8 +1584,12 @@ function PayModal({ record, onClose, onSaved }: { record: any; onClose: () => vo
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={save} disabled={saving}>Confirmar</Button>
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button onClick={save} disabled={saving}>
+            Confirmar
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1432,7 +1597,13 @@ function PayModal({ record, onClose, onSaved }: { record: any; onClose: () => vo
 }
 
 // ---------- Presença ----------
-function PresencaTab({ attendance, promotionDate }: { attendance: any[]; promotionDate: string | null }) {
+function PresencaTab({
+  attendance,
+  promotionDate,
+}: {
+  attendance: any[];
+  promotionDate: string | null;
+}) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth()); // 0-11
@@ -1454,13 +1625,17 @@ function PresencaTab({ attendance, promotionDate }: { attendance: any[]; promoti
     ? attendance.filter((a) => a.present && a.class_date >= promotionDate).length
     : 0;
 
-  const monthLabel = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(firstDay);
+  const monthLabel = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(
+    firstDay,
+  );
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
-          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-40">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             {Array.from({ length: 12 }).map((_, i) => (
               <SelectItem key={i} value={String(i)}>
@@ -1470,11 +1645,17 @@ function PresencaTab({ attendance, promotionDate }: { attendance: any[]; promoti
           </SelectContent>
         </Select>
         <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
-          <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-28">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             {Array.from({ length: 5 }).map((_, i) => {
               const y = now.getFullYear() - 2 + i;
-              return <SelectItem key={y} value={String(y)}>{y}</SelectItem>;
+              return (
+                <SelectItem key={y} value={String(y)}>
+                  {y}
+                </SelectItem>
+              );
             })}
           </SelectContent>
         </Select>
@@ -1482,7 +1663,9 @@ function PresencaTab({ attendance, promotionDate }: { attendance: any[]; promoti
 
       <div className="rounded-lg border bg-card p-4">
         <div className="mb-2 grid grid-cols-7 gap-1 text-center text-xs font-medium text-muted-foreground">
-          {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d) => <div key={d}>{d}</div>)}
+          {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d) => (
+            <div key={d}>{d}</div>
+          ))}
         </div>
         <div className="grid grid-cols-7 gap-1">
           {cells.map((d, i) => {
@@ -1502,7 +1685,9 @@ function PresencaTab({ attendance, promotionDate }: { attendance: any[]; promoti
             }
             return (
               <div key={i} className="flex items-center justify-center" title={title}>
-                <div className={`flex h-8 w-8 items-center justify-center rounded-full border text-xs ${color}`}>
+                <div
+                  className={`flex h-8 w-8 items-center justify-center rounded-full border text-xs ${color}`}
+                >
                   {d.getDate()}
                 </div>
               </div>
@@ -1512,7 +1697,9 @@ function PresencaTab({ attendance, promotionDate }: { attendance: any[]; promoti
       </div>
 
       <div className="text-sm text-muted-foreground">
-        <p>{presencesMonth} presenças em {monthLabel}</p>
+        <p>
+          {presencesMonth} presenças em {monthLabel}
+        </p>
         <p>{presencesSincePromotion} presenças desde a última promoção</p>
       </div>
     </div>
@@ -1527,7 +1714,10 @@ function ObservacoesTab({ student, onChange }: { student: any; onChange: () => v
 
   const save = async () => {
     setSaving(true);
-    const { error } = await supabase.from("students").update({ medical_notes: notes }).eq("id", student.id);
+    const { error } = await supabase
+      .from("students")
+      .update({ medical_notes: notes })
+      .eq("id", student.id);
     setSaving(false);
     if (error) toast.error("Erro ao salvar observações");
     else {
@@ -1540,7 +1730,9 @@ function ObservacoesTab({ student, onChange }: { student: any; onChange: () => v
     <div className="space-y-3 rounded-lg border bg-card p-4">
       <Label>Observações médicas / gerais</Label>
       <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={10} />
-      <Button onClick={save} disabled={!dirty || saving}>Salvar observações</Button>
+      <Button onClick={save} disabled={!dirty || saving}>
+        Salvar observações
+      </Button>
     </div>
   );
 }
@@ -1559,7 +1751,6 @@ function EditStudentModal({
   organizationId: string;
   onSaved: () => void;
 }) {
-
   const profile = student.profiles ?? {};
   const [fullName, setFullName] = useState(profile.full_name ?? "");
   const [cpf, setCpf] = useState(profile.cpf ?? "");
@@ -1573,7 +1764,9 @@ function EditStudentModal({
     return "";
   };
   const [sex, setSex] = useState<Sex | "">(normalizeSex(student.sex));
-  const [weightKg, setWeightKg] = useState<string>(student.weight != null ? String(student.weight) : "");
+  const [weightKg, setWeightKg] = useState<string>(
+    student.weight != null ? String(student.weight) : "",
+  );
   const [enrollmentDate, setEnrollmentDate] = useState(student.enrollment_date ?? "");
   const status = student.status === "active" ? "active" : "inactive";
   const [saving, setSaving] = useState(false);
@@ -1589,7 +1782,6 @@ function EditStudentModal({
     setWeightKg(student.weight != null ? String(student.weight) : "");
     setEnrollmentDate(student.enrollment_date ?? "");
   }, [open, student]);
-
 
   const save = async () => {
     if (!fullName.trim()) {
@@ -1629,7 +1821,6 @@ function EditStudentModal({
     }
   };
 
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -1658,18 +1849,28 @@ function EditStudentModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Data de nascimento</Label>
-              <Input type="date" value={birthDate ?? ""} onChange={(e) => setBirthDate(e.target.value)} />
+              <Input
+                type="date"
+                value={birthDate ?? ""}
+                onChange={(e) => setBirthDate(e.target.value)}
+              />
             </div>
             <div>
               <Label>Data de matrícula</Label>
-              <Input type="date" value={enrollmentDate ?? ""} onChange={(e) => setEnrollmentDate(e.target.value)} />
+              <Input
+                type="date"
+                value={enrollmentDate ?? ""}
+                onChange={(e) => setEnrollmentDate(e.target.value)}
+              />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Sexo</Label>
               <Select value={sex} onValueChange={(v) => setSex(v as Sex)}>
-                <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="—" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="M">Masculino</SelectItem>
                   <SelectItem value="F">Feminino</SelectItem>
@@ -1690,8 +1891,12 @@ function EditStudentModal({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={save} disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={save} disabled={saving}>
+            {saving ? "Salvando..." : "Salvar"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1699,15 +1904,31 @@ function EditStudentModal({
 }
 
 const ALL_BELTS_PAST: Belt[] = [
-  "branca", "cinza_branco", "cinza", "cinza_preto",
-  "amarela_branco", "amarela", "amarela_preto",
-  "laranja_branco", "laranja", "laranja_preto",
-  "verde_branco", "verde", "verde_preto",
-  "azul", "roxa", "marrom", "preta",
+  "branca",
+  "cinza_branco",
+  "cinza",
+  "cinza_preto",
+  "amarela_branco",
+  "amarela",
+  "amarela_preto",
+  "laranja_branco",
+  "laranja",
+  "laranja_preto",
+  "verde_branco",
+  "verde",
+  "verde_preto",
+  "azul",
+  "roxa",
+  "marrom",
+  "preta",
 ];
 
 function PastGraduationModal({
-  open, onOpenChange, studentId, organizationId, onSaved,
+  open,
+  onOpenChange,
+  studentId,
+  organizationId,
+  onSaved,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -1725,9 +1946,12 @@ function PastGraduationModal({
 
   useEffect(() => {
     if (open) {
-      setBelt("branca"); setDegrees(0);
+      setBelt("branca");
+      setDegrees(0);
       setPromotionDate(todayISO());
-      setPreviousInstructor(""); setPreviousTeam(""); setNotes("");
+      setPreviousInstructor("");
+      setPreviousTeam("");
+      setNotes("");
     }
   }, [open]);
 
@@ -1740,9 +1964,13 @@ function PastGraduationModal({
       const { addPastGraduation } = await import("@/lib/registrations.functions");
       await addPastGraduation({
         data: {
-          accessToken, organizationId, studentId,
-          oldBelt: belt, oldDegrees: degrees,
-          newBelt: belt, newDegrees: degrees,
+          accessToken,
+          organizationId,
+          studentId,
+          oldBelt: belt,
+          oldDegrees: degrees,
+          newBelt: belt,
+          newDegrees: degrees,
           promotionDate,
           previousInstructor: previousInstructor || null,
           previousTeam: previousTeam || null,
@@ -1770,26 +1998,42 @@ function PastGraduationModal({
             <div>
               <Label>Faixa</Label>
               <Select value={belt} onValueChange={(v) => setBelt(v as Belt)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {ALL_BELTS_PAST.map((b) => (
-                    <SelectItem key={b} value={b}>{getBeltLabel(b)}</SelectItem>
+                    <SelectItem key={b} value={b}>
+                      {getBeltLabel(b)}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
               <Label>Grau</Label>
-              <Input type="number" min={0} max={10} value={degrees}
-                onChange={(e) => setDegrees(Number(e.target.value) || 0)} />
+              <Input
+                type="number"
+                min={0}
+                max={10}
+                value={degrees}
+                onChange={(e) => setDegrees(Number(e.target.value) || 0)}
+              />
             </div>
             <div className="col-span-2">
               <Label>Data da promoção</Label>
-              <Input type="date" value={promotionDate} onChange={(e) => setPromotionDate(e.target.value)} />
+              <Input
+                type="date"
+                value={promotionDate}
+                onChange={(e) => setPromotionDate(e.target.value)}
+              />
             </div>
             <div>
               <Label>Professor anterior</Label>
-              <Input value={previousInstructor} onChange={(e) => setPreviousInstructor(e.target.value)} />
+              <Input
+                value={previousInstructor}
+                onChange={(e) => setPreviousInstructor(e.target.value)}
+              />
             </div>
             <div>
               <Label>Equipe anterior</Label>
@@ -1802,8 +2046,12 @@ function PastGraduationModal({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={save} disabled={saving}>{saving ? "Salvando..." : "Adicionar ao histórico"}</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={save} disabled={saving}>
+            {saving ? "Salvando..." : "Adicionar ao histórico"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1949,7 +2197,9 @@ function PlanoAtualSection({
             <div>
               <Label>Plano</Label>
               <Select value={planId} onValueChange={setPlanId}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
                 <SelectContent>
                   {plans.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
@@ -1965,12 +2215,20 @@ function PlanoAtualSection({
             </div>
             <div>
               <Label>Próximo vencimento</Label>
-              <Input type="date" value={nextDueDate} onChange={(e) => setNextDueDate(e.target.value)} />
+              <Input
+                type="date"
+                value={nextDueDate}
+                onChange={(e) => setNextDueDate(e.target.value)}
+              />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={saving || !planId}>{saving ? "Salvando…" : "Salvar"}</Button>
+            <Button variant="outline" onClick={() => setModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSave} disabled={saving || !planId}>
+              {saving ? "Salvando…" : "Salvar"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2094,19 +2352,11 @@ function WhatsappChargeModal({
               <InfoRow label="Plano" value={info.planName} />
               <InfoRow label="Valor" value={info.amountFormatted} />
               <InfoRow label="Vencimento" value={info.dueDateFormatted} />
-              <InfoRow
-                label="Link de pagamento"
-                value={info.paymentUrl || "—"}
-                mono
-              />
+              <InfoRow label="Link de pagamento" value={info.paymentUrl || "—"} mono />
             </div>
             <div className="space-y-1">
               <Label>Mensagem</Label>
-              <Textarea
-                rows={12}
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-              />
+              <Textarea rows={12} value={message} onChange={(e) => setMessage(e.target.value)} />
             </div>
           </div>
         )}
