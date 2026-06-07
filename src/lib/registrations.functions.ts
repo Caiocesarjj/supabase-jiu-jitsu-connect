@@ -45,36 +45,46 @@ async function sendBotBotMessage(settings: { botbot_app_key?: string | null; bot
     throw new Error("Credenciais BotBot não configuradas em Configurações → WhatsApp.");
   }
 
-  const number = phone.replace(/\D/g, '');
-  const url = `https://botbot.chat/user/api?appKey=${encodeURIComponent(settings.botbot_app_key)}&authKey=${encodeURIComponent(settings.botbot_auth_key)}`;
+  const number = phone.replace(/\D/g, "");
+  const url = "https://botbot.chat/api/v2/sendText";
+  const body = {
+    to: number,
+    typingDelay: 1,
+    message,
+  };
+
+  console.info("BotBot URL utilizada:", url);
 
   let response: Response;
+  let raw = "";
   try {
     response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'sendMessage',
-        number,
-        phone: number,
-        message,
-        text: message,
-      }),
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        appKey: settings.botbot_app_key,
+        authKey: settings.botbot_auth_key,
+      },
+      body: JSON.stringify(body),
     });
+    raw = await response.text();
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
+    console.error("BotBot erro de conexão:", reason);
     throw new Error(`Não foi possível conectar ao BotBot. Detalhe: ${reason}`);
   }
 
-  const raw = await response.text();
+  console.info("BotBot Status HTTP:", response.status);
+  console.info("BotBot Corpo retornado:", raw);
+
   if (!response.ok) {
     throw new Error(`BotBot retornou ${response.status}: ${raw.slice(0, 200)}`);
   }
 
   let data: any = null;
   try { data = JSON.parse(raw); } catch { /* não-JSON: assume sucesso */ }
-  if (data && (data.error || data.success === false || data.status === 'error')) {
-    throw new Error(`BotBot: ${data.error || data.message || 'Erro ao enviar'}`);
+  if (data && (data.error || data.success === false || data.status === "error")) {
+    throw new Error(`BotBot: ${data.error || data.message || "Erro ao enviar"}`);
   }
 }
 
