@@ -12,6 +12,7 @@ import {
   sendIndividualWhatsappCharge,
   listWhatsappMessageLogs,
   generateChargeForStudent,
+  registerManualPayment,
   updateStudentBasics,
 
 } from "@/lib/registrations.functions";
@@ -1375,22 +1376,31 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
 function PayModal({ record, onClose, onSaved }: { record: any; onClose: () => void; onSaved: () => void }) {
   const [method, setMethod] = useState("pix");
   const [saving, setSaving] = useState(false);
+  const registerPayment = useServerFn(registerManualPayment);
 
   const save = async () => {
     if (!record) return;
     setSaving(true);
-    const { error } = await supabase
-      .from("financial_records")
-      .update({ status: "paid", paid_at: new Date().toISOString(), payment_method: method })
-      .eq("id", record.id);
-    if (!error && record.student_id) {
-      await supabase.from("students").update({ status: "active" }).eq("id", record.student_id);
-    }
-    setSaving(false);
-    if (error) toast.error("Erro ao registrar pagamento");
-    else {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const accessToken = session.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida");
+      await registerPayment({
+        data: {
+          accessToken,
+          organizationId: record.organization_id,
+          financialRecordId: record.id,
+          method,
+          paidAt: new Date().toISOString().slice(0, 10),
+          notes: null,
+        },
+      });
       toast.success("Pagamento registrado");
       onSaved();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Erro ao registrar pagamento");
+    } finally {
+      setSaving(false);
     }
   };
 
