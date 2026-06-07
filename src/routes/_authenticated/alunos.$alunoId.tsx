@@ -8,6 +8,9 @@ import {
   getStudentSubscription,
   listSubscriptionPlansForOrg,
   createSubscriptionRecord,
+  getStudentChargeForWhatsapp,
+  sendIndividualWhatsappCharge,
+  listWhatsappMessageLogs,
 } from "@/lib/registrations.functions";
 import { useAuth } from "@/hooks/useAuth";
 import { Avatar } from "@/components/Avatar";
