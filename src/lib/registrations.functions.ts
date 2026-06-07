@@ -847,7 +847,7 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
         return {
           organization_id: data.organizationId,
           student_id: student.id,
-            amount: subscriptionAmount,
+          amount: subscriptionAmount,
           due_date: dueDate,
           reference_month: referenceMonth,
           status: "pending",
