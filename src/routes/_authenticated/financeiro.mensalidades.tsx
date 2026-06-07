@@ -579,6 +579,15 @@ function PaymentModal({
         event_type: "paid_manual",
         payload: { method, notes },
       });
+      // Ativa o aluno automaticamente caso ainda esteja como experimental/inativo
+      const studentId = record.students?.id;
+      if (studentId) {
+        await supabase
+          .from("students")
+          .update({ status: "active" })
+          .eq("id", studentId)
+          .neq("status", "active");
+      }
       toast.success(`Pagamento de ${name} registrado com sucesso.`);
       onSaved();
     } catch (err) {
