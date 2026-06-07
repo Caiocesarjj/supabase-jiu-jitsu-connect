@@ -1339,17 +1339,69 @@ export const createSubscriptionRecord = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requireStaff(data.accessToken, data.organizationId);
     const admin = getAdminClient();
+
+    // Always snap next_due_date to the org's configured due_day (default 10).
+    const { data: settings } = await admin
+      .from("organization_settings")
+      .select("due_day")
+      .eq("organization_id", data.organizationId)
+      .maybeSingle();
+    const dueDay = Number(settings?.due_day ?? 10);
+    const base = new Date(`${data.nextDueDate}T00:00:00`);
+    const year = base.getFullYear();
+    const month = base.getMonth() + 1;
+    const lastDay = new Date(year, month, 0).getDate();
+    const day = Math.min(Math.max(dueDay, 1), lastDay);
+    const normalizedDue = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
     const { error } = await admin.from("subscription_records").insert({
       organization_id: data.organizationId,
       student_id: data.studentId,
       plan_id: data.planId,
       status: "active",
       started_at: data.startedAt,
-      next_due_date: data.nextDueDate,
+      next_due_date: normalizedDue,
     });
     if (error) throw error;
     return { ok: true };
   });
+
+export const normalizeSubscriptionDueDates = createServerFn({ method: "POST" })
+  .inputValidator((input) => orgAuthSchema.parse(input))
+  .handler(async ({ data }) => {
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+    const { data: settings } = await admin
+      .from("organization_settings")
+      .select("due_day")
+      .eq("organization_id", data.organizationId)
+      .maybeSingle();
+    const dueDay = Number(settings?.due_day ?? 10);
+    const { data: subs } = await admin
+      .from("subscription_records")
+      .select("id, next_due_date")
+      .eq("organization_id", data.organizationId);
+    let updated = 0;
+    for (const s of (subs ?? []) as Array<{ id: string; next_due_date: string | null }>) {
+      if (!s.next_due_date) continue;
+      const base = new Date(`${s.next_due_date.slice(0, 10)}T00:00:00`);
+      if (Number.isNaN(base.getTime())) continue;
+      const y = base.getFullYear();
+      const m = base.getMonth() + 1;
+      const last = new Date(y, m, 0).getDate();
+      const d = Math.min(Math.max(dueDay, 1), last);
+      const next = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      if (next === s.next_due_date.slice(0, 10)) continue;
+      await admin
+        .from("subscription_records")
+        .update({ next_due_date: next })
+        .eq("id", s.id)
+        .eq("organization_id", data.organizationId);
+      updated++;
+    }
+    return { updated };
+  });
+
 
 export const updateSubscriptionStatus = createServerFn({ method: "POST" })
   .inputValidator((input) =>

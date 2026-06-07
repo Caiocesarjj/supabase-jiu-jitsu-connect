@@ -14,7 +14,9 @@ import {
   listSubscriptionRecordsForOrg,
   listStudentsForOrg,
   deleteSubscriptionPlan,
+  normalizeSubscriptionDueDates,
 } from "@/lib/registrations.functions";
+
 import { formatBRL, formatDateBR } from "@/lib/format";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { EmptyState } from "@/components/EmptyState";
@@ -178,6 +180,12 @@ function Page() {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
       if (!accessToken) throw new Error("Sessão inválida.");
+      // Snap any legacy next_due_date to the configured due_day before reading.
+      try {
+        await normalizeSubscriptionDueDates({ data: { accessToken, organizationId } });
+      } catch (e) {
+        console.warn("normalizeSubscriptionDueDates falhou:", e);
+      }
       const [plansRes, subsRes, studentsRes] = await Promise.all([
         listPlansFn({ data: { accessToken, organizationId } }),
         listSubsFn({ data: { accessToken, organizationId } }),
@@ -185,6 +193,7 @@ function Page() {
       ]);
       setPlans((plansRes.plans as Plan[]) ?? []);
       setSubs((subsRes.subscriptions as unknown as Subscription[]) ?? []);
+
       const opts = ((studentsRes.students as unknown as Array<{
         id: string;
         enrollment_date: string | null;
