@@ -72,7 +72,7 @@ function NovoAlunoPage() {
   const [monthlyFee, setMonthlyFee] = useState("");
   const [belt, setBelt] = useState<Belt>("branca");
   const [degrees, setDegrees] = useState("0");
-  const [status, setStatus] = useState("active");
+  const [status, setStatus] = useState("trial");
   const [planId, setPlanId] = useState<string>("");
   const [plans, setPlans] = useState<PlanOption[]>([]);
   const [saving, setSaving] = useState(false);
