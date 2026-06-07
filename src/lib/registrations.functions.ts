@@ -2144,7 +2144,7 @@ export const getStudentChargeForWhatsapp = createServerFn({ method: "POST" })
       .select(
         `id,
          profiles:profile_id(full_name, email, phone, cpf),
-         subscription_records(status, subscription_plans(name, amount))`,
+         subscription_records(status, subscription_plans(name, amount, new_amount_after, validity_months))`,
       )
       .eq("id", data.studentId)
       .eq("organization_id", data.organizationId)
@@ -2191,6 +2191,19 @@ export const getStudentChargeForWhatsapp = createServerFn({ method: "POST" })
     const academyName = org?.name ?? "Academia";
     const studentName = profile?.full_name ?? "Aluno";
     const planName = plan?.name ?? "Mensalidade";
+    const planAmount = Number(plan?.amount ?? 0);
+    if (planAmount > 0 && !nearlySameMoney(charge.amount, planAmount)) {
+      const { error: syncError } = await admin
+        .from("financial_records")
+        .update({ amount: planAmount, invoice_url: null, pix_code: null })
+        .eq("id", charge.id)
+        .eq("organization_id", data.organizationId)
+        .in("status", ["pending", "overdue"]);
+      if (syncError) throw syncError;
+      charge.amount = planAmount;
+      charge.invoice_url = null;
+      charge.pix_code = null;
+    }
     const amountStr = formatMoneyBR(charge.amount);
     const dueStr = formatDateBRValue(charge.due_date);
     const paymentConfig = await getActivePaymentConfig(admin, data.organizationId);
@@ -2198,7 +2211,8 @@ export const getStudentChargeForWhatsapp = createServerFn({ method: "POST" })
     if (
       !paymentUrl &&
       paymentConfig.provider === "asaas" &&
-      typeof paymentConfig.credentials.apiKey === "string"
+      typeof paymentConfig.credentials.apiKey === "string" &&
+      Number(charge.amount) >= ASAAS_MINIMUM_CHARGE_AMOUNT
     ) {
       const asaasCharge = await ensureAsaasCharge({
         apiKey: paymentConfig.credentials.apiKey,
