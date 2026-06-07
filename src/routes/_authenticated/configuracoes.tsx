@@ -42,6 +42,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PaymentIntegrationsSection } from "@/components/PaymentIntegrationsSection";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
   component: ConfiguracoesPage,
@@ -137,10 +138,11 @@ function ConfiguracoesPage() {
       <h1 className="text-2xl font-semibold">Configurações</h1>
 
       <Tabs defaultValue="academia" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-6">
           <TabsTrigger value="academia">Academia</TabsTrigger>
           <TabsTrigger value="plano">Plano</TabsTrigger>
           <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
+          <TabsTrigger value="pagamentos">Pagamentos</TabsTrigger>
           <TabsTrigger value="integracoes">Integrações</TabsTrigger>
           <TabsTrigger value="conta">Conta</TabsTrigger>
         </TabsList>
@@ -166,6 +168,10 @@ function ConfiguracoesPage() {
             onSaved={load}
           />
           <WhatsappTemplatesSection organizationId={organizationId!} />
+        </TabsContent>
+
+        <TabsContent value="pagamentos" className="mt-6">
+          <PaymentIntegrationsSection organizationId={organizationId!} />
         </TabsContent>
 
         <TabsContent value="integracoes" className="mt-6">
