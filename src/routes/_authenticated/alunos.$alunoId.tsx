@@ -1242,11 +1242,20 @@ function FinanceiroTab({
     <div className="space-y-4">
       <PlanoAtualSection studentId={studentId} organizationId={organizationId} />
 
+      <div className="flex justify-end">
+        <Button onClick={() => setWhatsappOpen(true)} variant="outline">
+          <MessageCircle className="mr-2 h-4 w-4" />
+          Enviar Cobrança WhatsApp
+        </Button>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <SummaryCard label="Pago no mês" value={formatBRL(totals.paidMonth)} />
         <SummaryCard label="Em aberto" value={formatBRL(totals.open)} />
         <SummaryCard label="Vencidos" value={String(totals.overdueCount)} />
       </div>
+
+
 
 
       <div className="rounded-lg border bg-card p-2">
