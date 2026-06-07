@@ -2072,3 +2072,54 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
 
     return { ok: true, financialRecordId: charge.id as string };
   });
+
+export const updateStudentBasics = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema
+      .extend({
+        studentId: z.string().uuid(),
+        profileId: z.string().uuid().nullable().optional(),
+        fullName: z.string().trim().min(1).max(200),
+        cpf: z.string().trim().max(20).nullable().optional(),
+        phone: z.string().trim().max(30).nullable().optional(),
+        email: z.string().trim().max(200).nullable().optional(),
+        birthDate: z.string().nullable().optional(),
+        sex: z.enum(["M", "F"]).nullable().optional(),
+        weight: z.number().nullable().optional(),
+        enrollmentDate: z.string().nullable().optional(),
+        status: z.string().min(1).max(40),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+
+    if (data.profileId) {
+      const { error: pe } = await admin
+        .from("profiles")
+        .update({
+          full_name: data.fullName,
+          cpf: data.cpf || null,
+          phone: data.phone || null,
+          email: data.email || null,
+        })
+        .eq("id", data.profileId);
+      if (pe) throw new Error(pe.message);
+    }
+
+    const { error: se } = await admin
+      .from("students")
+      .update({
+        birth_date: data.birthDate || null,
+        sex: data.sex || null,
+        weight: data.weight ?? null,
+        enrollment_date: data.enrollmentDate || null,
+        status: data.status,
+      })
+      .eq("id", data.studentId)
+      .eq("organization_id", data.organizationId);
+    if (se) throw new Error(se.message);
+
+    return { ok: true };
+  });
