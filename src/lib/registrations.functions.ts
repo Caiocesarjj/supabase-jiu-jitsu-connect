@@ -1613,6 +1613,46 @@ function legacyCredentialValue(provider: PaymentProvider, credentials: Record<st
   return null;
 }
 
+async function getActivePaymentConfig(admin: ReturnType<typeof getAdminClient>, organizationId: string) {
+  const { data: activeIntegration, error: integrationError } = await admin
+    .from("payment_integrations")
+    .select("provider, credentials_json")
+    .eq("organization_id", organizationId)
+    .eq("active", true)
+    .maybeSingle();
+
+  if (integrationError && !isMissingPaymentIntegrationsTable(integrationError)) throw integrationError;
+
+  const parsedProvider = paymentProviderEnum.safeParse(activeIntegration?.provider);
+  if (parsedProvider.success) {
+    return {
+      provider: parsedProvider.data,
+      credentials: (activeIntegration?.credentials_json ?? {}) as Record<string, unknown>,
+    };
+  }
+
+  const { data: settings, error: settingsError } = await admin
+    .from("organization_settings")
+    .select("payment_gateway, payment_gateway_api_key")
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+  if (settingsError) throw settingsError;
+
+  const legacyProvider = paymentProviderEnum.safeParse(settings?.payment_gateway);
+  if (!legacyProvider.success) return { provider: "manual" as const, credentials: {} };
+  return {
+    provider: legacyProvider.data,
+    credentials: legacyCredentials(legacyProvider.data, settings?.payment_gateway_api_key),
+  };
+}
+
+function getStaticPaymentUrl(config: { provider: PaymentProvider | "manual"; credentials: Record<string, unknown> }) {
+  const key = config.provider === "link" ? "paymentUrl" : config.provider === "infinitepay" ? "baseUrl" : null;
+  if (!key) return null;
+  const value = config.credentials[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
 async function listLegacyPaymentIntegration(admin: ReturnType<typeof getAdminClient>, organizationId: string) {
   const { data: settings, error } = await admin
     .from("organization_settings")
