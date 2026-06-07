@@ -432,8 +432,10 @@ function GeralTab({
         open={editOpen}
         onOpenChange={setEditOpen}
         student={student}
+        organizationId={organizationId}
         onSaved={() => { setEditOpen(false); onChange(); }}
       />
+
 
       <section className="rounded-lg border bg-card p-4">
         <div className="mb-3 flex items-center justify-between">
