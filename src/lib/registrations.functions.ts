@@ -441,7 +441,8 @@ export const updateStudentGraduation = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
     const { error } = await supabase
       .from("graduations")
       .update({
@@ -686,7 +687,7 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
     const { supabase } = await requireStaff(data.accessToken, data.organizationId);
     const [{ data: students, error: studentsError }, { data: settings, error: settingsError }] =
       await Promise.all([
-        supabase
+        admin
           .from("students")
           .select(
             `id, monthly_fee, enrollment_date,
@@ -695,7 +696,7 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
           .eq("organization_id", data.organizationId)
           .eq("status", "active")
           .is("deleted_at", null),
-        supabase
+        admin
           .from("organization_settings")
           .select("monthly_fee_default, due_day, payment_gateway, payment_gateway_api_key")
           .eq("organization_id", data.organizationId)
@@ -2019,7 +2020,7 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
     }
 
     const idempotencyKey = `${data.studentId}_${referenceMonthDate}`;
-    const { error: upsertError } = await supabase.from("financial_records").upsert(
+    const { error: upsertError } = await admin.from("financial_records").upsert(
       [
         {
           organization_id: data.organizationId,
@@ -2035,7 +2036,7 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
     );
     if (upsertError) throw upsertError;
 
-    const { data: charge, error: chargeError } = await supabase
+    const { data: charge, error: chargeError } = await admin
       .from("financial_records")
       .select(
         "id, amount, due_date, invoice_url, pix_code, students:student_id(profiles:profile_id(full_name, email, phone, cpf))",
@@ -2056,7 +2057,7 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
           apiKey: settings.payment_gateway_api_key,
           charge: charge as any,
         });
-        await supabase
+        await admin
           .from("financial_records")
           .update({ pix_code: asaasCharge.pixCode, invoice_url: asaasCharge.invoiceUrl })
           .eq("id", charge.id)
