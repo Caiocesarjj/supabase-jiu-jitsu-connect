@@ -1220,6 +1220,7 @@ function FinanceiroTab({
 
   const [payOpen, setPayOpen] = useState<any>(null);
   const [confirmCancel, setConfirmCancel] = useState<string | null>(null);
+  const [whatsappOpen, setWhatsappOpen] = useState(false);
 
   const copyPix = async (code: string | null) => {
     if (!code) return;
