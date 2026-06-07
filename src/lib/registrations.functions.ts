@@ -351,7 +351,7 @@ export const createStudentRegistration = createServerFn({ method: "POST" })
         weightKg: z.number().positive().max(500).nullable().optional(),
         belt: z.string().min(2).max(40),
         degrees: z.number().int().min(0).max(10),
-        subscriptionPlanId: z.string().uuid().nullable().optional(),
+        subscriptionPlanId: z.string().uuid(),
         validityDate: z.string().nullable().optional(),
       })
       .parse(input),
@@ -788,7 +788,7 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
           .is("deleted_at", null),
         supabase
           .from("organization_settings")
-          .select("monthly_fee_default, due_day, payment_gateway, payment_gateway_api_key")
+          .select("due_day, payment_gateway, payment_gateway_api_key")
           .eq("organization_id", data.organizationId)
           .maybeSingle(),
       ]);
@@ -802,7 +802,6 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
     const [year, month] = data.referenceMonth.split("-");
     const referenceMonth = `${year}-${month}-01`;
     const dueDay = Number(settings?.due_day ?? 10);
-    const defaultFee = Number(settings?.monthly_fee_default ?? 0);
     const rows = (
       (students ?? []) as unknown as Array<{
         id: string;
@@ -848,7 +847,7 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
         return {
           organization_id: data.organizationId,
           student_id: student.id,
-          amount: subscriptionAmount ?? defaultFee,
+            amount: subscriptionAmount,
           due_date: dueDate,
           reference_month: referenceMonth,
           status: "pending",
@@ -2296,7 +2295,7 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
           .maybeSingle(),
         admin
           .from("organization_settings")
-          .select("monthly_fee_default, due_day, payment_gateway, payment_gateway_api_key")
+          .select("due_day, payment_gateway, payment_gateway_api_key")
           .eq("organization_id", data.organizationId)
           .maybeSingle(),
       ]);
@@ -2305,7 +2304,6 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
     if (!student) throw new Error("Aluno não encontrado.");
 
     const dueDay = Number(settings?.due_day ?? 10);
-    const defaultFee = Number(settings?.monthly_fee_default ?? 0);
     const paymentConfig = await getActivePaymentConfig(admin, data.organizationId);
     const staticPaymentUrl = getStaticPaymentUrl(paymentConfig);
 
@@ -2330,8 +2328,7 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
       isPastDue && hasAfterPrice
         ? `${yearRef}-${String(monthRef).padStart(2, "0")}-${String(lastDayOfMonth).padStart(2, "0")}`
         : normalDueDate;
-    const amount =
-      (isPastDue && hasAfterPrice ? plan!.new_amount_after : plan?.amount) ?? defaultFee;
+    const amount = isPastDue && hasAfterPrice ? plan!.new_amount_after : plan?.amount;
 
     if (!amount || Number(amount) <= 0) {
       throw new Error("Plano sem valor configurado. Ajuste o plano antes de gerar cobrança.");
