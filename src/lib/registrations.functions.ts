@@ -725,10 +725,16 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
         ? activeSubscription?.subscription_plans[0]
         : activeSubscription?.subscription_plans;
 
-      const planDueDay = plan?.validity_months ?? dueDay;
-      const dueDate = dueDateFromEnrollment(data.referenceMonth, null, planDueDay);
-      const isPastDue = dueDate < new Date().toISOString().slice(0, 10);
-      const subscriptionAmount = isPastDue && plan?.new_amount_after != null ? plan.new_amount_after : plan?.amount;
+      const [yRef, mRef] = data.referenceMonth.split("-").map(Number);
+      const lastDay = new Date(yRef, mRef, 0).getDate();
+      const normalDue = dueDateFromEnrollment(data.referenceMonth, null, dueDay);
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const isPastDue = normalDue < todayStr;
+      const hasAfter = plan?.new_amount_after != null;
+      const dueDate = isPastDue && hasAfter
+        ? `${yRef}-${String(mRef).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`
+        : normalDue;
+      const subscriptionAmount = isPastDue && hasAfter ? plan!.new_amount_after : plan?.amount;
 
       return {
         organization_id: data.organizationId,
@@ -740,6 +746,7 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
         idempotency_key: `${student.id}_${referenceMonth}`,
       };
     });
+
 
     if (rows.length > 0) {
       const { error } = await supabase
