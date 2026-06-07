@@ -4,6 +4,7 @@ import { slugify } from "@/lib/format";
 import { getAdminClient, getUserClient } from "@/lib/supabase-server";
 
 const staffRoles = new Set(["admin", "instructor", "instrutor", "staff"]);
+const ASAAS_MINIMUM_CHARGE_AMOUNT = 5;
 
 const authSchema = z.object({ accessToken: z.string().min(10) });
 const orgAuthSchema = authSchema.extend({ organizationId: z.string().uuid() });
@@ -41,6 +42,10 @@ function formatDateBRValue(value: string | null | undefined) {
   const [year, month, day] = value.slice(0, 10).split("-").map(Number);
   if (!year || !month || !day) return value;
   return `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}`;
+}
+
+function nearlySameMoney(a: number | null | undefined, b: number | null | undefined) {
+  return Math.abs(Number(a ?? 0) - Number(b ?? 0)) < 0.005;
 }
 
 function renderWhatsappTemplate(template: string, values: Record<string, string>) {
@@ -107,6 +112,14 @@ async function createPendingChargeForSubscription({
     { onConflict: "idempotency_key", ignoreDuplicates: true },
   );
   if (error) throw error;
+
+  const { error: syncError } = await admin
+    .from("financial_records")
+    .update({ amount, due_date: dueDate })
+    .eq("organization_id", organizationId)
+    .eq("idempotency_key", `${studentId}_${referenceMonthDate}`)
+    .in("status", ["pending", "overdue"]);
+  if (syncError) throw syncError;
 }
 
 async function sendBotBotMessage(
