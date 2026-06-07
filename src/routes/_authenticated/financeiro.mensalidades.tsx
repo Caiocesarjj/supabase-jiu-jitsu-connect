@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
-import { generateMonthlyCharges } from "@/lib/registrations.functions";
+import { generateMonthlyCharges, registerManualPayment } from "@/lib/registrations.functions";
 import { formatBRL, formatDateBR } from "@/lib/format";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { EmptyState } from "@/components/EmptyState";
@@ -545,6 +545,7 @@ function PaymentModal({
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const registerPayment = useServerFn(registerManualPayment);
 
   useEffect(() => {
     if (record) {
@@ -564,30 +565,20 @@ function PaymentModal({
     }
     setSaving(true);
     try {
-      const { error: e1 } = await supabase
-        .from("financial_records")
-        .update({
-          status: "paid",
-          paid_at: new Date(date).toISOString(),
-          payment_method: method,
-        })
-        .eq("id", record.id);
-      if (e1) throw e1;
-      await supabase.from("payment_logs").insert({
-        organization_id: organizationId,
-        financial_record_id: record.id,
-        event_type: "paid_manual",
-        payload: { method, notes },
+      if (!organizationId) throw new Error("Organização não identificada.");
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida. Faça login novamente.");
+      await registerPayment({
+        data: {
+          accessToken,
+          organizationId,
+          financialRecordId: record.id,
+          method,
+          paidAt: date,
+          notes,
+        },
       });
-      // Ativa o aluno automaticamente caso ainda esteja como experimental/inativo
-      const studentId = record.students?.id;
-      if (studentId) {
-        await supabase
-          .from("students")
-          .update({ status: "active" })
-          .eq("id", studentId)
-          .neq("status", "active");
-      }
       toast.success(`Pagamento de ${name} registrado com sucesso.`);
       onSaved();
     } catch (err) {
