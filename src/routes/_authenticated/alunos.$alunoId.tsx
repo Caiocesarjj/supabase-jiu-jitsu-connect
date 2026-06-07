@@ -1222,11 +1222,29 @@ function FinanceiroTab({
   const [payOpen, setPayOpen] = useState<any>(null);
   const [confirmCancel, setConfirmCancel] = useState<string | null>(null);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const generateCharge = useServerFn(generateChargeForStudent);
 
   const copyPix = async (code: string | null) => {
     if (!code) return;
     await navigator.clipboard.writeText(code);
     toast.success("Código PIX copiado!");
+  };
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const accessToken = session.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida");
+      await generateCharge({ data: { accessToken, organizationId, studentId } });
+      toast.success("Cobrança gerada com sucesso");
+      onChange();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao gerar cobrança");
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const cancelRecord = async (id: string) => {
@@ -1243,7 +1261,12 @@ function FinanceiroTab({
     <div className="space-y-4">
       <PlanoAtualSection studentId={studentId} organizationId={organizationId} />
 
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button onClick={handleGenerate} disabled={generating}>
+          {generating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Plus className="mr-2 h-4 w-4" />
+          Gerar cobrança
+        </Button>
         <Button onClick={() => setWhatsappOpen(true)} variant="outline">
           <MessageCircle className="mr-2 h-4 w-4" />
           Enviar Cobrança WhatsApp
