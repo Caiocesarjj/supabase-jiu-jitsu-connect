@@ -909,7 +909,7 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
         rows.map((row) =>
           supabase
             .from("financial_records")
-            .update({ amount: row.amount, due_date: row.due_date })
+            .update({ amount: row.amount, due_date: row.due_date, invoice_url: null, pix_code: null })
             .eq("organization_id", data.organizationId)
             .eq("idempotency_key", row.idempotency_key)
             .in("status", ["pending", "overdue"]),
