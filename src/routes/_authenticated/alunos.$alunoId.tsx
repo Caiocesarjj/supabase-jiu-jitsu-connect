@@ -12,6 +12,8 @@ import {
   sendIndividualWhatsappCharge,
   listWhatsappMessageLogs,
   generateChargeForStudent,
+  updateStudentBasics,
+
 } from "@/lib/registrations.functions";
 import { useAuth } from "@/hooks/useAuth";
 import { Avatar } from "@/components/Avatar";
@@ -432,8 +434,10 @@ function GeralTab({
         open={editOpen}
         onOpenChange={setEditOpen}
         student={student}
+        organizationId={organizationId}
         onSaved={() => { setEditOpen(false); onChange(); }}
       />
+
 
       <section className="rounded-lg border bg-card p-4">
         <div className="mb-3 flex items-center justify-between">
@@ -1539,13 +1543,16 @@ function EditStudentModal({
   open,
   onOpenChange,
   student,
+  organizationId,
   onSaved,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   student: any;
+  organizationId: string;
   onSaved: () => void;
 }) {
+
   const profile = student.profiles ?? {};
   const [fullName, setFullName] = useState(profile.full_name ?? "");
   const [cpf, setCpf] = useState(profile.cpf ?? "");
@@ -1585,31 +1592,27 @@ function EditStudentModal({
     }
     setSaving(true);
     try {
-      if (profile.id) {
-        const { error: pe } = await supabase
-          .from("profiles")
-          .update({
-            full_name: fullName.trim(),
-            cpf: cpf || null,
-            phone: phone || null,
-            email: email || null,
-          })
-          .eq("id", profile.id);
-        if (pe) throw pe;
-      }
+      const { data: session } = await supabase.auth.getSession();
+      const accessToken = session.session?.access_token;
+      if (!accessToken) throw new Error("Sessão expirada. Faça login novamente.");
 
-      const { error: se } = await supabase
-        .from("students")
-        .update({
-          birth_date: birthDate || null,
-          sex: sex || null,
+      await updateStudentBasics({
+        data: {
+          accessToken,
+          organizationId,
+          studentId: student.id,
+          profileId: profile.id ?? null,
+          fullName: fullName.trim(),
+          cpf: cpf || null,
+          phone: phone || null,
+          email: email || null,
+          birthDate: birthDate || null,
+          sex: (sex || null) as "M" | "F" | null,
           weight: weightKg === "" ? null : Number(weightKg),
-          enrollment_date: enrollmentDate || null,
+          enrollmentDate: enrollmentDate || null,
           status,
-        })
-        .eq("id", student.id);
-      if (se) throw se;
-
+        },
+      });
 
       toast.success("Aluno atualizado");
       onSaved();
@@ -1619,6 +1622,7 @@ function EditStudentModal({
       setSaving(false);
     }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
