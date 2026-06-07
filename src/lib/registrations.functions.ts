@@ -1464,6 +1464,39 @@ export const upsertSubscriptionPlan = createServerFn({ method: "POST" })
         .eq("id", data.planId)
         .eq("organization_id", data.organizationId);
       if (error) throw error;
+      const { data: subscriptions, error: subscriptionsError } = await admin
+        .from("subscription_records")
+        .select("student_id")
+        .eq("organization_id", data.organizationId)
+        .eq("plan_id", data.planId)
+        .eq("status", "active");
+      if (subscriptionsError) throw subscriptionsError;
+      const studentIds = [...new Set((subscriptions ?? []).map((sub) => sub.student_id).filter(Boolean))];
+      if (studentIds.length > 0) {
+        const { data: charges, error: chargesError } = await admin
+          .from("financial_records")
+          .select("id, due_date")
+          .eq("organization_id", data.organizationId)
+          .in("student_id", studentIds)
+          .in("status", ["pending", "overdue"]);
+        if (chargesError) throw chargesError;
+        const today = new Date().toISOString().slice(0, 10);
+        const syncResults = await Promise.all(
+          (charges ?? []).map((charge) => {
+            const chargeAmount =
+              data.newAmountAfter != null && String(charge.due_date ?? "").slice(0, 10) < today
+                ? data.newAmountAfter
+                : data.amount;
+            return admin
+              .from("financial_records")
+              .update({ amount: chargeAmount, invoice_url: null, pix_code: null })
+              .eq("id", charge.id)
+              .eq("organization_id", data.organizationId);
+          }),
+        );
+        const syncError = syncResults.find((result) => result.error)?.error;
+        if (syncError) throw syncError;
+      }
       return { id: data.planId };
     }
     const { data: row, error } = await admin
