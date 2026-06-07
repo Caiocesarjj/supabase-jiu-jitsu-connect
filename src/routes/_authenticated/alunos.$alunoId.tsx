@@ -1,13 +1,16 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, UserPlus, Trash2, MoreHorizontal, Copy, Pencil, Plus } from "lucide-react";
+import { ArrowLeft, UserPlus, Trash2, MoreHorizontal, Copy, Pencil, Plus, MessageCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import {
   getStudentSubscription,
   listSubscriptionPlansForOrg,
   createSubscriptionRecord,
+  getStudentChargeForWhatsapp,
+  sendIndividualWhatsappCharge,
+  listWhatsappMessageLogs,
 } from "@/lib/registrations.functions";
 import { useAuth } from "@/hooks/useAuth";
 import { Avatar } from "@/components/Avatar";
@@ -310,6 +313,7 @@ function AlunoFichaPage() {
           <TabsTrigger value="turmas">Turmas</TabsTrigger>
           <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
           <TabsTrigger value="presenca">Presença</TabsTrigger>
+          <TabsTrigger value="mensagens">Mensagens</TabsTrigger>
           <TabsTrigger value="observacoes">Observações</TabsTrigger>
         </TabsList>
 
@@ -339,6 +343,9 @@ function AlunoFichaPage() {
         </TabsContent>
         <TabsContent value="presenca">
           <PresencaTab attendance={attendance} promotionDate={grad?.promotion_date ?? null} />
+        </TabsContent>
+        <TabsContent value="mensagens">
+          <MensagensTab studentId={student.id} organizationId={organizationId!} />
         </TabsContent>
         <TabsContent value="observacoes">
           <ObservacoesTab student={student} onChange={reload} />
@@ -1213,6 +1220,7 @@ function FinanceiroTab({
 
   const [payOpen, setPayOpen] = useState<any>(null);
   const [confirmCancel, setConfirmCancel] = useState<string | null>(null);
+  const [whatsappOpen, setWhatsappOpen] = useState(false);
 
   const copyPix = async (code: string | null) => {
     if (!code) return;
@@ -1234,11 +1242,20 @@ function FinanceiroTab({
     <div className="space-y-4">
       <PlanoAtualSection studentId={studentId} organizationId={organizationId} />
 
+      <div className="flex justify-end">
+        <Button onClick={() => setWhatsappOpen(true)} variant="outline">
+          <MessageCircle className="mr-2 h-4 w-4" />
+          Enviar Cobrança WhatsApp
+        </Button>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <SummaryCard label="Pago no mês" value={formatBRL(totals.paidMonth)} />
         <SummaryCard label="Em aberto" value={formatBRL(totals.open)} />
         <SummaryCard label="Vencidos" value={String(totals.overdueCount)} />
       </div>
+
+
 
 
       <div className="rounded-lg border bg-card p-2">
@@ -1312,6 +1329,13 @@ function FinanceiroTab({
         title="Cancelar cobrança?"
         destructive
         onConfirm={() => { if (confirmCancel) void cancelRecord(confirmCancel); }}
+      />
+
+      <WhatsappChargeModal
+        open={whatsappOpen}
+        onOpenChange={setWhatsappOpen}
+        studentId={studentId}
+        organizationId={organizationId}
       />
     </div>
   );
@@ -1943,6 +1967,263 @@ function PlanoAtualSection({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ---------- WhatsApp Charge Modal ----------
+function WhatsappChargeModal({
+  open,
+  onOpenChange,
+  studentId,
+  organizationId,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  studentId: string;
+  organizationId: string;
+}) {
+  const getCharge = useServerFn(getStudentChargeForWhatsapp);
+  const sendCharge = useServerFn(sendIndividualWhatsappCharge);
+  const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [info, setInfo] = useState<any>(null);
+  const [message, setMessage] = useState("");
+  const [noCharge, setNoCharge] = useState(false);
+  const [noPhone, setNoPhone] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setInfo(null);
+      setNoCharge(false);
+      setNoPhone(false);
+      try {
+        const { data: session } = await supabase.auth.getSession();
+        const accessToken = session.session?.access_token;
+        if (!accessToken) throw new Error("Sessão inválida");
+        const res: any = await getCharge({
+          data: { accessToken, organizationId, studentId },
+        });
+        if (cancelled) return;
+        if (!res.hasPhone) {
+          setNoPhone(true);
+        } else if (!res.hasCharge) {
+          setNoCharge(true);
+        } else {
+          setInfo(res);
+          setMessage(res.message);
+        }
+      } catch (e: any) {
+        toast.error(e?.message ?? "Erro ao carregar dados");
+        onOpenChange(false);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, organizationId, studentId, getCharge, onOpenChange]);
+
+  const handleSend = async () => {
+    if (!info) return;
+    setSending(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const accessToken = session.session?.access_token;
+      if (!accessToken) throw new Error("Sessão inválida");
+      await sendCharge({
+        data: {
+          accessToken,
+          organizationId,
+          studentId,
+          financialRecordId: info.financialRecordId,
+          phone: info.phone,
+          message,
+        },
+      });
+      toast.success("✅ Mensagem enviada com sucesso");
+      onOpenChange(false);
+    } catch (e: any) {
+      toast.error(`❌ Falha no envio: ${e?.message ?? "erro desconhecido"}`);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Enviar cobrança via WhatsApp</DialogTitle>
+        </DialogHeader>
+
+        {loading && (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        )}
+
+        {!loading && noPhone && (
+          <div className="rounded-md border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
+            Este aluno não possui telefone cadastrado.
+          </div>
+        )}
+
+        {!loading && noCharge && (
+          <div className="rounded-md border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+            Não existe cobrança pendente para este aluno.
+          </div>
+        )}
+
+        {!loading && info && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <InfoRow label="Aluno" value={info.studentName} />
+              <InfoRow label="Telefone" value={info.phone} />
+              <InfoRow label="Plano" value={info.planName} />
+              <InfoRow label="Valor" value={info.amountFormatted} />
+              <InfoRow label="Vencimento" value={info.dueDateFormatted} />
+              <InfoRow
+                label="Link de pagamento"
+                value={info.paymentUrl || "—"}
+                mono
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Mensagem</Label>
+              <Textarea
+                rows={12}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={sending}>
+            Fechar
+          </Button>
+          {!loading && info && (
+            <Button onClick={handleSend} disabled={sending || !message.trim()}>
+              {sending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Enviar
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function InfoRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div>
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className={mono ? "text-xs break-all font-mono" : "text-sm"}>{value}</div>
+    </div>
+  );
+}
+
+// ---------- Mensagens tab ----------
+function MensagensTab({
+  studentId,
+  organizationId,
+}: {
+  studentId: string;
+  organizationId: string;
+}) {
+  const listLogs = useServerFn(listWhatsappMessageLogs);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const { data: session } = await supabase.auth.getSession();
+        const accessToken = session.session?.access_token;
+        if (!accessToken) throw new Error("Sessão inválida");
+        const res: any = await listLogs({
+          data: { accessToken, organizationId, studentId },
+        });
+        if (!cancelled) setLogs(res.logs ?? []);
+      } catch (e: any) {
+        if (!cancelled) toast.error(e?.message ?? "Erro ao carregar histórico");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [studentId, organizationId, listLogs]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (logs.length === 0) {
+    return (
+      <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
+        Nenhuma mensagem enviada ainda.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border bg-card p-2">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Data</TableHead>
+            <TableHead>Telefone</TableHead>
+            <TableHead>Mensagem</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Resposta</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {logs.map((l) => (
+            <TableRow key={l.id}>
+              <TableCell className="whitespace-nowrap text-xs">
+                {new Date(l.created_at).toLocaleString("pt-BR")}
+              </TableCell>
+              <TableCell className="text-xs">{l.phone}</TableCell>
+              <TableCell className="max-w-md">
+                <div className="line-clamp-3 whitespace-pre-wrap text-xs text-muted-foreground">
+                  {l.message}
+                </div>
+              </TableCell>
+              <TableCell>
+                {l.status === "sent" ? (
+                  <span className="inline-flex items-center rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                    Enviado
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center rounded-full border border-red-300 bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
+                    Falhou
+                  </span>
+                )}
+              </TableCell>
+              <TableCell className="max-w-xs">
+                <div className="line-clamp-2 text-xs text-muted-foreground">
+                  {l.provider_response ?? "—"}
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }
