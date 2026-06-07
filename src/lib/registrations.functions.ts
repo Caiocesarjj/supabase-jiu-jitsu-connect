@@ -1952,3 +1952,122 @@ export const listWhatsappMessageLogs = createServerFn({ method: "POST" })
     if (error) throw error;
     return { logs: rows ?? [] };
   });
+
+// ============================================================
+// Geração de cobrança individual para um aluno
+// ============================================================
+
+export const generateChargeForStudent = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema
+      .extend({
+        studentId: z.string().uuid(),
+        referenceMonth: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabase } = await requireStaff(data.accessToken, data.organizationId);
+
+    const now = new Date();
+    const referenceMonth =
+      data.referenceMonth ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const referenceMonthDate = `${referenceMonth}-01`;
+
+    const [{ data: student, error: studentError }, { data: settings, error: settingsError }] =
+      await Promise.all([
+        supabase
+          .from("students")
+          .select(
+            `id, monthly_fee, enrollment_date,
+             profiles:profile_id(full_name, email, phone, cpf),
+             subscription_records(status, plan_id, subscription_plans(amount, new_amount_after, validity_months))`,
+          )
+          .eq("id", data.studentId)
+          .eq("organization_id", data.organizationId)
+          .maybeSingle(),
+        supabase
+          .from("organization_settings")
+          .select("monthly_fee_default, due_day, payment_gateway, payment_gateway_api_key")
+          .eq("organization_id", data.organizationId)
+          .maybeSingle(),
+      ]);
+    if (studentError) throw studentError;
+    if (settingsError) throw settingsError;
+    if (!student) throw new Error("Aluno não encontrado.");
+
+    const dueDay = Number(settings?.due_day ?? 10);
+    const defaultFee = Number(settings?.monthly_fee_default ?? 0);
+
+    const activeSubscription = (student as any).subscription_records?.find(
+      (sub: any) => sub.status === "active",
+    );
+    const plan = Array.isArray(activeSubscription?.subscription_plans)
+      ? activeSubscription?.subscription_plans[0]
+      : activeSubscription?.subscription_plans;
+
+    const planDueDay = plan?.validity_months ?? dueDay;
+    const dueDate = dueDateFromEnrollment(referenceMonth, null, planDueDay);
+    const isPastDue = dueDate < new Date().toISOString().slice(0, 10);
+    const amount =
+      (isPastDue && plan?.new_amount_after != null ? plan.new_amount_after : plan?.amount) ??
+      (student as any).monthly_fee ??
+      defaultFee;
+
+    if (!amount || Number(amount) <= 0) {
+      throw new Error("Aluno sem plano/valor configurado. Defina o plano ou a mensalidade antes de gerar.");
+    }
+
+    const idempotencyKey = `${data.studentId}_${referenceMonthDate}`;
+    const { error: upsertError } = await supabase.from("financial_records").upsert(
+      [
+        {
+          organization_id: data.organizationId,
+          student_id: data.studentId,
+          amount,
+          due_date: dueDate,
+          reference_month: referenceMonthDate,
+          status: "pending",
+          idempotency_key: idempotencyKey,
+        },
+      ],
+      { onConflict: "idempotency_key", ignoreDuplicates: true },
+    );
+    if (upsertError) throw upsertError;
+
+    const { data: charge, error: chargeError } = await supabase
+      .from("financial_records")
+      .select(
+        "id, amount, due_date, invoice_url, pix_code, students:student_id(profiles:profile_id(full_name, email, phone, cpf))",
+      )
+      .eq("organization_id", data.organizationId)
+      .eq("idempotency_key", idempotencyKey)
+      .maybeSingle();
+    if (chargeError) throw chargeError;
+    if (!charge) throw new Error("Cobrança não encontrada após criação.");
+
+    if (
+      settings?.payment_gateway === "asaas" &&
+      settings.payment_gateway_api_key &&
+      !charge.invoice_url
+    ) {
+      try {
+        const asaasCharge = await ensureAsaasCharge({
+          apiKey: settings.payment_gateway_api_key,
+          charge: charge as any,
+        });
+        await supabase
+          .from("financial_records")
+          .update({ pix_code: asaasCharge.pixCode, invoice_url: asaasCharge.invoiceUrl })
+          .eq("id", charge.id)
+          .eq("organization_id", data.organizationId);
+      } catch (err) {
+        console.error("Falha ao gerar cobrança Asaas individual:", err);
+        throw new Error(
+          `Cobrança criada, mas falha ao gerar no Asaas: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    return { ok: true, financialRecordId: charge.id as string };
+  });
