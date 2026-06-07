@@ -1788,3 +1788,167 @@ export const testPaymentIntegration = createServerFn({ method: "POST" })
       throw new Error(msg);
     }
   });
+
+// ============================================================
+// Cobrança individual via WhatsApp (manual, pela ficha do aluno)
+// ============================================================
+
+export const getStudentChargeForWhatsapp = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema.extend({ studentId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+
+    const { data: student, error: studentErr } = await admin
+      .from("students")
+      .select(
+        `id,
+         profiles:profile_id(full_name, phone),
+         subscription_records(status, subscription_plans(name, amount))`,
+      )
+      .eq("id", data.studentId)
+      .eq("organization_id", data.organizationId)
+      .maybeSingle();
+    if (studentErr) throw studentErr;
+    if (!student) throw new Error("Aluno não encontrado.");
+
+    const profile = Array.isArray(student.profiles) ? student.profiles[0] : student.profiles;
+    const phone = normalizeBrazilianPhone(profile?.phone);
+    if (!phone) {
+      return { hasPhone: false, hasCharge: false } as const;
+    }
+
+    const { data: charges, error: chargesErr } = await admin
+      .from("financial_records")
+      .select("id, amount, due_date, status, invoice_url, pix_code, reference_month")
+      .eq("organization_id", data.organizationId)
+      .eq("student_id", data.studentId)
+      .in("status", ["pending", "overdue"])
+      .order("due_date", { ascending: true })
+      .limit(1);
+    if (chargesErr) throw chargesErr;
+
+    const charge = charges?.[0];
+    if (!charge) {
+      return { hasPhone: true, hasCharge: false, phone } as const;
+    }
+
+    const activeSub = Array.isArray(student.subscription_records)
+      ? student.subscription_records.find((s: any) => s.status === "active")
+      : null;
+    const plan = activeSub
+      ? Array.isArray(activeSub.subscription_plans)
+        ? activeSub.subscription_plans[0]
+        : activeSub.subscription_plans
+      : null;
+
+    const { data: org } = await admin
+      .from("organizations")
+      .select("name")
+      .eq("id", data.organizationId)
+      .maybeSingle();
+
+    const academyName = org?.name ?? "Academia";
+    const studentName = profile?.full_name ?? "Aluno";
+    const planName = plan?.name ?? "Mensalidade";
+    const amountStr = formatMoneyBR(charge.amount);
+    const dueStr = formatDateBRValue(charge.due_date);
+    const paymentUrl = charge.invoice_url || "";
+
+    const message =
+      `🥋 Olá ${studentName}!\n\n` +
+      `Sua mensalidade está disponível.\n\n` +
+      `📦 Plano: ${planName}\n` +
+      `💰 Valor: ${amountStr}\n` +
+      `📅 Vencimento: ${dueStr}\n\n` +
+      `Para realizar o pagamento utilize o link abaixo:\n` +
+      `🔗 ${paymentUrl || "Procure a secretaria"}\n\n` +
+      `Após o pagamento sua situação será atualizada automaticamente.\n\n` +
+      `Oss!\n` +
+      `Equipe ${academyName}`;
+
+    return {
+      hasPhone: true,
+      hasCharge: true,
+      phone,
+      studentName,
+      planName,
+      amount: Number(charge.amount ?? 0),
+      amountFormatted: amountStr,
+      dueDate: String(charge.due_date ?? "").slice(0, 10),
+      dueDateFormatted: dueStr,
+      paymentUrl,
+      financialRecordId: charge.id as string,
+      message,
+    } as const;
+  });
+
+export const sendIndividualWhatsappCharge = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema
+      .extend({
+        studentId: z.string().uuid(),
+        financialRecordId: z.string().uuid(),
+        phone: z.string().min(8).max(30),
+        message: z.string().min(1).max(4000),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+
+    const { data: settings, error: settingsErr } = await admin
+      .from("organization_settings")
+      .select("botbot_app_key, botbot_auth_key")
+      .eq("organization_id", data.organizationId)
+      .maybeSingle();
+    if (settingsErr) throw settingsErr;
+    if (!settings?.botbot_app_key || !settings?.botbot_auth_key) {
+      throw new Error("Credenciais BotBot não configuradas em Configurações → WhatsApp.");
+    }
+
+    const phone = normalizeBrazilianPhone(data.phone) ?? data.phone.replace(/\D/g, "");
+
+    let status: "sent" | "failed" = "sent";
+    let providerResponse = "OK";
+    try {
+      await sendBotBotMessage(settings, phone, data.message);
+    } catch (err) {
+      status = "failed";
+      providerResponse = err instanceof Error ? err.message : String(err);
+    }
+
+    await admin.from("whatsapp_message_logs").insert({
+      organization_id: data.organizationId,
+      student_id: data.studentId,
+      financial_record_id: data.financialRecordId,
+      phone,
+      message: data.message,
+      status,
+      provider_response: providerResponse,
+    });
+
+    if (status === "failed") throw new Error(providerResponse);
+    return { ok: true, status, phone };
+  });
+
+export const listWhatsappMessageLogs = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema.extend({ studentId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+    const { data: rows, error } = await admin
+      .from("whatsapp_message_logs")
+      .select("id, phone, message, status, provider_response, created_at")
+      .eq("organization_id", data.organizationId)
+      .eq("student_id", data.studentId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) throw error;
+    return { logs: rows ?? [] };
+  });
