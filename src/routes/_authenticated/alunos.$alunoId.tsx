@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, UserPlus, Trash2, MoreHorizontal, Copy, Pencil, Plus } from "lucide-react";
+import { ArrowLeft, UserPlus, Trash2, MoreHorizontal, Copy, Pencil, Plus, MessageCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import {
