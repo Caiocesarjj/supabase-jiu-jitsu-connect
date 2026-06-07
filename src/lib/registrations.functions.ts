@@ -1594,8 +1594,8 @@ export const listSubscriptionRecordsForOrg = createServerFn({ method: "POST" })
       .from("subscription_records")
       .select(
         `id, status, started_at, next_due_date, notes, plan_id, student_id,
-         subscription_plans ( name, amount, frequency ),
-         students ( id, profiles ( full_name, phone ) )`,
+          subscription_plans ( name, amount, frequency ),
+          students ( id, status, profiles ( full_name, phone ) )`,
       )
       .eq("organization_id", data.organizationId)
       .order("created_at", { ascending: false });
