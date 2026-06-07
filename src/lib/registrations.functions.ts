@@ -704,6 +704,10 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
     if (studentsError) throw studentsError;
     if (settingsError) throw settingsError;
 
+    const admin = getAdminClient();
+    const paymentConfig = await getActivePaymentConfig(admin, data.organizationId);
+    const staticPaymentUrl = getStaticPaymentUrl(paymentConfig);
+
     const [year, month] = data.referenceMonth.split("-");
     const referenceMonth = `${year}-${month}-01`;
     const dueDay = Number(settings?.due_day ?? 10);
@@ -754,7 +758,22 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
         .upsert(rows, { onConflict: "idempotency_key", ignoreDuplicates: true });
       if (error) throw error;
 
-      if (settings?.payment_gateway === "asaas" && settings.payment_gateway_api_key) {
+      if (staticPaymentUrl) {
+        const { error: linkError } = await supabase
+          .from("financial_records")
+          .update({ invoice_url: staticPaymentUrl })
+          .eq("organization_id", data.organizationId)
+          .in("idempotency_key", rows.map((row) => row.idempotency_key))
+          .is("invoice_url", null);
+        if (linkError) throw linkError;
+      }
+
+      const asaasApiKey = paymentConfig.provider === "asaas" && typeof paymentConfig.credentials.apiKey === "string"
+        ? paymentConfig.credentials.apiKey
+        : settings?.payment_gateway === "asaas"
+          ? settings.payment_gateway_api_key
+          : null;
+      if (asaasApiKey) {
         const { data: charges, error: chargesError } = await supabase
           .from("financial_records")
           .select(
@@ -771,7 +790,7 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
           students?: { profiles?: { full_name?: string; email?: string | null; phone?: string | null; cpf?: string | null } } | null;
         }>) {
           const asaasCharge = await ensureAsaasCharge({
-            apiKey: settings.payment_gateway_api_key,
+            apiKey: asaasApiKey,
             charge,
           });
           await supabase
@@ -983,6 +1002,8 @@ export async function runAutomaticWhatsappNotifications({
       if (manual) throw new Error("Credenciais BotBot não configuradas em Configurações → WhatsApp.");
       continue;
     }
+    const paymentConfig = await getActivePaymentConfig(admin, settings.organization_id);
+    const staticPaymentUrl = getStaticPaymentUrl(paymentConfig);
 
     const days = Array.isArray(settings.charge_reminder_days) ? settings.charge_reminder_days : [];
     if (!manual && days.length === 0) continue;
@@ -1052,7 +1073,7 @@ export async function runAutomaticWhatsappNotifications({
         plan_price: formatMoneyBR(charge.amount),
         expires_at: formatDateBRValue(dueDate),
         academy_name: orgNames.get(settings.organization_id) ?? "Academia",
-        payment_link: charge.invoice_url || (charge.pix_code ? `PIX copia e cola: ${charge.pix_code}` : "Procure a secretaria"),
+        payment_link: charge.invoice_url || staticPaymentUrl || (charge.pix_code ? `PIX copia e cola: ${charge.pix_code}` : "Procure a secretaria"),
       });
 
       try {
@@ -1613,6 +1634,46 @@ function legacyCredentialValue(provider: PaymentProvider, credentials: Record<st
   return null;
 }
 
+async function getActivePaymentConfig(admin: ReturnType<typeof getAdminClient>, organizationId: string) {
+  const { data: activeIntegration, error: integrationError } = await admin
+    .from("payment_integrations")
+    .select("provider, credentials_json")
+    .eq("organization_id", organizationId)
+    .eq("active", true)
+    .maybeSingle();
+
+  if (integrationError && !isMissingPaymentIntegrationsTable(integrationError)) throw integrationError;
+
+  const parsedProvider = paymentProviderEnum.safeParse(activeIntegration?.provider);
+  if (parsedProvider.success) {
+    return {
+      provider: parsedProvider.data,
+      credentials: (activeIntegration?.credentials_json ?? {}) as Record<string, unknown>,
+    };
+  }
+
+  const { data: settings, error: settingsError } = await admin
+    .from("organization_settings")
+    .select("payment_gateway, payment_gateway_api_key")
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+  if (settingsError) throw settingsError;
+
+  const legacyProvider = paymentProviderEnum.safeParse(settings?.payment_gateway);
+  if (!legacyProvider.success) return { provider: "manual" as const, credentials: {} };
+  return {
+    provider: legacyProvider.data,
+    credentials: legacyCredentials(legacyProvider.data, settings?.payment_gateway_api_key),
+  };
+}
+
+function getStaticPaymentUrl(config: { provider: PaymentProvider | "manual"; credentials: Record<string, unknown> }) {
+  const key = config.provider === "link" ? "paymentUrl" : config.provider === "infinitepay" ? "baseUrl" : null;
+  if (!key) return null;
+  const value = config.credentials[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
 async function listLegacyPaymentIntegration(admin: ReturnType<typeof getAdminClient>, organizationId: string) {
   const { data: settings, error } = await admin
     .from("organization_settings")
@@ -1864,7 +1925,7 @@ export const getStudentChargeForWhatsapp = createServerFn({ method: "POST" })
       .from("students")
       .select(
         `id,
-         profiles:profile_id(full_name, phone),
+         profiles:profile_id(full_name, email, phone, cpf),
          subscription_records(status, subscription_plans(name, amount))`,
       )
       .eq("id", data.studentId)
@@ -1914,7 +1975,27 @@ export const getStudentChargeForWhatsapp = createServerFn({ method: "POST" })
     const planName = plan?.name ?? "Mensalidade";
     const amountStr = formatMoneyBR(charge.amount);
     const dueStr = formatDateBRValue(charge.due_date);
-    const paymentUrl = charge.invoice_url || "";
+    const paymentConfig = await getActivePaymentConfig(admin, data.organizationId);
+    let paymentUrl = charge.invoice_url || getStaticPaymentUrl(paymentConfig) || "";
+    if (!paymentUrl && paymentConfig.provider === "asaas" && typeof paymentConfig.credentials.apiKey === "string") {
+      const asaasCharge = await ensureAsaasCharge({
+        apiKey: paymentConfig.credentials.apiKey,
+        charge: {
+          id: charge.id as string,
+          amount: Number(charge.amount ?? 0),
+          due_date: String(charge.due_date ?? "").slice(0, 10),
+          students: { profiles: profile as any },
+        },
+      });
+      paymentUrl = asaasCharge.invoiceUrl || "";
+      await admin
+        .from("financial_records")
+        .update({ pix_code: asaasCharge.pixCode, invoice_url: asaasCharge.invoiceUrl })
+        .eq("id", charge.id)
+        .eq("organization_id", data.organizationId);
+      charge.invoice_url = asaasCharge.invoiceUrl;
+      charge.pix_code = asaasCharge.pixCode;
+    }
 
     const message =
       `🥋 Olá ${studentName}!\n\n` +
@@ -1923,7 +2004,7 @@ export const getStudentChargeForWhatsapp = createServerFn({ method: "POST" })
       `💰 Valor: ${amountStr}\n` +
       `📅 Vencimento: ${dueStr}\n\n` +
       `Para realizar o pagamento utilize o link abaixo:\n` +
-      `🔗 ${paymentUrl || "Procure a secretaria"}\n\n` +
+      `🔗 ${paymentUrl || (charge.pix_code ? `PIX copia e cola: ${charge.pix_code}` : "Procure a secretaria")}\n\n` +
       `Após o pagamento sua situação será atualizada automaticamente.\n\n` +
       `Oss!\n` +
       `Equipe ${academyName}`;
@@ -2058,6 +2139,8 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
 
     const dueDay = Number(settings?.due_day ?? 10);
     const defaultFee = Number(settings?.monthly_fee_default ?? 0);
+    const paymentConfig = await getActivePaymentConfig(admin, data.organizationId);
+    const staticPaymentUrl = getStaticPaymentUrl(paymentConfig);
 
     const activeSubscription = (student as any).subscription_records?.find(
       (sub: any) => sub.status === "active",
@@ -2113,14 +2196,25 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
     if (chargeError) throw chargeError;
     if (!charge) throw new Error("Cobrança não encontrada após criação.");
 
-    if (
-      settings?.payment_gateway === "asaas" &&
-      settings.payment_gateway_api_key &&
-      !charge.invoice_url
-    ) {
+    if (staticPaymentUrl && !charge.invoice_url) {
+      const { error: linkError } = await admin
+        .from("financial_records")
+        .update({ invoice_url: staticPaymentUrl })
+        .eq("id", charge.id)
+        .eq("organization_id", data.organizationId);
+      if (linkError) throw linkError;
+      charge.invoice_url = staticPaymentUrl;
+    }
+
+    const asaasApiKey = paymentConfig.provider === "asaas" && typeof paymentConfig.credentials.apiKey === "string"
+      ? paymentConfig.credentials.apiKey
+      : settings?.payment_gateway === "asaas"
+        ? settings.payment_gateway_api_key
+        : null;
+    if (asaasApiKey && !charge.invoice_url) {
       try {
         const asaasCharge = await ensureAsaasCharge({
-          apiKey: settings.payment_gateway_api_key,
+          apiKey: asaasApiKey,
           charge: charge as any,
         });
         await admin
