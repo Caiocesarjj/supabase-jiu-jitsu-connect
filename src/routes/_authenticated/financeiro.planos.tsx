@@ -216,13 +216,13 @@ function Page() {
   }, [organizationId]);
 
   const summary = useMemo(() => {
-    const active = subs.filter((s) => s.status === "active");
+    const active = subs.filter((s) => s.status === "active" && s.students?.status === "active");
     const mrr = active.reduce((acc, s) => {
       if (!s.subscription_plans) return acc;
       return acc + monthlyEquivalent(Number(s.subscription_plans.amount), s.subscription_plans.frequency);
     }, 0);
     const today = todayISO();
-    const overdue = active.filter((s) => s.next_due_date && s.next_due_date < today).length;
+    const overdue = subs.filter((s) => s.status === "active" && s.next_due_date && s.next_due_date < today).length;
     const total = subs.length;
     const successRate = total === 0 ? 0 : (active.length / total) * 100;
     return { activeCount: active.length, mrr, overdue, successRate };
@@ -403,7 +403,7 @@ function Page() {
     <div className="space-y-6">
       {/* Summary */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Assinaturas ativas" value={String(summary.activeCount)} tone="emerald" />
+        <StatCard label="Alunos ativos nos planos" value={String(summary.activeCount)} tone="emerald" />
         <StatCard label="Receita mensal recorrente" value={formatBRL(summary.mrr)} tone="blue" />
         <StatCard label="Com pagamento atrasado" value={String(summary.overdue)} tone="red" />
         <StatCard
@@ -518,9 +518,12 @@ function Page() {
                       <td className="px-3 py-2">{plan ? formatBRL(Number(plan.amount)) : "—"}</td>
                       <td className="px-3 py-2">{plan ? FREQ_LABEL[plan.frequency] : "—"}</td>
                       <td className="px-3 py-2">
-                        <StatusBadge status={s.status} />
-                        {s.status === "active" && s.students?.status !== "active" && (
-                          <div className="mt-1 text-xs text-muted-foreground">Aluno aguardando pagamento</div>
+                        {s.status === "active" && s.students?.status !== "active" ? (
+                          <span className="inline-flex items-center rounded-full border border-yellow-300 bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+                            Aguardando pagamento
+                          </span>
+                        ) : (
+                          <StatusBadge status={s.status} />
                         )}
                       </td>
                       <td className="px-3 py-2">
