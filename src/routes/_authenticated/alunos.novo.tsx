@@ -69,10 +69,8 @@ function NovoAlunoPage() {
   const [birthDate, setBirthDate] = useState("");
   const [sex, setSex] = useState<Sex | "">("");
   const [weightKg, setWeightKg] = useState("");
-  const [monthlyFee, setMonthlyFee] = useState("");
   const [belt, setBelt] = useState<Belt>("branca");
   const [degrees, setDegrees] = useState("0");
-  const [status, setStatus] = useState("inactive");
   const [planId, setPlanId] = useState<string>("");
   const [plans, setPlans] = useState<PlanOption[]>([]);
   const [saving, setSaving] = useState(false);
@@ -108,6 +106,10 @@ function NovoAlunoPage() {
       toast.error("Nome completo é obrigatório");
       return;
     }
+    if (!planId) {
+      toast.error("Selecione um plano para vincular o aluno e gerar a primeira cobrança.");
+      return;
+    }
     setSaving(true);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -124,11 +126,9 @@ function NovoAlunoPage() {
           birthDate: birthDate || undefined,
           sex: sex || null,
           weightKg: weightKg ? Number(weightKg) : null,
-          monthlyFee: monthlyFee ? Number(monthlyFee) : null,
-          status: status as "active" | "trial" | "inactive",
           belt,
           degrees: Number(degrees) || 0,
-          subscriptionPlanId: planId || null,
+          subscriptionPlanId: planId,
           validityDate: null,
         },
       });
@@ -218,43 +218,17 @@ function NovoAlunoPage() {
 
         <section className="space-y-3">
           <h2 className="text-sm font-semibold text-muted-foreground">Matrícula</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div>
-              <Label>Status inicial</Label>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="inactive">Aguardando 1º pagamento</SelectItem>
-                  <SelectItem value="trial">Experimental</SelectItem>
-                  <SelectItem value="active">Ativo</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground mt-1">
-                Mantenha como Experimental até confirmar o primeiro pagamento (em dinheiro, cartão ou PIX na academia). Após registrar o pagamento, o aluno é ativado automaticamente.
-              </p>
-            </div>
-            <div>
-              <Label>Mensalidade (R$)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                placeholder="Padrão da academia"
-                value={monthlyFee}
-                onChange={(e) => setMonthlyFee(e.target.value)}
-              />
-            </div>
+          <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+            O aluno começa aguardando o primeiro pagamento e só fica ativo após registrar a cobrança como paga.
           </div>
           <div className="grid grid-cols-1 gap-3">
             <div>
-              <Label>Plano</Label>
-              <Select value={planId || "none"} onValueChange={(v) => setPlanId(v === "none" ? "" : v)}>
+              <Label>Plano *</Label>
+              <Select value={planId} onValueChange={setPlanId}>
                 <SelectTrigger>
-                  <SelectValue placeholder={plans.length ? "Selecione um plano" : "Nenhum plano cadastrado"} />
+                  <SelectValue placeholder={plans.length ? "Selecione um plano" : "Cadastre um plano em Financeiro > Planos"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Sem plano</SelectItem>
                   {plans.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.name} — R$ {p.amount}
@@ -262,6 +236,9 @@ function NovoAlunoPage() {
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                A cobrança do aluno será gerada pelo valor do plano, não por mensalidade solta no cadastro.
+              </p>
             </div>
           </div>
         </section>
