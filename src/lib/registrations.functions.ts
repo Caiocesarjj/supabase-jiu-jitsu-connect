@@ -1523,6 +1523,7 @@ export const listStudentsForOrg = createServerFn({ method: "POST" })
       .from("students")
       .select("id, enrollment_date, profiles ( full_name )")
       .eq("organization_id", data.organizationId)
+      .neq("status", "active")
       .order("created_at", { ascending: false });
     if (error) throw error;
     return { students: rows ?? [] };
