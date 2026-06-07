@@ -1923,7 +1923,7 @@ export const getStudentChargeForWhatsapp = createServerFn({ method: "POST" })
       .from("students")
       .select(
         `id,
-         profiles:profile_id(full_name, phone),
+         profiles:profile_id(full_name, email, phone, cpf),
          subscription_records(status, subscription_plans(name, amount))`,
       )
       .eq("id", data.studentId)
@@ -1973,7 +1973,27 @@ export const getStudentChargeForWhatsapp = createServerFn({ method: "POST" })
     const planName = plan?.name ?? "Mensalidade";
     const amountStr = formatMoneyBR(charge.amount);
     const dueStr = formatDateBRValue(charge.due_date);
-    const paymentUrl = charge.invoice_url || "";
+    const paymentConfig = await getActivePaymentConfig(admin, data.organizationId);
+    let paymentUrl = charge.invoice_url || getStaticPaymentUrl(paymentConfig) || "";
+    if (!paymentUrl && paymentConfig.provider === "asaas" && typeof paymentConfig.credentials.apiKey === "string") {
+      const asaasCharge = await ensureAsaasCharge({
+        apiKey: paymentConfig.credentials.apiKey,
+        charge: {
+          id: charge.id as string,
+          amount: Number(charge.amount ?? 0),
+          due_date: String(charge.due_date ?? "").slice(0, 10),
+          students: { profiles: profile as any },
+        },
+      });
+      paymentUrl = asaasCharge.invoiceUrl || "";
+      await admin
+        .from("financial_records")
+        .update({ pix_code: asaasCharge.pixCode, invoice_url: asaasCharge.invoiceUrl })
+        .eq("id", charge.id)
+        .eq("organization_id", data.organizationId);
+      charge.invoice_url = asaasCharge.invoiceUrl;
+      charge.pix_code = asaasCharge.pixCode;
+    }
 
     const message =
       `🥋 Olá ${studentName}!\n\n` +
@@ -1982,7 +2002,7 @@ export const getStudentChargeForWhatsapp = createServerFn({ method: "POST" })
       `💰 Valor: ${amountStr}\n` +
       `📅 Vencimento: ${dueStr}\n\n` +
       `Para realizar o pagamento utilize o link abaixo:\n` +
-      `🔗 ${paymentUrl || "Procure a secretaria"}\n\n` +
+      `🔗 ${paymentUrl || (charge.pix_code ? `PIX copia e cola: ${charge.pix_code}` : "Procure a secretaria")}\n\n` +
       `Após o pagamento sua situação será atualizada automaticamente.\n\n` +
       `Oss!\n` +
       `Equipe ${academyName}`;
