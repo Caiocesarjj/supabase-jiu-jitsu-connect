@@ -271,6 +271,13 @@ function FinanceiroPage() {
         <SummaryCard label="Vencido" value={totals.vencido} tone="red" />
       </div>
 
+      {/* Alunos pendentes — pagamento rápido */}
+      <PendingStudentsPanel
+        records={records}
+        loading={loading}
+        onPay={(r) => setPayRecord(r)}
+      />
+
       {/* Filters */}
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div className="flex flex-col gap-2 md:flex-row md:items-end">
@@ -634,5 +641,78 @@ function PaymentModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function PendingStudentsPanel({
+  records,
+  loading,
+  onPay,
+}: {
+  records: Record[];
+  loading: boolean;
+  onPay: (r: Record) => void;
+}) {
+  const pending = useMemo(() => {
+    return records
+      .filter((r) => r.status === "pending" || r.status === "overdue")
+      .sort((a, b) => a.due_date.localeCompare(b.due_date));
+  }, [records]);
+
+  if (loading) return null;
+
+  return (
+    <div className="rounded-md border border-border bg-card">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <div>
+          <h2 className="text-sm font-semibold">Alunos pendentes</h2>
+          <p className="text-xs text-muted-foreground">
+            Alunos com mensalidade em aberto — registre pagamentos em dinheiro,
+            cartão ou PIX direto.
+          </p>
+        </div>
+        <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+          {pending.length}
+        </span>
+      </div>
+      {pending.length === 0 ? (
+        <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+          Nenhum aluno com mensalidade pendente. 🎉
+        </div>
+      ) : (
+        <ul className="divide-y divide-border max-h-[360px] overflow-y-auto">
+          {pending.map((r) => {
+            const name = r.students?.profiles?.full_name ?? "—";
+            const overdue =
+              r.status === "overdue" || isOverdueDate(r.due_date, r.status);
+            return (
+              <li
+                key={r.id}
+                className="flex items-center justify-between gap-3 px-4 py-2"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <Avatar name={name} size={32} />
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">{name}</div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{refMonthLabel(r.reference_month)}</span>
+                      <span>·</span>
+                      <span className={overdue ? "text-red-600" : ""}>
+                        Vence {formatDateBR(r.due_date)}
+                      </span>
+                      <span>·</span>
+                      <span>{formatBRL(Number(r.amount))}</span>
+                    </div>
+                  </div>
+                </div>
+                <Button size="sm" onClick={() => onPay(r)}>
+                  Marcar como pago
+                </Button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }
