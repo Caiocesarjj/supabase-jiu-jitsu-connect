@@ -1447,12 +1447,29 @@ export const updateSubscriptionStatus = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requireStaff(data.accessToken, data.organizationId);
     const admin = getAdminClient();
+    const { data: currentSub, error: currentError } = await admin
+      .from("subscription_records")
+      .select("student_id")
+      .eq("id", data.subscriptionId)
+      .eq("organization_id", data.organizationId)
+      .maybeSingle();
+    if (currentError) throw currentError;
+
     const { error } = await admin
       .from("subscription_records")
       .update({ status: data.status })
       .eq("id", data.subscriptionId)
       .eq("organization_id", data.organizationId);
     if (error) throw error;
+
+    if (currentSub?.student_id && data.status !== "active") {
+      const { error: studentError } = await admin
+        .from("students")
+        .update({ status: "inactive" })
+        .eq("id", currentSub.student_id)
+        .eq("organization_id", data.organizationId);
+      if (studentError) throw studentError;
+    }
     return { ok: true };
   });
 
