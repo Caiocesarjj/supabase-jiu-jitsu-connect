@@ -880,6 +880,19 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
         .upsert(rows, { onConflict: "idempotency_key", ignoreDuplicates: true });
       if (error) throw error;
 
+      const syncResults = await Promise.all(
+        rows.map((row) =>
+          supabase
+            .from("financial_records")
+            .update({ amount: row.amount, due_date: row.due_date })
+            .eq("organization_id", data.organizationId)
+            .eq("idempotency_key", row.idempotency_key)
+            .in("status", ["pending", "overdue"]),
+        ),
+      );
+      const syncError = syncResults.find((result) => result.error)?.error;
+      if (syncError) throw syncError;
+
       if (staticPaymentUrl) {
         const { error: linkError } = await supabase
           .from("financial_records")
@@ -925,6 +938,7 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
             };
           } | null;
         }>) {
+          if (Number(charge.amount) < ASAAS_MINIMUM_CHARGE_AMOUNT) continue;
           const asaasCharge = await ensureAsaasCharge({
             apiKey: asaasApiKey,
             charge,
