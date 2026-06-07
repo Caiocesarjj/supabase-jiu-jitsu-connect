@@ -220,17 +220,20 @@ function NovoAlunoPage() {
           <h2 className="text-sm font-semibold text-muted-foreground">Matrícula</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
-              <Label>Status</Label>
+              <Label>Status inicial</Label>
               <Select value={status} onValueChange={setStatus}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="trial">Experimental (aguardando 1º pagamento)</SelectItem>
                   <SelectItem value="active">Ativo</SelectItem>
-                  <SelectItem value="trial">Experimental</SelectItem>
                   <SelectItem value="inactive">Inativo</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Mantenha como Experimental até confirmar o primeiro pagamento (em dinheiro, cartão ou PIX na academia). Após registrar o pagamento, o aluno é ativado automaticamente.
+              </p>
             </div>
             <div>
               <Label>Mensalidade (R$)</Label>
