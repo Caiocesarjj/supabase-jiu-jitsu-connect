@@ -2338,6 +2338,57 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
     return { ok: true, financialRecordId: charge.id as string };
   });
 
+export const registerManualPayment = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema
+      .extend({
+        financialRecordId: z.string().uuid(),
+        method: z.string().trim().min(1).max(40),
+        paidAt: z.string().min(10).max(30),
+        notes: z.string().max(1000).nullable().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+
+    const { data: record, error: recordError } = await admin
+      .from("financial_records")
+      .select("id, student_id")
+      .eq("id", data.financialRecordId)
+      .eq("organization_id", data.organizationId)
+      .maybeSingle();
+    if (recordError) throw recordError;
+    if (!record) throw new Error("Cobrança não encontrada.");
+
+    const paidAt = `${data.paidAt.slice(0, 10)}T12:00:00.000Z`;
+    const { error: paymentError } = await admin
+      .from("financial_records")
+      .update({ status: "paid", paid_at: paidAt, payment_method: data.method })
+      .eq("id", data.financialRecordId)
+      .eq("organization_id", data.organizationId);
+    if (paymentError) throw paymentError;
+
+    await admin.from("payment_logs").insert({
+      organization_id: data.organizationId,
+      financial_record_id: data.financialRecordId,
+      event_type: "paid_manual",
+      payload: { method: data.method, notes: data.notes ?? "" },
+    });
+
+    if (record.student_id) {
+      const { error: studentError } = await admin
+        .from("students")
+        .update({ status: "active" })
+        .eq("id", record.student_id)
+        .eq("organization_id", data.organizationId);
+      if (studentError) throw studentError;
+    }
+
+    return { ok: true };
+  });
+
 export const updateStudentBasics = createServerFn({ method: "POST" })
   .inputValidator((input) =>
     orgAuthSchema
