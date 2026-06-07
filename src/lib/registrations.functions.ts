@@ -210,6 +210,11 @@ async function ensureAsaasCharge({
   const profile = charge.students?.profiles;
   const name = profile?.full_name || "Aluno JJ Manager";
   const phone = normalizeBrazilianPhone(profile?.phone);
+  if (Number(charge.amount) < 5) {
+    throw new Error(
+      "O valor mínimo de cobrança no Asaas é R$ 5,00. Ajuste o valor do plano antes de gerar o link de pagamento.",
+    );
+  }
   const existing = await asaasRequest<{
     data?: Array<{ id: string; invoiceUrl?: string; bankSlipUrl?: string }>;
   }>(apiKey, `/payments?externalReference=${encodeURIComponent(charge.id)}`, { method: "GET" });
