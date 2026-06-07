@@ -40,6 +40,63 @@ function renderWhatsappTemplate(template: string, values: Record<string, string>
   return template.replace(/\{([a-zA-Z0-9_]+)\}/g, (_, key: string) => values[key] ?? `{${key}}`);
 }
 
+async function createPendingChargeForSubscription({
+  admin,
+  organizationId,
+  studentId,
+  planId,
+  referenceDate,
+}: {
+  admin: ReturnType<typeof getAdminClient>;
+  organizationId: string;
+  studentId: string;
+  planId: string;
+  referenceDate: string;
+}) {
+  const [{ data: plan, error: planError }, { data: settings, error: settingsError }] = await Promise.all([
+    admin
+      .from("subscription_plans")
+      .select("amount, new_amount_after")
+      .eq("id", planId)
+      .eq("organization_id", organizationId)
+      .maybeSingle(),
+    admin
+      .from("organization_settings")
+      .select("due_day")
+      .eq("organization_id", organizationId)
+      .maybeSingle(),
+  ]);
+  if (planError) throw planError;
+  if (settingsError) throw settingsError;
+  if (!plan) throw new Error("Plano não encontrado.");
+
+  const referenceMonth = referenceDate.slice(0, 7);
+  const [yearRef, monthRef] = referenceMonth.split("-").map(Number);
+  const normalDueDate = dueDateFromEnrollment(referenceMonth, null, Number(settings?.due_day ?? 10));
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const useAfterValidity = normalDueDate < todayStr && plan.new_amount_after != null;
+  const dueDate = useAfterValidity
+    ? `${yearRef}-${String(monthRef).padStart(2, "0")}-${String(new Date(yearRef, monthRef, 0).getDate()).padStart(2, "0")}`
+    : normalDueDate;
+  const amount = Number(useAfterValidity ? plan.new_amount_after : plan.amount);
+  if (!amount || amount <= 0) throw new Error("Plano sem valor configurado.");
+
+  const referenceMonthDate = `${referenceMonth}-01`;
+  const { error } = await admin.from("financial_records").upsert(
+    {
+      organization_id: organizationId,
+      student_id: studentId,
+      amount,
+      due_date: dueDate,
+      reference_month: referenceMonthDate,
+      status: "pending",
+      idempotency_key: `${studentId}_${referenceMonthDate}`,
+    },
+    { onConflict: "idempotency_key", ignoreDuplicates: true },
+  );
+  if (error) throw error;
+}
+
 async function sendBotBotMessage(settings: { botbot_app_key?: string | null; botbot_auth_key?: string | null }, phone: string, message: string) {
   if (!settings.botbot_app_key || !settings.botbot_auth_key) {
     throw new Error("Credenciais BotBot não configuradas em Configurações → WhatsApp.");
