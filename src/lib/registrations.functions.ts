@@ -205,7 +205,7 @@ async function ensureAsaasCharge({
         billingType: "PIX",
         value: Number(charge.amount),
         dueDate: charge.due_date,
-        description: `Mensalidade ${name}`,
+        description: `Plano ${name}`,
         externalReference: charge.id,
       }),
     });

@@ -109,7 +109,7 @@ function AlunosListPage() {
       const { data, error } = await supabase
         .from("students")
         .select(`
-          id, status, birth_date, sex, weight, monthly_fee,
+          id, status, birth_date, sex, weight,
           profiles ( full_name, phone, email, cpf ),
           graduations ( belt, degrees )
         `)
