@@ -36,30 +36,45 @@ export const Route = createFileRoute("/_authenticated/alunos/")({
 });
 
 const ALL_BELTS: Belt[] = [
-  "branca", "azul", "roxa", "marrom", "preta", "coral", "vermelha",
-  "cinza_branco", "cinza", "cinza_preto",
-  "amarela_branco", "amarela", "amarela_preto",
-  "laranja_branco", "laranja", "laranja_preto",
-  "verde_branco", "verde", "verde_preto",
+  "branca",
+  "azul",
+  "roxa",
+  "marrom",
+  "preta",
+  "coral",
+  "vermelha",
+  "cinza_branco",
+  "cinza",
+  "cinza_preto",
+  "amarela_branco",
+  "amarela",
+  "amarela_preto",
+  "laranja_branco",
+  "laranja",
+  "laranja_preto",
+  "verde_branco",
+  "verde",
+  "verde_preto",
 ];
 
 function DegreeDots({ degrees }: { degrees: number }) {
   if (!degrees) return null;
-  return (
-    <span className="ml-1 text-xs opacity-80">{"•".repeat(Math.min(degrees, 4))}</span>
-  );
+  return <span className="ml-1 text-xs opacity-80">{"•".repeat(Math.min(degrees, 4))}</span>;
 }
 
 function StatusPill({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
     active: { label: "Ativo", cls: "bg-emerald-100 text-emerald-800 border-emerald-300" },
-    inactive: { label: "Inativo", cls: "bg-gray-100 text-gray-700 border-gray-300" },
-    suspended: { label: "Suspenso", cls: "bg-yellow-100 text-yellow-800 border-yellow-300" },
-    trial: { label: "Experimental", cls: "bg-blue-100 text-blue-800 border-blue-300" },
+    inactive: {
+      label: "Aguardando pagamento",
+      cls: "bg-yellow-100 text-yellow-800 border-yellow-300",
+    },
   };
   const cfg = map[status] ?? { label: status, cls: "bg-gray-100 text-gray-700 border-gray-300" };
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${cfg.cls}`}>
+    <span
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${cfg.cls}`}
+    >
       {cfg.label}
     </span>
   );
@@ -110,11 +125,13 @@ function AlunosListPage() {
     (async () => {
       const { data, error } = await supabase
         .from("students")
-        .select(`
-          id, status, birth_date, sex, weight, monthly_fee,
+        .select(
+          `
+          id, status, birth_date, sex, weight,
           profiles ( full_name, phone, email, cpf ),
           graduations ( belt, degrees )
-        `)
+        `,
+        )
         .eq("organization_id", organizationId)
         .is("deleted_at", null)
         .order("created_at", { ascending: false });
@@ -127,7 +144,9 @@ function AlunosListPage() {
       }
       setLoading(false);
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [organizationId, reload]);
 
   const activeCount = students.filter((s) => s.status === "active").length;
@@ -180,20 +199,25 @@ function AlunosListPage() {
           />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos status</SelectItem>
             <SelectItem value="active">Ativo</SelectItem>
-            <SelectItem value="inactive">Inativo</SelectItem>
-            <SelectItem value="suspended">Suspenso</SelectItem>
+            <SelectItem value="inactive">Aguardando pagamento</SelectItem>
           </SelectContent>
         </Select>
         <Select value={beltFilter} onValueChange={setBeltFilter}>
-          <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas as faixas</SelectItem>
             {ALL_BELTS.map((b) => (
-              <SelectItem key={b} value={b}>{getBeltLabel(b)}</SelectItem>
+              <SelectItem key={b} value={b}>
+                {getBeltLabel(b)}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -217,7 +241,14 @@ function AlunosListPage() {
           icon={<Search className="h-10 w-10" />}
           title={`Nenhum aluno encontrado${search ? ` para "${search}"` : ""}`}
           action={
-            <Button variant="outline" onClick={() => { setSearchRaw(""); setStatusFilter("all"); setBeltFilter("all"); }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSearchRaw("");
+                setStatusFilter("all");
+                setBeltFilter("all");
+              }}
+            >
               Limpar busca
             </Button>
           }
@@ -245,7 +276,9 @@ function AlunosListPage() {
                     <TableRow
                       key={s.id}
                       className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => navigate({ to: "/alunos/$alunoId", params: { alunoId: s.id } })}
+                      onClick={() =>
+                        navigate({ to: "/alunos/$alunoId", params: { alunoId: s.id } })
+                      }
                     >
                       <TableCell>
                         <div className="flex items-center gap-3">
@@ -269,12 +302,20 @@ function AlunosListPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        {formatShortCategory(getWeightCategory({ birthDate: s.birth_date, sex: s.sex, weightKg: s.weight }))}
+                        {formatShortCategory(
+                          getWeightCategory({
+                            birthDate: s.birth_date,
+                            sex: s.sex,
+                            weightKg: s.weight,
+                          }),
+                        )}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {s.profiles?.phone ?? "—"}
                       </TableCell>
-                      <TableCell><StatusPill status={s.status} /></TableCell>
+                      <TableCell>
+                        <StatusPill status={s.status} />
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <Button

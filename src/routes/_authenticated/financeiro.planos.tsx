@@ -110,6 +110,7 @@ interface Subscription {
   } | null;
   students: {
     id: string;
+    status: string | null;
     profiles: { full_name: string; phone: string | null } | null;
   } | null;
 }
@@ -194,12 +195,18 @@ function Page() {
       setPlans((plansRes.plans as Plan[]) ?? []);
       setSubs((subsRes.subscriptions as unknown as Subscription[]) ?? []);
 
-      const opts = ((studentsRes.students as unknown as Array<{
-        id: string;
-        enrollment_date: string | null;
-        profiles: { full_name: string } | null;
-      }>) ?? [])
-        .map((s) => ({ id: s.id, name: s.profiles?.full_name ?? "—", enrollmentDate: s.enrollment_date }))
+      const opts = (
+        (studentsRes.students as unknown as Array<{
+          id: string;
+          enrollment_date: string | null;
+          profiles: { full_name: string } | null;
+        }>) ?? []
+      )
+        .map((s) => ({
+          id: s.id,
+          name: s.profiles?.full_name ?? "—",
+          enrollmentDate: s.enrollment_date,
+        }))
         .sort((a, b) => a.name.localeCompare(b.name));
       setStudents(opts);
     } catch (err) {
@@ -215,13 +222,17 @@ function Page() {
   }, [organizationId]);
 
   const summary = useMemo(() => {
-    const active = subs.filter((s) => s.status === "active");
+    const active = subs.filter((s) => s.status === "active" && s.students?.status === "active");
     const mrr = active.reduce((acc, s) => {
       if (!s.subscription_plans) return acc;
-      return acc + monthlyEquivalent(Number(s.subscription_plans.amount), s.subscription_plans.frequency);
+      return (
+        acc + monthlyEquivalent(Number(s.subscription_plans.amount), s.subscription_plans.frequency)
+      );
     }, 0);
     const today = todayISO();
-    const overdue = active.filter((s) => s.next_due_date && s.next_due_date < today).length;
+    const overdue = subs.filter(
+      (s) => s.status === "active" && s.next_due_date && s.next_due_date < today,
+    ).length;
     const total = subs.length;
     const successRate = total === 0 ? 0 : (active.length / total) * 100;
     return { activeCount: active.length, mrr, overdue, successRate };
@@ -341,7 +352,10 @@ function Page() {
     const enrollmentDate = student?.enrollmentDate || todayISO();
     setSubStart(enrollmentDate);
     const plan = plans.find((p) => p.id === subPlan);
-    if (!plan) { setSubNext(enrollmentDate); return; }
+    if (!plan) {
+      setSubNext(enrollmentDate);
+      return;
+    }
     const monthsToAdd = FREQ_MONTHS[plan.frequency];
     const base = new Date(`${enrollmentDate}T00:00:00`);
     const target = new Date(base.getFullYear(), base.getMonth() + monthsToAdd, 1);
@@ -373,7 +387,7 @@ function Page() {
           nextDueDate: subNext,
         },
       });
-      toast.success("Assinatura criada");
+      toast.success("Assinatura criada e cobrança gerada");
       setSubOpen(false);
       load();
     } catch (err) {
@@ -395,14 +409,17 @@ function Page() {
     }
   };
 
-
   if (loading) return <LoadingSpinner label="Carregando..." />;
 
   return (
     <div className="space-y-6">
       {/* Summary */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Assinaturas ativas" value={String(summary.activeCount)} tone="emerald" />
+        <StatCard
+          label="Alunos ativos nos planos"
+          value={String(summary.activeCount)}
+          tone="emerald"
+        />
         <StatCard label="Receita mensal recorrente" value={formatBRL(summary.mrr)} tone="blue" />
         <StatCard label="Com pagamento atrasado" value={String(summary.overdue)} tone="red" />
         <StatCard
@@ -430,17 +447,12 @@ function Page() {
             {plans.map((p) => (
               <div
                 key={p.id}
-                className={cn(
-                  "rounded-md border bg-card p-4 space-y-2",
-                  !p.active && "opacity-60",
-                )}
+                className={cn("rounded-md border bg-card p-4 space-y-2", !p.active && "opacity-60")}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <div className="font-semibold">{p.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {FREQ_LABEL[p.frequency]}
-                    </div>
+                    <div className="text-xs text-muted-foreground">{FREQ_LABEL[p.frequency]}</div>
                   </div>
                   <div className="text-right">
                     <div className="font-semibold">{formatBRL(Number(p.amount))}</div>
@@ -449,16 +461,19 @@ function Page() {
                     )}
                   </div>
                 </div>
-                {p.description && (
-                  <p className="text-xs text-muted-foreground">{p.description}</p>
-                )}
+                {p.description && <p className="text-xs text-muted-foreground">{p.description}</p>}
                 {(p.validity_months != null || p.new_amount_after != null) && (
                   <div className="text-xs bg-muted/50 p-2 rounded border border-border space-y-0.5">
                     {p.validity_months != null && (
-                      <div><strong>Dia de vencimento:</strong> todo dia {p.validity_months}</div>
+                      <div>
+                        <strong>Dia de vencimento:</strong> todo dia {p.validity_months}
+                      </div>
                     )}
                     {p.new_amount_after != null && (
-                      <div><strong>Valor após a validade:</strong> {formatBRL(Number(p.new_amount_after))}</div>
+                      <div>
+                        <strong>Valor após a validade:</strong>{" "}
+                        {formatBRL(Number(p.new_amount_after))}
+                      </div>
                     )}
                   </div>
                 )}
@@ -469,7 +484,12 @@ function Page() {
                   <Button size="sm" variant="ghost" onClick={() => togglePlanActive(p)}>
                     {p.active ? "Desativar" : "Ativar"}
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setPlanToDelete(p)} title="Excluir plano">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setPlanToDelete(p)}
+                    title="Excluir plano"
+                  >
                     <Trash2 className="h-3 w-3 text-destructive" />
                   </Button>
                 </div>
@@ -483,7 +503,11 @@ function Page() {
       <div>
         <div className="mb-2 flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-muted-foreground">Assinaturas</h2>
-          <Button variant="outline" onClick={openNewSub} disabled={plans.filter((p) => p.active).length === 0}>
+          <Button
+            variant="outline"
+            onClick={openNewSub}
+            disabled={plans.filter((p) => p.active).length === 0}
+          >
             <Plus className="mr-2 h-4 w-4" /> Nova assinatura
           </Button>
         </div>
@@ -517,7 +541,13 @@ function Page() {
                       <td className="px-3 py-2">{plan ? formatBRL(Number(plan.amount)) : "—"}</td>
                       <td className="px-3 py-2">{plan ? FREQ_LABEL[plan.frequency] : "—"}</td>
                       <td className="px-3 py-2">
-                        <StatusBadge status={s.status} />
+                        {s.status === "active" && s.students?.status !== "active" ? (
+                          <span className="inline-flex items-center rounded-full border border-yellow-300 bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+                            Aguardando pagamento
+                          </span>
+                        ) : (
+                          <StatusBadge status={s.status} />
+                        )}
                       </td>
                       <td className="px-3 py-2">
                         {s.next_due_date ? formatDateBR(s.next_due_date) : "—"}
@@ -621,15 +651,13 @@ function Page() {
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              O dia de vencimento define em que dia do mês a cobrança vence. O próximo vencimento é calculado automaticamente a partir da data de cadastro do aluno e da frequência do plano.
+              O dia de vencimento define em que dia do mês a cobrança vence. O próximo vencimento é
+              calculado automaticamente a partir da data de cadastro do aluno e da frequência do
+              plano.
             </p>
             <div>
               <Label>Descrição</Label>
-              <Textarea
-                rows={3}
-                value={planDesc}
-                onChange={(e) => setPlanDesc(e.target.value)}
-              />
+              <Textarea rows={3} value={planDesc} onChange={(e) => setPlanDesc(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
@@ -686,19 +714,11 @@ function Page() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Data de cadastro do aluno</Label>
-                <Input
-                  type="date"
-                  value={subStart}
-                  readOnly
-                />
+                <Input type="date" value={subStart} readOnly />
               </div>
               <div>
                 <Label>Vencimento da cobrança</Label>
-                <Input
-                  type="date"
-                  value={subNext}
-                  readOnly
-                />
+                <Input type="date" value={subNext} readOnly />
               </div>
             </div>
           </div>

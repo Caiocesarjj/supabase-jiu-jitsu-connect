@@ -8,12 +8,17 @@ const staffRoles = new Set(["admin", "instructor", "instrutor", "staff"]);
 const authSchema = z.object({ accessToken: z.string().min(10) });
 const orgAuthSchema = authSchema.extend({ organizationId: z.string().uuid() });
 
-function dueDateFromEnrollment(referenceMonth: string, enrollmentDate: string | null, fallbackDay: number) {
+function dueDateFromEnrollment(
+  referenceMonth: string,
+  enrollmentDate: string | null,
+  fallbackDay: number,
+) {
   const [yearRaw, monthRaw] = referenceMonth.split("-").map(Number);
   const year = Number.isFinite(yearRaw) ? yearRaw : new Date().getFullYear();
   const month = Number.isFinite(monthRaw) ? monthRaw : new Date().getMonth() + 1;
   const sourceDate = enrollmentDate ? new Date(`${enrollmentDate}T00:00:00`) : null;
-  const sourceDay = sourceDate && !Number.isNaN(sourceDate.getTime()) ? sourceDate.getDate() : fallbackDay;
+  const sourceDay =
+    sourceDate && !Number.isNaN(sourceDate.getTime()) ? sourceDate.getDate() : fallbackDay;
   const lastDay = new Date(year, month, 0).getDate();
   const day = Math.min(Math.max(sourceDay, 1), lastDay);
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
@@ -26,7 +31,9 @@ function normalizeBrazilianPhone(phone: string | null | undefined) {
 }
 
 function formatMoneyBR(value: number | null | undefined) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value ?? 0));
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+    Number(value ?? 0),
+  );
 }
 
 function formatDateBRValue(value: string | null | undefined) {
@@ -40,7 +47,73 @@ function renderWhatsappTemplate(template: string, values: Record<string, string>
   return template.replace(/\{([a-zA-Z0-9_]+)\}/g, (_, key: string) => values[key] ?? `{${key}}`);
 }
 
-async function sendBotBotMessage(settings: { botbot_app_key?: string | null; botbot_auth_key?: string | null }, phone: string, message: string) {
+async function createPendingChargeForSubscription({
+  admin,
+  organizationId,
+  studentId,
+  planId,
+  referenceDate,
+}: {
+  admin: ReturnType<typeof getAdminClient>;
+  organizationId: string;
+  studentId: string;
+  planId: string;
+  referenceDate: string;
+}) {
+  const [{ data: plan, error: planError }, { data: settings, error: settingsError }] =
+    await Promise.all([
+      admin
+        .from("subscription_plans")
+        .select("amount, new_amount_after")
+        .eq("id", planId)
+        .eq("organization_id", organizationId)
+        .maybeSingle(),
+      admin
+        .from("organization_settings")
+        .select("due_day")
+        .eq("organization_id", organizationId)
+        .maybeSingle(),
+    ]);
+  if (planError) throw planError;
+  if (settingsError) throw settingsError;
+  if (!plan) throw new Error("Plano não encontrado.");
+
+  const referenceMonth = referenceDate.slice(0, 7);
+  const [yearRef, monthRef] = referenceMonth.split("-").map(Number);
+  const normalDueDate = dueDateFromEnrollment(
+    referenceMonth,
+    null,
+    Number(settings?.due_day ?? 10),
+  );
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const useAfterValidity = normalDueDate < todayStr && plan.new_amount_after != null;
+  const dueDate = useAfterValidity
+    ? `${yearRef}-${String(monthRef).padStart(2, "0")}-${String(new Date(yearRef, monthRef, 0).getDate()).padStart(2, "0")}`
+    : normalDueDate;
+  const amount = Number(useAfterValidity ? plan.new_amount_after : plan.amount);
+  if (!amount || amount <= 0) throw new Error("Plano sem valor configurado.");
+
+  const referenceMonthDate = `${referenceMonth}-01`;
+  const { error } = await admin.from("financial_records").upsert(
+    {
+      organization_id: organizationId,
+      student_id: studentId,
+      amount,
+      due_date: dueDate,
+      reference_month: referenceMonthDate,
+      status: "pending",
+      idempotency_key: `${studentId}_${referenceMonthDate}`,
+    },
+    { onConflict: "idempotency_key", ignoreDuplicates: true },
+  );
+  if (error) throw error;
+}
+
+async function sendBotBotMessage(
+  settings: { botbot_app_key?: string | null; botbot_auth_key?: string | null },
+  phone: string,
+  message: string,
+) {
   if (!settings.botbot_app_key || !settings.botbot_auth_key) {
     throw new Error("Credenciais BotBot não configuradas em Configurações → WhatsApp.");
   }
@@ -82,7 +155,11 @@ async function sendBotBotMessage(settings: { botbot_app_key?: string | null; bot
   }
 
   let data: any = null;
-  try { data = JSON.parse(raw); } catch { /* não-JSON: assume sucesso */ }
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    /* não-JSON: assume sucesso */
+  }
   if (data && (data.error || data.success === false || data.status === "error")) {
     throw new Error(`BotBot: ${data.error || data.message || "Erro ao enviar"}`);
   }
@@ -104,7 +181,8 @@ async function asaasRequest<T>(apiKey: string, path: string, init?: RequestInit)
   const text = await response.text();
   const payload = text ? JSON.parse(text) : null;
   if (!response.ok) {
-    const message = payload?.errors?.[0]?.description || payload?.message || "Erro na API do Asaas.";
+    const message =
+      payload?.errors?.[0]?.description || payload?.message || "Erro na API do Asaas.";
     throw new Error(message);
   }
   return payload as T;
@@ -119,17 +197,22 @@ async function ensureAsaasCharge({
     id: string;
     amount: number;
     due_date: string;
-    students?: { profiles?: { full_name?: string; email?: string | null; phone?: string | null; cpf?: string | null } } | null;
+    students?: {
+      profiles?: {
+        full_name?: string;
+        email?: string | null;
+        phone?: string | null;
+        cpf?: string | null;
+      };
+    } | null;
   };
 }) {
   const profile = charge.students?.profiles;
   const name = profile?.full_name || "Aluno JJ Manager";
   const phone = normalizeBrazilianPhone(profile?.phone);
-  const existing = await asaasRequest<{ data?: Array<{ id: string; invoiceUrl?: string; bankSlipUrl?: string }> }>(
-    apiKey,
-    `/payments?externalReference=${encodeURIComponent(charge.id)}`,
-    { method: "GET" },
-  );
+  const existing = await asaasRequest<{
+    data?: Array<{ id: string; invoiceUrl?: string; bankSlipUrl?: string }>;
+  }>(apiKey, `/payments?externalReference=${encodeURIComponent(charge.id)}`, { method: "GET" });
   let payment = existing.data?.[0];
   if (!payment) {
     const customer = await asaasRequest<{ id: string }>(apiKey, "/customers", {
@@ -141,17 +224,21 @@ async function ensureAsaasCharge({
         cpfCnpj: (profile?.cpf ?? "").replace(/\D/g, "") || undefined,
       }),
     });
-    payment = await asaasRequest<{ id: string; invoiceUrl?: string; bankSlipUrl?: string }>(apiKey, "/payments", {
-      method: "POST",
-      body: JSON.stringify({
-        customer: customer.id,
-        billingType: "PIX",
-        value: Number(charge.amount),
-        dueDate: charge.due_date,
-        description: `Mensalidade ${name}`,
-        externalReference: charge.id,
-      }),
-    });
+    payment = await asaasRequest<{ id: string; invoiceUrl?: string; bankSlipUrl?: string }>(
+      apiKey,
+      "/payments",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          customer: customer.id,
+          billingType: "PIX",
+          value: Number(charge.amount),
+          dueDate: charge.due_date,
+          description: `Plano ${name}`,
+          externalReference: charge.id,
+        }),
+      },
+    );
   }
   let pixCode: string | null = null;
   try {
@@ -262,11 +349,9 @@ export const createStudentRegistration = createServerFn({ method: "POST" })
         birthDate: z.string().optional(),
         sex: z.enum(["M", "F"]).nullable().optional(),
         weightKg: z.number().positive().max(500).nullable().optional(),
-        monthlyFee: z.number().nullable().optional(),
-        status: z.enum(["active", "trial", "inactive"]),
         belt: z.string().min(2).max(40),
         degrees: z.number().int().min(0).max(10),
-        subscriptionPlanId: z.string().uuid().nullable().optional(),
+        subscriptionPlanId: z.string().uuid(),
         validityDate: z.string().nullable().optional(),
       })
       .parse(input),
@@ -294,11 +379,10 @@ export const createStudentRegistration = createServerFn({ method: "POST" })
       .insert({
         profile_id: profileId,
         organization_id: data.organizationId,
-        status: data.status,
+        status: "inactive",
         birth_date: data.birthDate || null,
         sex: data.sex ?? null,
         weight: data.weightKg ?? null,
-        monthly_fee: data.monthlyFee ?? null,
         enrollment_date: today,
       })
       .select("id")
@@ -318,25 +402,36 @@ export const createStudentRegistration = createServerFn({ method: "POST" })
     if (graduationError) throw graduationError;
 
     if (data.subscriptionPlanId) {
+      const { data: settings } = await supabase
+        .from("organization_settings")
+        .select("due_day")
+        .eq("organization_id", data.organizationId)
+        .maybeSingle();
+      const dueDay = Number(settings?.due_day ?? 10);
+      const initialDueDate = dueDateFromEnrollment(today.slice(0, 7), null, dueDay);
       const { error: subError } = await supabase.from("subscription_records").insert({
         organization_id: data.organizationId,
         student_id: studentId,
         plan_id: data.subscriptionPlanId,
         status: "active",
         started_at: today,
-        next_due_date: data.validityDate || today,
+        next_due_date: data.validityDate || initialDueDate,
       });
       if (subError) throw subError;
+      await createPendingChargeForSubscription({
+        admin: supabase,
+        organizationId: data.organizationId,
+        studentId,
+        planId: data.subscriptionPlanId,
+        referenceDate: today,
+      });
     }
 
     return { studentId };
   });
 
-
 export const deleteStudentRegistration = createServerFn({ method: "POST" })
-  .inputValidator((input) =>
-    orgAuthSchema.extend({ studentId: z.string().uuid() }).parse(input),
-  )
+  .inputValidator((input) => orgAuthSchema.extend({ studentId: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     await requireStaff(data.accessToken, data.organizationId);
     const supabase = getAdminClient();
@@ -492,9 +587,7 @@ export const addPastGraduation = createServerFn({ method: "POST" })
   });
 
 export const deleteGraduationHistoryEntry = createServerFn({ method: "POST" })
-  .inputValidator((input) =>
-    orgAuthSchema.extend({ historyId: z.string().uuid() }).parse(input),
-  )
+  .inputValidator((input) => orgAuthSchema.extend({ historyId: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     const { supabase } = await requireStaff(data.accessToken, data.organizationId);
     const { error } = await supabase
@@ -650,7 +743,6 @@ export const deactivateClassSchedule = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-
 export const saveAttendanceRegistration = createServerFn({ method: "POST" })
   .inputValidator((input) =>
     orgAuthSchema
@@ -689,15 +781,14 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
         supabase
           .from("students")
           .select(
-            `id, monthly_fee, enrollment_date,
+            `id, enrollment_date,
       subscription_records(status, plan_id, subscription_plans(amount, new_amount_after, validity_months))`,
           )
           .eq("organization_id", data.organizationId)
-          .eq("status", "active")
           .is("deleted_at", null),
         supabase
           .from("organization_settings")
-          .select("monthly_fee_default, due_day, payment_gateway, payment_gateway_api_key")
+          .select("due_day, payment_gateway, payment_gateway_api_key")
           .eq("organization_id", data.organizationId)
           .maybeSingle(),
       ]);
@@ -711,46 +802,59 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
     const [year, month] = data.referenceMonth.split("-");
     const referenceMonth = `${year}-${month}-01`;
     const dueDay = Number(settings?.due_day ?? 10);
-    const defaultFee = Number(settings?.monthly_fee_default ?? 0);
-    const rows = ((students ?? []) as unknown as Array<{
-      id: string;
-      monthly_fee: number | null;
-      enrollment_date: string | null;
-      subscription_records?: Array<{
-        status: string;
-        subscription_plans:
-          | { amount: number | null; new_amount_after: number | null; validity_months: number | null }
-          | Array<{ amount: number | null; new_amount_after: number | null; validity_months: number | null }>
-          | null;
-      }>;
-    }>).map((student) => {
-      const activeSubscription = student.subscription_records?.find((sub) => sub.status === "active");
-      const plan = Array.isArray(activeSubscription?.subscription_plans)
-        ? activeSubscription?.subscription_plans[0]
-        : activeSubscription?.subscription_plans;
+    const rows = (
+      (students ?? []) as unknown as Array<{
+        id: string;
+        enrollment_date: string | null;
+        subscription_records?: Array<{
+          status: string;
+          subscription_plans:
+            | {
+                amount: number | null;
+                new_amount_after: number | null;
+                validity_months: number | null;
+              }
+            | Array<{
+                amount: number | null;
+                new_amount_after: number | null;
+                validity_months: number | null;
+              }>
+            | null;
+        }>;
+      }>
+    )
+      .map((student) => {
+        const activeSubscription = student.subscription_records?.find(
+          (sub) => sub.status === "active",
+        );
+        const plan = Array.isArray(activeSubscription?.subscription_plans)
+          ? activeSubscription?.subscription_plans[0]
+          : activeSubscription?.subscription_plans;
+        if (!activeSubscription || !plan) return null;
 
-      const [yRef, mRef] = data.referenceMonth.split("-").map(Number);
-      const lastDay = new Date(yRef, mRef, 0).getDate();
-      const normalDue = dueDateFromEnrollment(data.referenceMonth, null, dueDay);
-      const todayStr = new Date().toISOString().slice(0, 10);
-      const isPastDue = normalDue < todayStr;
-      const hasAfter = plan?.new_amount_after != null;
-      const dueDate = isPastDue && hasAfter
-        ? `${yRef}-${String(mRef).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`
-        : normalDue;
-      const subscriptionAmount = isPastDue && hasAfter ? plan!.new_amount_after : plan?.amount;
+        const [yRef, mRef] = data.referenceMonth.split("-").map(Number);
+        const lastDay = new Date(yRef, mRef, 0).getDate();
+        const normalDue = dueDateFromEnrollment(data.referenceMonth, null, dueDay);
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const isPastDue = normalDue < todayStr;
+        const hasAfter = plan?.new_amount_after != null;
+        const dueDate =
+          isPastDue && hasAfter
+            ? `${yRef}-${String(mRef).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`
+            : normalDue;
+        const subscriptionAmount = isPastDue && hasAfter ? plan!.new_amount_after : plan?.amount;
 
-      return {
-        organization_id: data.organizationId,
-        student_id: student.id,
-        amount: subscriptionAmount ?? student.monthly_fee ?? defaultFee,
-        due_date: dueDate,
-        reference_month: referenceMonth,
-        status: "pending",
-        idempotency_key: `${student.id}_${referenceMonth}`,
-      };
-    });
-
+        return {
+          organization_id: data.organizationId,
+          student_id: student.id,
+          amount: subscriptionAmount,
+          due_date: dueDate,
+          reference_month: referenceMonth,
+          status: "pending",
+          idempotency_key: `${student.id}_${referenceMonth}`,
+        };
+      })
+      .filter((row): row is NonNullable<typeof row> => !!row && Number(row.amount) > 0);
 
     if (rows.length > 0) {
       const { error } = await supabase
@@ -763,16 +867,20 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
           .from("financial_records")
           .update({ invoice_url: staticPaymentUrl })
           .eq("organization_id", data.organizationId)
-          .in("idempotency_key", rows.map((row) => row.idempotency_key))
+          .in(
+            "idempotency_key",
+            rows.map((row) => row.idempotency_key),
+          )
           .is("invoice_url", null);
         if (linkError) throw linkError;
       }
 
-      const asaasApiKey = paymentConfig.provider === "asaas" && typeof paymentConfig.credentials.apiKey === "string"
-        ? paymentConfig.credentials.apiKey
-        : settings?.payment_gateway === "asaas"
-          ? settings.payment_gateway_api_key
-          : null;
+      const asaasApiKey =
+        paymentConfig.provider === "asaas" && typeof paymentConfig.credentials.apiKey === "string"
+          ? paymentConfig.credentials.apiKey
+          : settings?.payment_gateway === "asaas"
+            ? settings.payment_gateway_api_key
+            : null;
       if (asaasApiKey) {
         const { data: charges, error: chargesError } = await supabase
           .from("financial_records")
@@ -780,14 +888,24 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
             "id, amount, due_date, students:student_id(profiles:profile_id(full_name, email, phone, cpf))",
           )
           .eq("organization_id", data.organizationId)
-          .in("idempotency_key", rows.map((row) => row.idempotency_key));
+          .in(
+            "idempotency_key",
+            rows.map((row) => row.idempotency_key),
+          );
         if (chargesError) throw chargesError;
 
         for (const charge of (charges ?? []) as unknown as Array<{
           id: string;
           amount: number;
           due_date: string;
-          students?: { profiles?: { full_name?: string; email?: string | null; phone?: string | null; cpf?: string | null } } | null;
+          students?: {
+            profiles?: {
+              full_name?: string;
+              email?: string | null;
+              phone?: string | null;
+              cpf?: string | null;
+            };
+          } | null;
         }>) {
           const asaasCharge = await ensureAsaasCharge({
             apiKey: asaasApiKey,
@@ -847,7 +965,6 @@ export const getOrganizationConfig = createServerFn({ method: "POST" })
     return { org, settings };
   });
 
-
 export const updateAcademyConfig = createServerFn({ method: "POST" })
   .inputValidator((input) =>
     orgAuthSchema
@@ -883,18 +1000,16 @@ export const updateFinancialConfig = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requireStaff(data.accessToken, data.organizationId);
     const admin = getAdminClient();
-    const { error } = await admin
-      .from("organization_settings")
-      .upsert(
-        {
-          organization_id: data.organizationId,
-          monthly_fee_default: data.monthlyFeeDefault,
-          due_day: data.dueDay,
-          pix_key_type: data.pixKeyType || null,
-          pix_key: data.pixKey || null,
-        },
-        { onConflict: "organization_id" },
-      );
+    const { error } = await admin.from("organization_settings").upsert(
+      {
+        organization_id: data.organizationId,
+        monthly_fee_default: data.monthlyFeeDefault,
+        due_day: data.dueDay,
+        pix_key_type: data.pixKeyType || null,
+        pix_key: data.pixKey || null,
+      },
+      { onConflict: "organization_id" },
+    );
     if (error) throw error;
     return { ok: true };
   });
@@ -922,20 +1037,18 @@ export const updateWhatsappConfig = createServerFn({ method: "POST" })
       .maybeSingle();
     const currentTemplates = (existing?.whatsapp_templates ?? {}) as Record<string, unknown>;
     const nextTemplates = { ...currentTemplates, __hours: data.notificationHours ?? [] };
-    const { error } = await admin
-      .from("organization_settings")
-      .upsert(
-        {
-          organization_id: data.organizationId,
-          whatsapp_notifications: data.whatsappNotifications,
-          botbot_token: data.whatsappNotifications ? data.botbotToken || null : null,
-          botbot_app_key: data.whatsappNotifications ? data.botbotAppKey || null : null,
-          botbot_auth_key: data.whatsappNotifications ? data.botbotAuthKey || null : null,
-          charge_reminder_days: data.whatsappNotifications ? data.chargeReminderDays : [],
-          whatsapp_templates: nextTemplates,
-        },
-        { onConflict: "organization_id" },
-      );
+    const { error } = await admin.from("organization_settings").upsert(
+      {
+        organization_id: data.organizationId,
+        whatsapp_notifications: data.whatsappNotifications,
+        botbot_token: data.whatsappNotifications ? data.botbotToken || null : null,
+        botbot_app_key: data.whatsappNotifications ? data.botbotAppKey || null : null,
+        botbot_auth_key: data.whatsappNotifications ? data.botbotAuthKey || null : null,
+        charge_reminder_days: data.whatsappNotifications ? data.chargeReminderDays : [],
+        whatsapp_templates: nextTemplates,
+      },
+      { onConflict: "organization_id" },
+    );
     if (error) throw error;
     return { ok: true };
   });
@@ -960,7 +1073,9 @@ export const sendTestWhatsappMessage = createServerFn({ method: "POST" })
     if (error) throw error;
     const digits = data.phone.replace(/\D/g, "");
     if (digits.length < 12 || digits.length > 15) {
-      throw new Error("Número inválido. Use o formato internacional: 55 + DDD + número (ex: 5511999999999).");
+      throw new Error(
+        "Número inválido. Use o formato internacional: 55 + DDD + número (ex: 5511999999999).",
+      );
     }
     await sendBotBotMessage(settings ?? {}, digits, data.message);
     return { ok: true, phone: digits };
@@ -977,14 +1092,17 @@ export async function runAutomaticWhatsappNotifications({
   const today = new Date().toISOString().slice(0, 10);
   const settingsQuery = admin
     .from("organization_settings")
-    .select("organization_id, whatsapp_notifications, botbot_app_key, botbot_auth_key, charge_reminder_days, whatsapp_templates");
+    .select(
+      "organization_id, whatsapp_notifications, botbot_app_key, botbot_auth_key, charge_reminder_days, whatsapp_templates",
+    );
   const { data: settingsRows, error: settingsErr } = organizationId
     ? await settingsQuery.eq("organization_id", organizationId)
     : await settingsQuery.eq("whatsapp_notifications", true);
   if (settingsErr) throw settingsErr;
 
   const enabledSettings = (settingsRows ?? []).filter(
-    (row: any) => manual || (row.whatsapp_notifications && row.botbot_app_key && row.botbot_auth_key),
+    (row: any) =>
+      manual || (row.whatsapp_notifications && row.botbot_app_key && row.botbot_auth_key),
   );
   if (enabledSettings.length === 0) return { sent: 0, skipped: 0, total: 0 };
 
@@ -999,7 +1117,8 @@ export async function runAutomaticWhatsappNotifications({
 
   for (const settings of enabledSettings as Array<any>) {
     if (!settings.botbot_app_key || !settings.botbot_auth_key) {
-      if (manual) throw new Error("Credenciais BotBot não configuradas em Configurações → WhatsApp.");
+      if (manual)
+        throw new Error("Credenciais BotBot não configuradas em Configurações → WhatsApp.");
       continue;
     }
     const paymentConfig = await getActivePaymentConfig(admin, settings.organization_id);
@@ -1020,7 +1139,6 @@ export async function runAutomaticWhatsappNotifications({
       }
     }
 
-
     const { data: charges, error: chargesErr } = await admin
       .from("financial_records")
       .select(
@@ -1040,12 +1158,18 @@ export async function runAutomaticWhatsappNotifications({
         skipped++;
         continue;
       }
-      const daysFromDue = Math.round((new Date(`${today}T00:00:00`).getTime() - new Date(`${dueDate}T00:00:00`).getTime()) / 86400000);
+      const daysFromDue = Math.round(
+        (new Date(`${today}T00:00:00`).getTime() - new Date(`${dueDate}T00:00:00`).getTime()) /
+          86400000,
+      );
       if (!manual && !days.includes(daysFromDue)) continue;
 
       total++;
       const sentKey = `whatsapp_${daysFromDue}`;
-      const sentLog = charge.notifications_sent && typeof charge.notifications_sent === "object" ? charge.notifications_sent : {};
+      const sentLog =
+        charge.notifications_sent && typeof charge.notifications_sent === "object"
+          ? charge.notifications_sent
+          : {};
       if (!manual && sentLog[sentKey]) {
         skipped++;
         continue;
@@ -1065,7 +1189,10 @@ export async function runAutomaticWhatsappNotifications({
       const plan = Array.isArray(activeSub?.subscription_plans)
         ? activeSub.subscription_plans[0]
         : activeSub?.subscription_plans;
-      const templates = { ...DEFAULT_WHATSAPP_TEMPLATES, ...((settings.whatsapp_templates ?? {}) as Record<string, string>) };
+      const templates = {
+        ...DEFAULT_WHATSAPP_TEMPLATES,
+        ...((settings.whatsapp_templates ?? {}) as Record<string, string>),
+      };
       const templateKey = daysFromDue > 0 || charge.status === "overdue" ? "overdue" : "due_soon";
       const message = renderWhatsappTemplate(templates[templateKey], {
         name: profile?.full_name ?? "Aluno",
@@ -1073,7 +1200,10 @@ export async function runAutomaticWhatsappNotifications({
         plan_price: formatMoneyBR(charge.amount),
         expires_at: formatDateBRValue(dueDate),
         academy_name: orgNames.get(settings.organization_id) ?? "Academia",
-        payment_link: charge.invoice_url || staticPaymentUrl || (charge.pix_code ? `PIX copia e cola: ${charge.pix_code}` : "Procure a secretaria"),
+        payment_link:
+          charge.invoice_url ||
+          staticPaymentUrl ||
+          (charge.pix_code ? `PIX copia e cola: ${charge.pix_code}` : "Procure a secretaria"),
       });
 
       try {
@@ -1101,8 +1231,6 @@ export const sendChargeNotifications = createServerFn({ method: "POST" })
     await requireStaff(data.accessToken, data.organizationId);
     return runAutomaticWhatsappNotifications({ organizationId: data.organizationId, manual: true });
   });
-
-
 
 // ============================================================
 // Student × Class enrollments
@@ -1134,9 +1262,7 @@ async function getGroupSiblings(
 }
 
 export const listStudentEnrollments = createServerFn({ method: "POST" })
-  .inputValidator((input) =>
-    orgAuthSchema.extend({ studentId: z.string().uuid() }).parse(input),
-  )
+  .inputValidator((input) => orgAuthSchema.extend({ studentId: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     const { supabase } = await requireStaff(data.accessToken, data.organizationId);
     const { data: rows, error } = await supabase
@@ -1151,16 +1277,10 @@ export const listStudentEnrollments = createServerFn({ method: "POST" })
   });
 
 export const listClassEnrollments = createServerFn({ method: "POST" })
-  .inputValidator((input) =>
-    orgAuthSchema.extend({ scheduleId: z.string().uuid() }).parse(input),
-  )
+  .inputValidator((input) => orgAuthSchema.extend({ scheduleId: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     const { supabase } = await requireStaff(data.accessToken, data.organizationId);
-    const { siblingIds } = await getGroupSiblings(
-      supabase,
-      data.organizationId,
-      data.scheduleId,
-    );
+    const { siblingIds } = await getGroupSiblings(supabase, data.organizationId, data.scheduleId);
     if (siblingIds.length === 0) return { students: [] };
     const { data: rows, error } = await supabase
       .from("student_class_enrollments")
@@ -1211,11 +1331,7 @@ export const enrollStudentInClass = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { supabase } = await requireStaff(data.accessToken, data.organizationId);
-    const { siblingIds } = await getGroupSiblings(
-      supabase,
-      data.organizationId,
-      data.scheduleId,
-    );
+    const { siblingIds } = await getGroupSiblings(supabase, data.organizationId, data.scheduleId);
     if (siblingIds.length === 0) throw new Error("Turma sem horários ativos.");
     const rows = siblingIds.map((sid) => ({
       organization_id: data.organizationId,
@@ -1237,11 +1353,7 @@ export const unenrollStudentFromClass = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { supabase } = await requireStaff(data.accessToken, data.organizationId);
-    const { siblingIds } = await getGroupSiblings(
-      supabase,
-      data.organizationId,
-      data.scheduleId,
-    );
+    const { siblingIds } = await getGroupSiblings(supabase, data.organizationId, data.scheduleId);
     if (siblingIds.length === 0) return { ok: true };
     const { error } = await supabase
       .from("student_class_enrollments")
@@ -1323,9 +1435,7 @@ export const toggleSubscriptionPlan = createServerFn({ method: "POST" })
   });
 
 export const deleteSubscriptionPlan = createServerFn({ method: "POST" })
-  .inputValidator((input) =>
-    orgAuthSchema.extend({ planId: z.string().uuid() }).parse(input),
-  )
+  .inputValidator((input) => orgAuthSchema.extend({ planId: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     await requireStaff(data.accessToken, data.organizationId);
     const admin = getAdminClient();
@@ -1384,6 +1494,23 @@ export const createSubscriptionRecord = createServerFn({ method: "POST" })
       next_due_date: normalizedDue,
     });
     if (error) throw error;
+
+    await createPendingChargeForSubscription({
+      admin,
+      organizationId: data.organizationId,
+      studentId: data.studentId,
+      planId: data.planId,
+      referenceDate: data.startedAt,
+    });
+
+    const { error: studentError } = await admin
+      .from("students")
+      .update({ status: "inactive" })
+      .eq("id", data.studentId)
+      .eq("organization_id", data.organizationId)
+      .neq("status", "active");
+    if (studentError) throw studentError;
+
     return { ok: true };
   });
 
@@ -1423,22 +1550,36 @@ export const normalizeSubscriptionDueDates = createServerFn({ method: "POST" })
     return { updated };
   });
 
-
 export const updateSubscriptionStatus = createServerFn({ method: "POST" })
   .inputValidator((input) =>
-    orgAuthSchema
-      .extend({ subscriptionId: z.string().uuid(), status: subStatusEnum })
-      .parse(input),
+    orgAuthSchema.extend({ subscriptionId: z.string().uuid(), status: subStatusEnum }).parse(input),
   )
   .handler(async ({ data }) => {
     await requireStaff(data.accessToken, data.organizationId);
     const admin = getAdminClient();
+    const { data: currentSub, error: currentError } = await admin
+      .from("subscription_records")
+      .select("student_id")
+      .eq("id", data.subscriptionId)
+      .eq("organization_id", data.organizationId)
+      .maybeSingle();
+    if (currentError) throw currentError;
+
     const { error } = await admin
       .from("subscription_records")
       .update({ status: data.status })
       .eq("id", data.subscriptionId)
       .eq("organization_id", data.organizationId);
     if (error) throw error;
+
+    if (currentSub?.student_id && data.status !== "active") {
+      const { error: studentError } = await admin
+        .from("students")
+        .update({ status: "inactive" })
+        .eq("id", currentSub.student_id)
+        .eq("organization_id", data.organizationId);
+      if (studentError) throw studentError;
+    }
     return { ok: true };
   });
 
@@ -1454,16 +1595,14 @@ export const updateIntegrationsConfig = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requireStaff(data.accessToken, data.organizationId);
     const admin = getAdminClient();
-    const { error } = await admin
-      .from("organization_settings")
-      .upsert(
-        {
-          organization_id: data.organizationId,
-          payment_gateway: data.paymentGateway || null,
-          payment_gateway_api_key: data.paymentGatewayApiKey || null,
-        },
-        { onConflict: "organization_id" },
-      );
+    const { error } = await admin.from("organization_settings").upsert(
+      {
+        organization_id: data.organizationId,
+        payment_gateway: data.paymentGateway || null,
+        payment_gateway_api_key: data.paymentGatewayApiKey || null,
+      },
+      { onConflict: "organization_id" },
+    );
     if (error) throw error;
     return { ok: true };
   });
@@ -1491,8 +1630,8 @@ export const listSubscriptionRecordsForOrg = createServerFn({ method: "POST" })
       .from("subscription_records")
       .select(
         `id, status, started_at, next_due_date, notes, plan_id, student_id,
-         subscription_plans ( name, amount, frequency ),
-         students ( id, profiles ( full_name, phone ) )`,
+          subscription_plans ( name, amount, frequency ),
+          students ( id, status, profiles ( full_name, phone ) )`,
       )
       .eq("organization_id", data.organizationId)
       .order("created_at", { ascending: false });
@@ -1509,16 +1648,14 @@ export const listStudentsForOrg = createServerFn({ method: "POST" })
       .from("students")
       .select("id, enrollment_date, profiles ( full_name )")
       .eq("organization_id", data.organizationId)
+      .neq("status", "active")
       .order("created_at", { ascending: false });
     if (error) throw error;
     return { students: rows ?? [] };
   });
 
-
 export const getStudentSubscription = createServerFn({ method: "POST" })
-  .inputValidator((input) =>
-    orgAuthSchema.extend({ studentId: z.string().uuid() }).parse(input),
-  )
+  .inputValidator((input) => orgAuthSchema.extend({ studentId: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     await requireStaff(data.accessToken, data.organizationId);
     const admin = getAdminClient();
@@ -1541,8 +1678,7 @@ const DEFAULT_WHATSAPP_TEMPLATES = {
     "🥋 Olá, {name}!\n\nSua mensalidade está próxima do vencimento.\n\n📦 Plano: {plan_name}\n📅 Vencimento: {expires_at}\n💰 Valor: {plan_price}\n\nPara continuar treinando normalmente, realize sua renovação através do link abaixo:\n\n👉 {payment_link}\n\nApós o pagamento, envie o comprovante.\n\nOss!\nEquipe {academy_name}",
   overdue:
     "⚠️ Olá, {name}!\n\nIdentificamos que sua mensalidade encontra-se vencida.\n\n📦 Plano: {plan_name}\n📅 Vencimento: {expires_at}\n💰 Valor: {plan_price}\n\nRegularize sua situação para continuar participando dos treinos.\n\n👉 {payment_link}\n\nEm caso de dúvidas procure a secretaria.\n\nOss!\nEquipe {academy_name}",
-  paid:
-    "✅ Pagamento Confirmado!\n\nOlá, {name}!\n\nRecebemos sua renovação com sucesso.\n\n📦 Plano: {plan_name}\n📅 Próximo vencimento: {expires_at}\n💰 Valor pago: {plan_price}\n\nSua matrícula permanece ativa.\nContinue firme nos treinos e na evolução.\n\nOss!\nEquipe {academy_name}",
+  paid: "✅ Pagamento Confirmado!\n\nOlá, {name}!\n\nRecebemos sua renovação com sucesso.\n\n📦 Plano: {plan_name}\n📅 Próximo vencimento: {expires_at}\n💰 Valor pago: {plan_price}\n\nSua matrícula permanece ativa.\nContinue firme nos treinos e na evolução.\n\nOss!\nEquipe {academy_name}",
 };
 
 export const getWhatsappTemplates = createServerFn({ method: "POST" })
@@ -1578,15 +1714,13 @@ export const updateWhatsappTemplates = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requireStaff(data.accessToken, data.organizationId);
     const admin = getAdminClient();
-    const { error } = await admin
-      .from("organization_settings")
-      .upsert(
-        {
-          organization_id: data.organizationId,
-          whatsapp_templates: data.templates,
-        },
-        { onConflict: "organization_id" },
-      );
+    const { error } = await admin.from("organization_settings").upsert(
+      {
+        organization_id: data.organizationId,
+        whatsapp_templates: data.templates,
+      },
+      { onConflict: "organization_id" },
+    );
     if (error) throw error;
     return { ok: true };
   });
@@ -1596,7 +1730,14 @@ export const updateWhatsappTemplates = createServerFn({ method: "POST" })
 // Multi-provider per-organization credentials + test-connection.
 // ============================================================
 
-const paymentProviderEnum = z.enum(["manual", "link", "asaas", "mercadopago", "pagseguro", "infinitepay"]);
+const paymentProviderEnum = z.enum([
+  "manual",
+  "link",
+  "asaas",
+  "mercadopago",
+  "pagseguro",
+  "infinitepay",
+]);
 type PaymentProvider = z.infer<typeof paymentProviderEnum>;
 
 function isMissingPaymentIntegrationsTable(error: unknown) {
@@ -1605,7 +1746,8 @@ function isMissingPaymentIntegrationsTable(error: unknown) {
   return (
     err?.code === "PGRST205" ||
     err?.code === "42P01" ||
-    /payment_integrations/i.test(message) && /schema cache|does not exist|could not find/i.test(message)
+    (/payment_integrations/i.test(message) &&
+      /schema cache|does not exist|could not find/i.test(message))
   );
 }
 
@@ -1625,7 +1767,10 @@ function legacyCredentials(provider: PaymentProvider, value: string | null | und
 }
 
 function legacyCredentialValue(provider: PaymentProvider, credentials: Record<string, unknown>) {
-  const pick = (...keys: string[]) => keys.map((key) => credentials[key]).find((value) => typeof value === "string") as string | undefined;
+  const pick = (...keys: string[]) =>
+    keys.map((key) => credentials[key]).find((value) => typeof value === "string") as
+      | string
+      | undefined;
   if (provider === "asaas") return pick("apiKey");
   if (provider === "mercadopago") return pick("accessToken", "publicKey");
   if (provider === "pagseguro") return pick("token", "email");
@@ -1634,7 +1779,10 @@ function legacyCredentialValue(provider: PaymentProvider, credentials: Record<st
   return null;
 }
 
-async function getActivePaymentConfig(admin: ReturnType<typeof getAdminClient>, organizationId: string) {
+async function getActivePaymentConfig(
+  admin: ReturnType<typeof getAdminClient>,
+  organizationId: string,
+) {
   const { data: activeIntegration, error: integrationError } = await admin
     .from("payment_integrations")
     .select("provider, credentials_json")
@@ -1642,7 +1790,8 @@ async function getActivePaymentConfig(admin: ReturnType<typeof getAdminClient>, 
     .eq("active", true)
     .maybeSingle();
 
-  if (integrationError && !isMissingPaymentIntegrationsTable(integrationError)) throw integrationError;
+  if (integrationError && !isMissingPaymentIntegrationsTable(integrationError))
+    throw integrationError;
 
   const parsedProvider = paymentProviderEnum.safeParse(activeIntegration?.provider);
   if (parsedProvider.success) {
@@ -1667,14 +1816,25 @@ async function getActivePaymentConfig(admin: ReturnType<typeof getAdminClient>, 
   };
 }
 
-function getStaticPaymentUrl(config: { provider: PaymentProvider | "manual"; credentials: Record<string, unknown> }) {
-  const key = config.provider === "link" ? "paymentUrl" : config.provider === "infinitepay" ? "baseUrl" : null;
+function getStaticPaymentUrl(config: {
+  provider: PaymentProvider | "manual";
+  credentials: Record<string, unknown>;
+}) {
+  const key =
+    config.provider === "link"
+      ? "paymentUrl"
+      : config.provider === "infinitepay"
+        ? "baseUrl"
+        : null;
   if (!key) return null;
   const value = config.credentials[key];
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-async function listLegacyPaymentIntegration(admin: ReturnType<typeof getAdminClient>, organizationId: string) {
+async function listLegacyPaymentIntegration(
+  admin: ReturnType<typeof getAdminClient>,
+  organizationId: string,
+) {
   const { data: settings, error } = await admin
     .from("organization_settings")
     .select("payment_gateway, payment_gateway_api_key")
@@ -1685,13 +1845,15 @@ async function listLegacyPaymentIntegration(admin: ReturnType<typeof getAdminCli
     ? (settings?.payment_gateway as PaymentProvider)
     : null;
   if (!provider) return [];
-  return [{
-    id: `legacy-${provider}`,
-    provider,
-    credentials_json: legacyCredentials(provider, settings?.payment_gateway_api_key),
-    active: true,
-    updated_at: new Date().toISOString(),
-  }];
+  return [
+    {
+      id: `legacy-${provider}`,
+      provider,
+      credentials_json: legacyCredentials(provider, settings?.payment_gateway_api_key),
+      active: true,
+      updated_at: new Date().toISOString(),
+    },
+  ];
 }
 
 export const listPaymentIntegrations = createServerFn({ method: "POST" })
@@ -1704,7 +1866,9 @@ export const listPaymentIntegrations = createServerFn({ method: "POST" })
       .select("id, provider, credentials_json, active, updated_at")
       .eq("organization_id", data.organizationId);
     if (isMissingPaymentIntegrationsTable(error)) {
-      console.warn("payment_integrations indisponível no schema cache; usando organization_settings como compatibilidade.");
+      console.warn(
+        "payment_integrations indisponível no schema cache; usando organization_settings como compatibilidade.",
+      );
       return { integrations: await listLegacyPaymentIntegration(admin, data.organizationId) };
     }
     if (error) throw error;
@@ -1731,40 +1895,10 @@ export const savePaymentIntegration = createServerFn({ method: "POST" })
         .update({ active: false })
         .eq("organization_id", data.organizationId);
       if (isMissingPaymentIntegrationsTable(deactErr)) {
-        console.warn("payment_integrations indisponível no schema cache; salvando em organization_settings como compatibilidade.");
-        const { error: legacyError } = await admin
-          .from("organization_settings")
-          .upsert(
-            {
-              organization_id: data.organizationId,
-              payment_gateway: data.provider,
-              payment_gateway_api_key: legacyCredentialValue(data.provider, data.credentials) || null,
-            },
-            { onConflict: "organization_id" },
-          );
-        if (legacyError) throw legacyError;
-        return { ok: true };
-      }
-      if (deactErr) throw deactErr;
-    }
-
-    // Upsert this provider's credentials
-    const { error: upErr } = await admin
-      .from("payment_integrations")
-      .upsert(
-        {
-          organization_id: data.organizationId,
-          provider: data.provider,
-          credentials_json: data.credentials,
-          active: data.setActive ?? false,
-        },
-        { onConflict: "organization_id,provider" },
-      );
-    if (isMissingPaymentIntegrationsTable(upErr)) {
-      console.warn("payment_integrations indisponível no schema cache; salvando em organization_settings como compatibilidade.");
-      const { error: legacyError } = await admin
-        .from("organization_settings")
-        .upsert(
+        console.warn(
+          "payment_integrations indisponível no schema cache; salvando em organization_settings como compatibilidade.",
+        );
+        const { error: legacyError } = await admin.from("organization_settings").upsert(
           {
             organization_id: data.organizationId,
             payment_gateway: data.provider,
@@ -1772,6 +1906,34 @@ export const savePaymentIntegration = createServerFn({ method: "POST" })
           },
           { onConflict: "organization_id" },
         );
+        if (legacyError) throw legacyError;
+        return { ok: true };
+      }
+      if (deactErr) throw deactErr;
+    }
+
+    // Upsert this provider's credentials
+    const { error: upErr } = await admin.from("payment_integrations").upsert(
+      {
+        organization_id: data.organizationId,
+        provider: data.provider,
+        credentials_json: data.credentials,
+        active: data.setActive ?? false,
+      },
+      { onConflict: "organization_id,provider" },
+    );
+    if (isMissingPaymentIntegrationsTable(upErr)) {
+      console.warn(
+        "payment_integrations indisponível no schema cache; salvando em organization_settings como compatibilidade.",
+      );
+      const { error: legacyError } = await admin.from("organization_settings").upsert(
+        {
+          organization_id: data.organizationId,
+          payment_gateway: data.provider,
+          payment_gateway_api_key: legacyCredentialValue(data.provider, data.credentials) || null,
+        },
+        { onConflict: "organization_id" },
+      );
       if (legacyError) throw legacyError;
       return { ok: true };
     }
@@ -1780,9 +1942,7 @@ export const savePaymentIntegration = createServerFn({ method: "POST" })
   });
 
 export const setActivePaymentIntegration = createServerFn({ method: "POST" })
-  .inputValidator((input) =>
-    orgAuthSchema.extend({ provider: paymentProviderEnum }).parse(input),
-  )
+  .inputValidator((input) => orgAuthSchema.extend({ provider: paymentProviderEnum }).parse(input))
   .handler(async ({ data }) => {
     await requireStaff(data.accessToken, data.organizationId);
     const admin = getAdminClient();
@@ -1793,7 +1953,9 @@ export const setActivePaymentIntegration = createServerFn({ method: "POST" })
       .update({ active: false })
       .eq("organization_id", data.organizationId);
     if (isMissingPaymentIntegrationsTable(deactErr)) {
-      console.warn("payment_integrations indisponível no schema cache; ativando em organization_settings como compatibilidade.");
+      console.warn(
+        "payment_integrations indisponível no schema cache; ativando em organization_settings como compatibilidade.",
+      );
       const { error: legacyError } = await admin
         .from("organization_settings")
         .update({ payment_gateway: data.provider })
@@ -1833,9 +1995,10 @@ export const testPaymentIntegration = createServerFn({ method: "POST" })
         const apiKey = (c.apiKey ?? "").trim();
         const env = (c.environment ?? "sandbox").trim();
         if (!apiKey) throw new Error("API Key obrigatória.");
-        const base = env === "production"
-          ? "https://www.asaas.com/api/v3"
-          : "https://sandbox.asaas.com/api/v3";
+        const base =
+          env === "production"
+            ? "https://www.asaas.com/api/v3"
+            : "https://sandbox.asaas.com/api/v3";
         const res = await fetch(`${base}/myAccount`, {
           method: "GET",
           headers: { access_token: apiKey, "Content-Type": "application/json" },
@@ -1914,9 +2077,7 @@ export const testPaymentIntegration = createServerFn({ method: "POST" })
 // ============================================================
 
 export const getStudentChargeForWhatsapp = createServerFn({ method: "POST" })
-  .inputValidator((input) =>
-    orgAuthSchema.extend({ studentId: z.string().uuid() }).parse(input),
-  )
+  .inputValidator((input) => orgAuthSchema.extend({ studentId: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     await requireStaff(data.accessToken, data.organizationId);
     const admin = getAdminClient();
@@ -1977,7 +2138,11 @@ export const getStudentChargeForWhatsapp = createServerFn({ method: "POST" })
     const dueStr = formatDateBRValue(charge.due_date);
     const paymentConfig = await getActivePaymentConfig(admin, data.organizationId);
     let paymentUrl = charge.invoice_url || getStaticPaymentUrl(paymentConfig) || "";
-    if (!paymentUrl && paymentConfig.provider === "asaas" && typeof paymentConfig.credentials.apiKey === "string") {
+    if (
+      !paymentUrl &&
+      paymentConfig.provider === "asaas" &&
+      typeof paymentConfig.credentials.apiKey === "string"
+    ) {
       const asaasCharge = await ensureAsaasCharge({
         apiKey: paymentConfig.credentials.apiKey,
         charge: {
@@ -2076,9 +2241,7 @@ export const sendIndividualWhatsappCharge = createServerFn({ method: "POST" })
   });
 
 export const listWhatsappMessageLogs = createServerFn({ method: "POST" })
-  .inputValidator((input) =>
-    orgAuthSchema.extend({ studentId: z.string().uuid() }).parse(input),
-  )
+  .inputValidator((input) => orgAuthSchema.extend({ studentId: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     await requireStaff(data.accessToken, data.organizationId);
     const admin = getAdminClient();
@@ -2102,7 +2265,10 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
     orgAuthSchema
       .extend({
         studentId: z.string().uuid(),
-        referenceMonth: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+        referenceMonth: z
+          .string()
+          .regex(/^\d{4}-\d{2}$/)
+          .optional(),
       })
       .parse(input),
   )
@@ -2120,7 +2286,7 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
         admin
           .from("students")
           .select(
-            `id, monthly_fee, enrollment_date,
+            `id, enrollment_date,
              profiles:profile_id(full_name, email, phone, cpf),
              subscription_records(status, plan_id, subscription_plans(amount, new_amount_after, validity_months))`,
           )
@@ -2129,7 +2295,7 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
           .maybeSingle(),
         admin
           .from("organization_settings")
-          .select("monthly_fee_default, due_day, payment_gateway, payment_gateway_api_key")
+          .select("due_day, payment_gateway, payment_gateway_api_key")
           .eq("organization_id", data.organizationId)
           .maybeSingle(),
       ]);
@@ -2138,7 +2304,6 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
     if (!student) throw new Error("Aluno não encontrado.");
 
     const dueDay = Number(settings?.due_day ?? 10);
-    const defaultFee = Number(settings?.monthly_fee_default ?? 0);
     const paymentConfig = await getActivePaymentConfig(admin, data.organizationId);
     const staticPaymentUrl = getStaticPaymentUrl(paymentConfig);
 
@@ -2149,24 +2314,25 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
       ? activeSubscription?.subscription_plans[0]
       : activeSubscription?.subscription_plans;
 
+    if (!activeSubscription || !plan) {
+      throw new Error("Vincule um plano ao aluno antes de gerar cobrança.");
+    }
+
     const [yearRef, monthRef] = referenceMonth.split("-").map(Number);
     const lastDayOfMonth = new Date(yearRef, monthRef, 0).getDate();
     const normalDueDate = dueDateFromEnrollment(referenceMonth, null, dueDay);
     const todayISOStr = new Date().toISOString().slice(0, 10);
     const isPastDue = normalDueDate < todayISOStr;
     const hasAfterPrice = plan?.new_amount_after != null;
-    const dueDate = isPastDue && hasAfterPrice
-      ? `${yearRef}-${String(monthRef).padStart(2, "0")}-${String(lastDayOfMonth).padStart(2, "0")}`
-      : normalDueDate;
-    const amount =
-      (isPastDue && hasAfterPrice ? plan!.new_amount_after : plan?.amount) ??
-      (student as any).monthly_fee ??
-      defaultFee;
+    const dueDate =
+      isPastDue && hasAfterPrice
+        ? `${yearRef}-${String(monthRef).padStart(2, "0")}-${String(lastDayOfMonth).padStart(2, "0")}`
+        : normalDueDate;
+    const amount = isPastDue && hasAfterPrice ? plan!.new_amount_after : plan?.amount;
 
     if (!amount || Number(amount) <= 0) {
-      throw new Error("Aluno sem plano/valor configurado. Defina o plano ou a mensalidade antes de gerar.");
+      throw new Error("Plano sem valor configurado. Ajuste o plano antes de gerar cobrança.");
     }
-
 
     const idempotencyKey = `${data.studentId}_${referenceMonthDate}`;
     const { error: upsertError } = await admin.from("financial_records").upsert(
@@ -2206,11 +2372,12 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
       charge.invoice_url = staticPaymentUrl;
     }
 
-    const asaasApiKey = paymentConfig.provider === "asaas" && typeof paymentConfig.credentials.apiKey === "string"
-      ? paymentConfig.credentials.apiKey
-      : settings?.payment_gateway === "asaas"
-        ? settings.payment_gateway_api_key
-        : null;
+    const asaasApiKey =
+      paymentConfig.provider === "asaas" && typeof paymentConfig.credentials.apiKey === "string"
+        ? paymentConfig.credentials.apiKey
+        : settings?.payment_gateway === "asaas"
+          ? settings.payment_gateway_api_key
+          : null;
     if (asaasApiKey && !charge.invoice_url) {
       try {
         const asaasCharge = await ensureAsaasCharge({
@@ -2233,6 +2400,58 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
     return { ok: true, financialRecordId: charge.id as string };
   });
 
+export const registerManualPayment = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    orgAuthSchema
+      .extend({
+        financialRecordId: z.string().uuid(),
+        method: z.string().trim().min(1).max(40),
+        paidAt: z.string().min(10).max(30),
+        notes: z.string().max(1000).nullable().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    await requireStaff(data.accessToken, data.organizationId);
+    const admin = getAdminClient();
+
+    const { data: record, error: recordError } = await admin
+      .from("financial_records")
+      .select("id, student_id")
+      .eq("id", data.financialRecordId)
+      .eq("organization_id", data.organizationId)
+      .maybeSingle();
+    if (recordError) throw recordError;
+    if (!record) throw new Error("Cobrança não encontrada.");
+
+    const paidAt = `${data.paidAt.slice(0, 10)}T12:00:00.000Z`;
+    const { error: paymentError } = await admin
+      .from("financial_records")
+      .update({ status: "paid", paid_at: paidAt, payment_method: data.method })
+      .eq("id", data.financialRecordId)
+      .eq("organization_id", data.organizationId);
+    if (paymentError) throw paymentError;
+
+    const { error: logError } = await admin.from("payment_logs").insert({
+      organization_id: data.organizationId,
+      financial_record_id: data.financialRecordId,
+      event_type: "paid_manual",
+      payload: { method: data.method, notes: data.notes ?? "" },
+    });
+    if (logError) throw logError;
+
+    if (record.student_id) {
+      const { error: studentError } = await admin
+        .from("students")
+        .update({ status: "active" })
+        .eq("id", record.student_id)
+        .eq("organization_id", data.organizationId);
+      if (studentError) throw studentError;
+    }
+
+    return { ok: true };
+  });
+
 export const updateStudentBasics = createServerFn({ method: "POST" })
   .inputValidator((input) =>
     orgAuthSchema
@@ -2247,7 +2466,7 @@ export const updateStudentBasics = createServerFn({ method: "POST" })
         sex: z.enum(["M", "F"]).nullable().optional(),
         weight: z.number().nullable().optional(),
         enrollmentDate: z.string().nullable().optional(),
-        status: z.string().min(1).max(40),
+        status: z.enum(["active", "inactive"]),
       })
       .parse(input),
   )
