@@ -72,7 +72,7 @@ function NovoAlunoPage() {
   const [monthlyFee, setMonthlyFee] = useState("");
   const [belt, setBelt] = useState<Belt>("branca");
   const [degrees, setDegrees] = useState("0");
-  const [status, setStatus] = useState("trial");
+  const [status, setStatus] = useState("inactive");
   const [planId, setPlanId] = useState<string>("");
   const [plans, setPlans] = useState<PlanOption[]>([]);
   const [saving, setSaving] = useState(false);
@@ -226,9 +226,9 @@ function NovoAlunoPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="trial">Experimental (aguardando 1º pagamento)</SelectItem>
+                  <SelectItem value="inactive">Aguardando 1º pagamento</SelectItem>
+                  <SelectItem value="trial">Experimental</SelectItem>
                   <SelectItem value="active">Ativo</SelectItem>
-                  <SelectItem value="inactive">Inativo</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">
