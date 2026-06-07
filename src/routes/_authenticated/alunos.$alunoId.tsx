@@ -1541,13 +1541,16 @@ function EditStudentModal({
   open,
   onOpenChange,
   student,
+  organizationId,
   onSaved,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   student: any;
+  organizationId: string;
   onSaved: () => void;
 }) {
+
   const profile = student.profiles ?? {};
   const [fullName, setFullName] = useState(profile.full_name ?? "");
   const [cpf, setCpf] = useState(profile.cpf ?? "");
