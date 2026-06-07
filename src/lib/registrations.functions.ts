@@ -319,8 +319,6 @@ export const createStudentRegistration = createServerFn({ method: "POST" })
         birthDate: z.string().optional(),
         sex: z.enum(["M", "F"]).nullable().optional(),
         weightKg: z.number().positive().max(500).nullable().optional(),
-        monthlyFee: z.number().nullable().optional(),
-        status: z.string().max(40).optional(),
         belt: z.string().min(2).max(40),
         degrees: z.number().int().min(0).max(10),
         subscriptionPlanId: z.string().uuid().nullable().optional(),
