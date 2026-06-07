@@ -4,6 +4,7 @@ import { slugify } from "@/lib/format";
 import { getAdminClient, getUserClient } from "@/lib/supabase-server";
 
 const staffRoles = new Set(["admin", "instructor", "instrutor", "staff"]);
+const ASAAS_MINIMUM_CHARGE_AMOUNT = 5;
 
 const authSchema = z.object({ accessToken: z.string().min(10) });
 const orgAuthSchema = authSchema.extend({ organizationId: z.string().uuid() });
@@ -41,6 +42,10 @@ function formatDateBRValue(value: string | null | undefined) {
   const [year, month, day] = value.slice(0, 10).split("-").map(Number);
   if (!year || !month || !day) return value;
   return `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}`;
+}
+
+function nearlySameMoney(a: number | null | undefined, b: number | null | undefined) {
+  return Math.abs(Number(a ?? 0) - Number(b ?? 0)) < 0.005;
 }
 
 function renderWhatsappTemplate(template: string, values: Record<string, string>) {
@@ -107,6 +112,14 @@ async function createPendingChargeForSubscription({
     { onConflict: "idempotency_key", ignoreDuplicates: true },
   );
   if (error) throw error;
+
+  const { error: syncError } = await admin
+    .from("financial_records")
+    .update({ amount, due_date: dueDate, invoice_url: null, pix_code: null })
+    .eq("organization_id", organizationId)
+    .eq("idempotency_key", `${studentId}_${referenceMonthDate}`)
+    .in("status", ["pending", "overdue"]);
+  if (syncError) throw syncError;
 }
 
 async function sendBotBotMessage(
@@ -210,13 +223,20 @@ async function ensureAsaasCharge({
   const profile = charge.students?.profiles;
   const name = profile?.full_name || "Aluno JJ Manager";
   const phone = normalizeBrazilianPhone(profile?.phone);
-  if (Number(charge.amount) < 5) {
+  if (Number(charge.amount) < ASAAS_MINIMUM_CHARGE_AMOUNT) {
     throw new Error(
       "O valor mínimo de cobrança no Asaas é R$ 5,00. Ajuste o valor do plano antes de gerar o link de pagamento.",
     );
   }
   const existing = await asaasRequest<{
-    data?: Array<{ id: string; invoiceUrl?: string; bankSlipUrl?: string }>;
+    data?: Array<{
+      id: string;
+      value?: number;
+      dueDate?: string;
+      status?: string;
+      invoiceUrl?: string;
+      bankSlipUrl?: string;
+    }>;
   }>(apiKey, `/payments?externalReference=${encodeURIComponent(charge.id)}`, { method: "GET" });
   let payment = existing.data?.[0];
   if (!payment) {
@@ -244,6 +264,24 @@ async function ensureAsaasCharge({
         }),
       },
     );
+  } else if (
+    (!nearlySameMoney(payment.value, charge.amount) || payment.dueDate !== charge.due_date) &&
+    !["RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH"].includes(String(payment.status ?? ""))
+  ) {
+    payment = await asaasRequest<{
+      id: string;
+      value?: number;
+      dueDate?: string;
+      status?: string;
+      invoiceUrl?: string;
+      bankSlipUrl?: string;
+    }>(apiKey, `/payments/${payment.id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        value: Number(charge.amount),
+        dueDate: charge.due_date,
+      }),
+    });
   }
   let pixCode: string | null = null;
   try {
@@ -867,6 +905,19 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
         .upsert(rows, { onConflict: "idempotency_key", ignoreDuplicates: true });
       if (error) throw error;
 
+      const syncResults = await Promise.all(
+        rows.map((row) =>
+          supabase
+            .from("financial_records")
+            .update({ amount: row.amount, due_date: row.due_date, invoice_url: null, pix_code: null })
+            .eq("organization_id", data.organizationId)
+            .eq("idempotency_key", row.idempotency_key)
+            .in("status", ["pending", "overdue"]),
+        ),
+      );
+      const syncError = syncResults.find((result) => result.error)?.error;
+      if (syncError) throw syncError;
+
       if (staticPaymentUrl) {
         const { error: linkError } = await supabase
           .from("financial_records")
@@ -912,6 +963,7 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
             };
           } | null;
         }>) {
+          if (Number(charge.amount) < ASAAS_MINIMUM_CHARGE_AMOUNT) continue;
           const asaasCharge = await ensureAsaasCharge({
             apiKey: asaasApiKey,
             charge,
@@ -1412,6 +1464,39 @@ export const upsertSubscriptionPlan = createServerFn({ method: "POST" })
         .eq("id", data.planId)
         .eq("organization_id", data.organizationId);
       if (error) throw error;
+      const { data: subscriptions, error: subscriptionsError } = await admin
+        .from("subscription_records")
+        .select("student_id")
+        .eq("organization_id", data.organizationId)
+        .eq("plan_id", data.planId)
+        .eq("status", "active");
+      if (subscriptionsError) throw subscriptionsError;
+      const studentIds = [...new Set((subscriptions ?? []).map((sub) => sub.student_id).filter(Boolean))];
+      if (studentIds.length > 0) {
+        const { data: charges, error: chargesError } = await admin
+          .from("financial_records")
+          .select("id, due_date")
+          .eq("organization_id", data.organizationId)
+          .in("student_id", studentIds)
+          .in("status", ["pending", "overdue"]);
+        if (chargesError) throw chargesError;
+        const today = new Date().toISOString().slice(0, 10);
+        const syncResults = await Promise.all(
+          (charges ?? []).map((charge) => {
+            const chargeAmount =
+              data.newAmountAfter != null && String(charge.due_date ?? "").slice(0, 10) < today
+                ? data.newAmountAfter
+                : data.amount;
+            return admin
+              .from("financial_records")
+              .update({ amount: chargeAmount, invoice_url: null, pix_code: null })
+              .eq("id", charge.id)
+              .eq("organization_id", data.organizationId);
+          }),
+        );
+        const syncError = syncResults.find((result) => result.error)?.error;
+        if (syncError) throw syncError;
+      }
       return { id: data.planId };
     }
     const { data: row, error } = await admin
@@ -2092,7 +2177,7 @@ export const getStudentChargeForWhatsapp = createServerFn({ method: "POST" })
       .select(
         `id,
          profiles:profile_id(full_name, email, phone, cpf),
-         subscription_records(status, subscription_plans(name, amount))`,
+         subscription_records(status, subscription_plans(name, amount, new_amount_after, validity_months))`,
       )
       .eq("id", data.studentId)
       .eq("organization_id", data.organizationId)
@@ -2139,6 +2224,19 @@ export const getStudentChargeForWhatsapp = createServerFn({ method: "POST" })
     const academyName = org?.name ?? "Academia";
     const studentName = profile?.full_name ?? "Aluno";
     const planName = plan?.name ?? "Mensalidade";
+    const planAmount = Number(plan?.amount ?? 0);
+    if (planAmount > 0 && !nearlySameMoney(charge.amount, planAmount)) {
+      const { error: syncError } = await admin
+        .from("financial_records")
+        .update({ amount: planAmount, invoice_url: null, pix_code: null })
+        .eq("id", charge.id)
+        .eq("organization_id", data.organizationId)
+        .in("status", ["pending", "overdue"]);
+      if (syncError) throw syncError;
+      charge.amount = planAmount;
+      charge.invoice_url = null;
+      charge.pix_code = null;
+    }
     const amountStr = formatMoneyBR(charge.amount);
     const dueStr = formatDateBRValue(charge.due_date);
     const paymentConfig = await getActivePaymentConfig(admin, data.organizationId);
@@ -2146,7 +2244,8 @@ export const getStudentChargeForWhatsapp = createServerFn({ method: "POST" })
     if (
       !paymentUrl &&
       paymentConfig.provider === "asaas" &&
-      typeof paymentConfig.credentials.apiKey === "string"
+      typeof paymentConfig.credentials.apiKey === "string" &&
+      Number(charge.amount) >= ASAAS_MINIMUM_CHARGE_AMOUNT
     ) {
       const asaasCharge = await ensureAsaasCharge({
         apiKey: paymentConfig.credentials.apiKey,
@@ -2356,6 +2455,14 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
     );
     if (upsertError) throw upsertError;
 
+    const { error: syncError } = await admin
+      .from("financial_records")
+      .update({ amount, due_date: dueDate, invoice_url: null, pix_code: null })
+      .eq("organization_id", data.organizationId)
+      .eq("idempotency_key", idempotencyKey)
+      .in("status", ["pending", "overdue"]);
+    if (syncError) throw syncError;
+
     const { data: charge, error: chargeError } = await admin
       .from("financial_records")
       .select(
@@ -2383,7 +2490,7 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
         : settings?.payment_gateway === "asaas"
           ? settings.payment_gateway_api_key
           : null;
-    if (asaasApiKey && !charge.invoice_url) {
+    if (asaasApiKey && !charge.invoice_url && Number(charge.amount) >= ASAAS_MINIMUM_CHARGE_AMOUNT) {
       try {
         const asaasCharge = await ensureAsaasCharge({
           apiKey: asaasApiKey,

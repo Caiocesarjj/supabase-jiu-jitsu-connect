@@ -83,6 +83,7 @@ const STATUS_STYLE: Record<SubStatus, string> = {
   canceled: "bg-gray-100 text-gray-700 border-gray-300",
   expired: "bg-red-100 text-red-800 border-red-300",
 };
+const MIN_PAYMENT_LINK_AMOUNT = 5;
 
 interface Plan {
   id: string;
@@ -280,6 +281,16 @@ function Page() {
       toast.error("Nome e valor são obrigatórios");
       return;
     }
+    const amount = Number(planAmount);
+    const newAmountAfter = planNewAmount ? Number(planNewAmount) : null;
+    if (!Number.isFinite(amount) || amount < MIN_PAYMENT_LINK_AMOUNT) {
+      toast.error("O valor do plano precisa ser de pelo menos R$ 5,00 para gerar link de pagamento.");
+      return;
+    }
+    if (newAmountAfter != null && (!Number.isFinite(newAmountAfter) || newAmountAfter < MIN_PAYMENT_LINK_AMOUNT)) {
+      toast.error("O valor após a validade precisa ser vazio ou de pelo menos R$ 5,00.");
+      return;
+    }
     setSavingPlan(true);
     try {
       const accessToken = await getToken();
@@ -289,10 +300,10 @@ function Page() {
           organizationId,
           planId: editingPlan?.id ?? null,
           name: planName.trim(),
-          amount: Number(planAmount),
+          amount,
           frequency: planFreq,
           description: planDesc.trim() || null,
-          newAmountAfter: planNewAmount ? Number(planNewAmount) : null,
+          newAmountAfter,
           validityMonths: planValidity ? Number(planValidity) : null,
         },
       });
