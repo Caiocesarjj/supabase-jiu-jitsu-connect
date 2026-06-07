@@ -1236,7 +1236,7 @@ function FinanceiroTab({
       const accessToken = session.session?.access_token;
       if (!accessToken) throw new Error("Sessão inválida");
       await generateCharge({ data: { accessToken, organizationId, studentId } });
-      toast.success("Cobrança gerada com sucesso");
+      toast.success("Cobrança do aluno gerada com sucesso");
       onChange();
     } catch (e: any) {
       toast.error(e?.message ?? "Erro ao gerar cobrança");
@@ -1263,7 +1263,7 @@ function FinanceiroTab({
         <Button onClick={handleGenerate} disabled={generating}>
           {generating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           <Plus className="mr-2 h-4 w-4" />
-          Gerar cobrança
+          Gerar cobrança do aluno
         </Button>
         <Button onClick={() => setWhatsappOpen(true)} variant="outline">
           <MessageCircle className="mr-2 h-4 w-4" />
@@ -1383,6 +1383,9 @@ function PayModal({ record, onClose, onSaved }: { record: any; onClose: () => vo
       .from("financial_records")
       .update({ status: "paid", paid_at: new Date().toISOString(), payment_method: method })
       .eq("id", record.id);
+    if (!error && record.student_id) {
+      await supabase.from("students").update({ status: "active" }).eq("id", record.student_id);
+    }
     setSaving(false);
     if (error) toast.error("Erro ao registrar pagamento");
     else {
