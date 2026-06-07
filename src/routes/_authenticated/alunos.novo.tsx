@@ -226,9 +226,9 @@ function NovoAlunoPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="trial">Experimental (aguardando 1º pagamento)</SelectItem>
+                  <SelectItem value="inactive">Aguardando 1º pagamento</SelectItem>
+                  <SelectItem value="trial">Experimental</SelectItem>
                   <SelectItem value="active">Ativo</SelectItem>
-                  <SelectItem value="inactive">Inativo</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">
