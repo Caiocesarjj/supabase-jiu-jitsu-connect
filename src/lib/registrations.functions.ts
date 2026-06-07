@@ -2403,7 +2403,7 @@ export const updateStudentBasics = createServerFn({ method: "POST" })
         sex: z.enum(["M", "F"]).nullable().optional(),
         weight: z.number().nullable().optional(),
         enrollmentDate: z.string().nullable().optional(),
-        status: z.string().min(1).max(40),
+        status: z.enum(["active", "inactive"]),
       })
       .parse(input),
   )
