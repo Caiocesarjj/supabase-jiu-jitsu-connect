@@ -326,7 +326,7 @@ function FinanceiroPage() {
         </div>
         <Button onClick={handleGenerateCharges} disabled={generating}>
           {generating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Gerar cobranças do mês
+          Gerar cobranças dos planos
         </Button>
       </div>
 
@@ -676,7 +676,7 @@ function PendingStudentsPanel({
         <div>
           <h2 className="text-sm font-semibold">Alunos pendentes</h2>
           <p className="text-xs text-muted-foreground">
-            Alunos com mensalidade em aberto — registre pagamentos em dinheiro,
+            Alunos com plano em aberto — registre pagamentos em dinheiro,
             cartão ou PIX direto.
           </p>
         </div>
@@ -686,7 +686,7 @@ function PendingStudentsPanel({
       </div>
       {pending.length === 0 ? (
         <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-          Nenhum aluno com mensalidade pendente. 🎉
+          Nenhum aluno com pagamento pendente. 🎉
         </div>
       ) : (
         <ul className="divide-y divide-border max-h-[360px] overflow-y-auto">
