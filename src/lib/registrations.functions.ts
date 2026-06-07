@@ -2370,12 +2370,13 @@ export const registerManualPayment = createServerFn({ method: "POST" })
       .eq("organization_id", data.organizationId);
     if (paymentError) throw paymentError;
 
-    await admin.from("payment_logs").insert({
+    const { error: logError } = await admin.from("payment_logs").insert({
       organization_id: data.organizationId,
       financial_record_id: data.financialRecordId,
       event_type: "paid_manual",
       payload: { method: data.method, notes: data.notes ?? "" },
     });
+    if (logError) throw logError;
 
     if (record.student_id) {
       const { error: studentError } = await admin

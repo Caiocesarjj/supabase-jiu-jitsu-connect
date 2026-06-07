@@ -1883,7 +1883,7 @@ function PlanoAtualSection({
       await createSub({
         data: { accessToken, organizationId, studentId, planId, startedAt, nextDueDate },
       });
-      toast.success("Plano vinculado");
+      toast.success("Plano vinculado e cobrança gerada");
       setModalOpen(false);
       await reload();
     } catch (err) {

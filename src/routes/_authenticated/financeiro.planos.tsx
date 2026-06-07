@@ -374,7 +374,7 @@ function Page() {
           nextDueDate: subNext,
         },
       });
-      toast.success("Assinatura criada");
+      toast.success("Assinatura criada e cobrança gerada");
       setSubOpen(false);
       load();
     } catch (err) {
