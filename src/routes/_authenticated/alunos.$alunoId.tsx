@@ -316,7 +316,7 @@ function AlunoFichaPage() {
           <TabsTrigger value="turmas">Turmas</TabsTrigger>
           <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
           <TabsTrigger value="presenca">Presença</TabsTrigger>
-          <TabsTrigger value="mensagens">Mensagens</TabsTrigger>
+          
           <TabsTrigger value="observacoes">Observações</TabsTrigger>
         </TabsList>
 
