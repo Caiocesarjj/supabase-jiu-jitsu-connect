@@ -390,6 +390,13 @@ export const createStudentRegistration = createServerFn({ method: "POST" })
         next_due_date: data.validityDate || initialDueDate,
       });
       if (subError) throw subError;
+      await createPendingChargeForSubscription({
+        admin: supabase,
+        organizationId: data.organizationId,
+        studentId,
+        planId: data.subscriptionPlanId,
+        referenceDate: today,
+      });
     }
 
     return { studentId };
@@ -1446,6 +1453,14 @@ export const createSubscriptionRecord = createServerFn({ method: "POST" })
       next_due_date: normalizedDue,
     });
     if (error) throw error;
+
+    await createPendingChargeForSubscription({
+      admin,
+      organizationId: data.organizationId,
+      studentId: data.studentId,
+      planId: data.planId,
+      referenceDate: data.startedAt,
+    });
 
     const { error: studentError } = await admin
       .from("students")
