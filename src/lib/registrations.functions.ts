@@ -1002,6 +1002,8 @@ export async function runAutomaticWhatsappNotifications({
       if (manual) throw new Error("Credenciais BotBot não configuradas em Configurações → WhatsApp.");
       continue;
     }
+    const paymentConfig = await getActivePaymentConfig(admin, settings.organization_id);
+    const staticPaymentUrl = getStaticPaymentUrl(paymentConfig);
 
     const days = Array.isArray(settings.charge_reminder_days) ? settings.charge_reminder_days : [];
     if (!manual && days.length === 0) continue;
@@ -1071,7 +1073,7 @@ export async function runAutomaticWhatsappNotifications({
         plan_price: formatMoneyBR(charge.amount),
         expires_at: formatDateBRValue(dueDate),
         academy_name: orgNames.get(settings.organization_id) ?? "Academia",
-        payment_link: charge.invoice_url || (charge.pix_code ? `PIX copia e cola: ${charge.pix_code}` : "Procure a secretaria"),
+        payment_link: charge.invoice_url || staticPaymentUrl || (charge.pix_code ? `PIX copia e cola: ${charge.pix_code}` : "Procure a secretaria"),
       });
 
       try {
