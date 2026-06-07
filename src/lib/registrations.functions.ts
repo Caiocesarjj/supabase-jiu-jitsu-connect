@@ -2422,6 +2422,14 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
     );
     if (upsertError) throw upsertError;
 
+    const { error: syncError } = await admin
+      .from("financial_records")
+      .update({ amount, due_date: dueDate, invoice_url: null, pix_code: null })
+      .eq("organization_id", data.organizationId)
+      .eq("idempotency_key", idempotencyKey)
+      .in("status", ["pending", "overdue"]);
+    if (syncError) throw syncError;
+
     const { data: charge, error: chargeError } = await admin
       .from("financial_records")
       .select(
@@ -2449,7 +2457,7 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
         : settings?.payment_gateway === "asaas"
           ? settings.payment_gateway_api_key
           : null;
-    if (asaasApiKey && !charge.invoice_url) {
+    if (asaasApiKey && !charge.invoice_url && Number(charge.amount) >= ASAAS_MINIMUM_CHARGE_AMOUNT) {
       try {
         const asaasCharge = await ensureAsaasCharge({
           apiKey: asaasApiKey,
