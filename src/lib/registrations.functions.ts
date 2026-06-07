@@ -725,10 +725,16 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
         ? activeSubscription?.subscription_plans[0]
         : activeSubscription?.subscription_plans;
 
-      const planDueDay = plan?.validity_months ?? dueDay;
-      const dueDate = dueDateFromEnrollment(data.referenceMonth, null, planDueDay);
-      const isPastDue = dueDate < new Date().toISOString().slice(0, 10);
-      const subscriptionAmount = isPastDue && plan?.new_amount_after != null ? plan.new_amount_after : plan?.amount;
+      const [yRef, mRef] = data.referenceMonth.split("-").map(Number);
+      const lastDay = new Date(yRef, mRef, 0).getDate();
+      const normalDue = dueDateFromEnrollment(data.referenceMonth, null, dueDay);
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const isPastDue = normalDue < todayStr;
+      const hasAfter = plan?.new_amount_after != null;
+      const dueDate = isPastDue && hasAfter
+        ? `${yRef}-${String(mRef).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`
+        : normalDue;
+      const subscriptionAmount = isPastDue && hasAfter ? plan!.new_amount_after : plan?.amount;
 
       return {
         organization_id: data.organizationId,
@@ -740,6 +746,7 @@ export const generateMonthlyCharges = createServerFn({ method: "POST" })
         idempotency_key: `${student.id}_${referenceMonth}`,
       };
     });
+
 
     if (rows.length > 0) {
       const { error } = await supabase
@@ -2007,17 +2014,24 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
       ? activeSubscription?.subscription_plans[0]
       : activeSubscription?.subscription_plans;
 
-    const planDueDay = plan?.validity_months ?? dueDay;
-    const dueDate = dueDateFromEnrollment(referenceMonth, null, planDueDay);
-    const isPastDue = dueDate < new Date().toISOString().slice(0, 10);
+    const [yearRef, monthRef] = referenceMonth.split("-").map(Number);
+    const lastDayOfMonth = new Date(yearRef, monthRef, 0).getDate();
+    const normalDueDate = dueDateFromEnrollment(referenceMonth, null, dueDay);
+    const todayISOStr = new Date().toISOString().slice(0, 10);
+    const isPastDue = normalDueDate < todayISOStr;
+    const hasAfterPrice = plan?.new_amount_after != null;
+    const dueDate = isPastDue && hasAfterPrice
+      ? `${yearRef}-${String(monthRef).padStart(2, "0")}-${String(lastDayOfMonth).padStart(2, "0")}`
+      : normalDueDate;
     const amount =
-      (isPastDue && plan?.new_amount_after != null ? plan.new_amount_after : plan?.amount) ??
+      (isPastDue && hasAfterPrice ? plan!.new_amount_after : plan?.amount) ??
       (student as any).monthly_fee ??
       defaultFee;
 
     if (!amount || Number(amount) <= 0) {
       throw new Error("Aluno sem plano/valor configurado. Defina o plano ou a mensalidade antes de gerar.");
     }
+
 
     const idempotencyKey = `${data.studentId}_${referenceMonthDate}`;
     const { error: upsertError } = await admin.from("financial_records").upsert(
