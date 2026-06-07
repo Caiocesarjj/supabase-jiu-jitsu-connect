@@ -2117,6 +2117,8 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
 
     const dueDay = Number(settings?.due_day ?? 10);
     const defaultFee = Number(settings?.monthly_fee_default ?? 0);
+    const paymentConfig = await getActivePaymentConfig(admin, data.organizationId);
+    const staticPaymentUrl = getStaticPaymentUrl(paymentConfig);
 
     const activeSubscription = (student as any).subscription_records?.find(
       (sub: any) => sub.status === "active",
@@ -2172,14 +2174,25 @@ export const generateChargeForStudent = createServerFn({ method: "POST" })
     if (chargeError) throw chargeError;
     if (!charge) throw new Error("Cobrança não encontrada após criação.");
 
-    if (
-      settings?.payment_gateway === "asaas" &&
-      settings.payment_gateway_api_key &&
-      !charge.invoice_url
-    ) {
+    if (staticPaymentUrl && !charge.invoice_url) {
+      const { error: linkError } = await admin
+        .from("financial_records")
+        .update({ invoice_url: staticPaymentUrl })
+        .eq("id", charge.id)
+        .eq("organization_id", data.organizationId);
+      if (linkError) throw linkError;
+      charge.invoice_url = staticPaymentUrl;
+    }
+
+    const asaasApiKey = paymentConfig.provider === "asaas" && typeof paymentConfig.credentials.apiKey === "string"
+      ? paymentConfig.credentials.apiKey
+      : settings?.payment_gateway === "asaas"
+        ? settings.payment_gateway_api_key
+        : null;
+    if (asaasApiKey && !charge.invoice_url) {
       try {
         const asaasCharge = await ensureAsaasCharge({
-          apiKey: settings.payment_gateway_api_key,
+          apiKey: asaasApiKey,
           charge: charge as any,
         });
         await admin
