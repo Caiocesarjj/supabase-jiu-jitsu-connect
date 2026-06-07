@@ -113,9 +113,7 @@ function DegreeDots({ degrees, size = 8 }: { degrees: number; size?: number }) {
 function StudentStatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
     active: { label: "Ativo", cls: "bg-emerald-100 text-emerald-800 border-emerald-300" },
-    inactive: { label: "Inativo", cls: "bg-gray-100 text-gray-700 border-gray-300" },
-    suspended: { label: "Suspenso", cls: "bg-yellow-100 text-yellow-800 border-yellow-300" },
-    trial: { label: "Experimental", cls: "bg-blue-100 text-blue-800 border-blue-300" },
+    inactive: { label: "Aguardando pagamento", cls: "bg-yellow-100 text-yellow-800 border-yellow-300" },
   };
   const cfg = map[status] ?? { label: status, cls: "bg-gray-100 text-gray-700 border-gray-300" };
   return (
@@ -170,7 +168,7 @@ function AlunoFichaPage() {
         .from("students")
         .select(
           `
-          id, status, birth_date, sex, weight, medical_notes, monthly_fee, enrollment_date,
+          id, status, birth_date, sex, weight, medical_notes, enrollment_date,
           profiles ( id, full_name, email, phone, cpf ),
           graduations (
             id, belt, degrees, promotion_date, minimum_next_promotion_date, classes_since_promotion
@@ -410,7 +408,6 @@ function GeralTab({
           <Field label="Sexo" value={student.sex === "M" ? "Masculino" : student.sex === "F" ? "Feminino" : "—"} />
           <Field label="Peso" value={student.weight != null ? `${student.weight} kg` : "—"} />
           <Field label="Data de matrícula" value={formatDateBR(student.enrollment_date)} />
-          <Field label="Mensalidade" value={student.monthly_fee != null ? formatBRL(student.monthly_fee) : "Padrão da academia"} />
           {(() => {
             const cat = getWeightCategory({ birthDate: student.birth_date, sex: student.sex, weightKg: student.weight });
             return (
