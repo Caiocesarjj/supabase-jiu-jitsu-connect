@@ -1561,9 +1561,8 @@ function EditStudentModal({
   const [sex, setSex] = useState<Sex | "">(normalizeSex(student.sex));
   const [weightKg, setWeightKg] = useState<string>(student.weight != null ? String(student.weight) : "");
   const [enrollmentDate, setEnrollmentDate] = useState(student.enrollment_date ?? "");
-  const [monthlyFee, setMonthlyFee] = useState<string>(
-    student.monthly_fee != null ? String(student.monthly_fee) : "",
-  );
+  const [status, setStatus] = useState<string>(student.status ?? "active");
+
   const [status, setStatus] = useState<string>(student.status ?? "active");
   const [saving, setSaving] = useState(false);
 
