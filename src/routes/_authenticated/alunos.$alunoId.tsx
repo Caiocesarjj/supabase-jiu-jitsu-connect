@@ -1608,11 +1608,11 @@ function EditStudentModal({
           sex: sex || null,
           weight: weightKg === "" ? null : Number(weightKg),
           enrollment_date: enrollmentDate || null,
-          monthly_fee: monthlyFee === "" ? null : Number(monthlyFee),
           status,
         })
         .eq("id", student.id);
       if (se) throw se;
+
 
       toast.success("Aluno atualizado");
       onSaved();
