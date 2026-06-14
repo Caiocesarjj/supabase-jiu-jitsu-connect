@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { AccessKpiStrip } from "@/components/access/AccessKpiStrip";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
@@ -179,6 +180,8 @@ function DashboardPage() {
           Olá, {profile?.full_name}. Aqui está o resumo da sua academia.
         </p>
       </div>
+
+      {organizationId && <AccessKpiStrip organizationId={organizationId} />}
 
       {error && (
         <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-800">
