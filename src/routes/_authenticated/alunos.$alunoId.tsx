@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
+import { StudentCredentialsPanel } from "@/components/access/StudentCredentialsPanel";
 import {
   getStudentSubscription,
   listSubscriptionPlansForOrg,
