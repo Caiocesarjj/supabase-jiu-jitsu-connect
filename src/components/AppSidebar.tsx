@@ -58,6 +58,12 @@ const financeSubitems = [
   { title: "Crescimento", url: "/financeiro/crescimento" },
 ];
 
+const recepcaoSubitems = [
+  { title: "Controle de Acesso", url: "/recepcao/controle-acesso" },
+  { title: "Presenças e Logs", url: "/recepcao/presencas" },
+  { title: "Dispositivos", url: "/recepcao/dispositivos" },
+];
+
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
