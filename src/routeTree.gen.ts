@@ -24,6 +24,10 @@ import { Route as AuthenticatedInstrutoresIndexRouteImport } from './routes/_aut
 import { Route as AuthenticatedFinanceiroIndexRouteImport } from './routes/_authenticated/financeiro.index'
 import { Route as AuthenticatedAlunosIndexRouteImport } from './routes/_authenticated/alunos.index'
 import { Route as ApiPublicCheckGraduationAlertsRouteImport } from './routes/api/public/check-graduation-alerts'
+import { Route as ApiPublicAccessEventsRouteImport } from './routes/api/public/access-events'
+import { Route as AuthenticatedRecepcaoPresencasRouteImport } from './routes/_authenticated/recepcao.presencas'
+import { Route as AuthenticatedRecepcaoDispositivosRouteImport } from './routes/_authenticated/recepcao.dispositivos'
+import { Route as AuthenticatedRecepcaoControleAcessoRouteImport } from './routes/_authenticated/recepcao.controle-acesso'
 import { Route as AuthenticatedInstrutoresNovoRouteImport } from './routes/_authenticated/instrutores.novo'
 import { Route as AuthenticatedInstrutoresInstructorIdRouteImport } from './routes/_authenticated/instrutores.$instructorId'
 import { Route as AuthenticatedFinanceiroPlanosRouteImport } from './routes/_authenticated/financeiro.planos'
@@ -115,6 +119,29 @@ const ApiPublicCheckGraduationAlertsRoute =
     path: '/api/public/check-graduation-alerts',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicAccessEventsRoute = ApiPublicAccessEventsRouteImport.update({
+  id: '/api/public/access-events',
+  path: '/api/public/access-events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRecepcaoPresencasRoute =
+  AuthenticatedRecepcaoPresencasRouteImport.update({
+    id: '/recepcao/presencas',
+    path: '/recepcao/presencas',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedRecepcaoDispositivosRoute =
+  AuthenticatedRecepcaoDispositivosRouteImport.update({
+    id: '/recepcao/dispositivos',
+    path: '/recepcao/dispositivos',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedRecepcaoControleAcessoRoute =
+  AuthenticatedRecepcaoControleAcessoRouteImport.update({
+    id: '/recepcao/controle-acesso',
+    path: '/recepcao/controle-acesso',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedInstrutoresNovoRoute =
   AuthenticatedInstrutoresNovoRouteImport.update({
     id: '/instrutores/novo',
@@ -194,6 +221,10 @@ export interface FileRoutesByFullPath {
   '/financeiro/planos': typeof AuthenticatedFinanceiroPlanosRoute
   '/instrutores/$instructorId': typeof AuthenticatedInstrutoresInstructorIdRoute
   '/instrutores/novo': typeof AuthenticatedInstrutoresNovoRoute
+  '/recepcao/controle-acesso': typeof AuthenticatedRecepcaoControleAcessoRoute
+  '/recepcao/dispositivos': typeof AuthenticatedRecepcaoDispositivosRoute
+  '/recepcao/presencas': typeof AuthenticatedRecepcaoPresencasRoute
+  '/api/public/access-events': typeof ApiPublicAccessEventsRoute
   '/api/public/check-graduation-alerts': typeof ApiPublicCheckGraduationAlertsRoute
   '/alunos/': typeof AuthenticatedAlunosIndexRoute
   '/financeiro/': typeof AuthenticatedFinanceiroIndexRoute
@@ -219,6 +250,10 @@ export interface FileRoutesByTo {
   '/financeiro/planos': typeof AuthenticatedFinanceiroPlanosRoute
   '/instrutores/$instructorId': typeof AuthenticatedInstrutoresInstructorIdRoute
   '/instrutores/novo': typeof AuthenticatedInstrutoresNovoRoute
+  '/recepcao/controle-acesso': typeof AuthenticatedRecepcaoControleAcessoRoute
+  '/recepcao/dispositivos': typeof AuthenticatedRecepcaoDispositivosRoute
+  '/recepcao/presencas': typeof AuthenticatedRecepcaoPresencasRoute
+  '/api/public/access-events': typeof ApiPublicAccessEventsRoute
   '/api/public/check-graduation-alerts': typeof ApiPublicCheckGraduationAlertsRoute
   '/alunos': typeof AuthenticatedAlunosIndexRoute
   '/financeiro': typeof AuthenticatedFinanceiroIndexRoute
@@ -247,6 +282,10 @@ export interface FileRoutesById {
   '/_authenticated/financeiro/planos': typeof AuthenticatedFinanceiroPlanosRoute
   '/_authenticated/instrutores/$instructorId': typeof AuthenticatedInstrutoresInstructorIdRoute
   '/_authenticated/instrutores/novo': typeof AuthenticatedInstrutoresNovoRoute
+  '/_authenticated/recepcao/controle-acesso': typeof AuthenticatedRecepcaoControleAcessoRoute
+  '/_authenticated/recepcao/dispositivos': typeof AuthenticatedRecepcaoDispositivosRoute
+  '/_authenticated/recepcao/presencas': typeof AuthenticatedRecepcaoPresencasRoute
+  '/api/public/access-events': typeof ApiPublicAccessEventsRoute
   '/api/public/check-graduation-alerts': typeof ApiPublicCheckGraduationAlertsRoute
   '/_authenticated/alunos/': typeof AuthenticatedAlunosIndexRoute
   '/_authenticated/financeiro/': typeof AuthenticatedFinanceiroIndexRoute
@@ -275,6 +314,10 @@ export interface FileRouteTypes {
     | '/financeiro/planos'
     | '/instrutores/$instructorId'
     | '/instrutores/novo'
+    | '/recepcao/controle-acesso'
+    | '/recepcao/dispositivos'
+    | '/recepcao/presencas'
+    | '/api/public/access-events'
     | '/api/public/check-graduation-alerts'
     | '/alunos/'
     | '/financeiro/'
@@ -300,6 +343,10 @@ export interface FileRouteTypes {
     | '/financeiro/planos'
     | '/instrutores/$instructorId'
     | '/instrutores/novo'
+    | '/recepcao/controle-acesso'
+    | '/recepcao/dispositivos'
+    | '/recepcao/presencas'
+    | '/api/public/access-events'
     | '/api/public/check-graduation-alerts'
     | '/alunos'
     | '/financeiro'
@@ -327,6 +374,10 @@ export interface FileRouteTypes {
     | '/_authenticated/financeiro/planos'
     | '/_authenticated/instrutores/$instructorId'
     | '/_authenticated/instrutores/novo'
+    | '/_authenticated/recepcao/controle-acesso'
+    | '/_authenticated/recepcao/dispositivos'
+    | '/_authenticated/recepcao/presencas'
+    | '/api/public/access-events'
     | '/api/public/check-graduation-alerts'
     | '/_authenticated/alunos/'
     | '/_authenticated/financeiro/'
@@ -340,6 +391,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   CadastroAcademiaRoute: typeof CadastroAcademiaRoute
   LoginRoute: typeof LoginRoute
+  ApiPublicAccessEventsRoute: typeof ApiPublicAccessEventsRoute
   ApiPublicCheckGraduationAlertsRoute: typeof ApiPublicCheckGraduationAlertsRoute
 }
 
@@ -449,6 +501,34 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/public/check-graduation-alerts'
       preLoaderRoute: typeof ApiPublicCheckGraduationAlertsRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/api/public/access-events': {
+      id: '/api/public/access-events'
+      path: '/api/public/access-events'
+      fullPath: '/api/public/access-events'
+      preLoaderRoute: typeof ApiPublicAccessEventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/recepcao/presencas': {
+      id: '/_authenticated/recepcao/presencas'
+      path: '/recepcao/presencas'
+      fullPath: '/recepcao/presencas'
+      preLoaderRoute: typeof AuthenticatedRecepcaoPresencasRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/recepcao/dispositivos': {
+      id: '/_authenticated/recepcao/dispositivos'
+      path: '/recepcao/dispositivos'
+      fullPath: '/recepcao/dispositivos'
+      preLoaderRoute: typeof AuthenticatedRecepcaoDispositivosRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/recepcao/controle-acesso': {
+      id: '/_authenticated/recepcao/controle-acesso'
+      path: '/recepcao/controle-acesso'
+      fullPath: '/recepcao/controle-acesso'
+      preLoaderRoute: typeof AuthenticatedRecepcaoControleAcessoRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/instrutores/novo': {
       id: '/_authenticated/instrutores/novo'
@@ -562,6 +642,9 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAlunosNovoRoute: typeof AuthenticatedAlunosNovoRoute
   AuthenticatedInstrutoresInstructorIdRoute: typeof AuthenticatedInstrutoresInstructorIdRoute
   AuthenticatedInstrutoresNovoRoute: typeof AuthenticatedInstrutoresNovoRoute
+  AuthenticatedRecepcaoControleAcessoRoute: typeof AuthenticatedRecepcaoControleAcessoRoute
+  AuthenticatedRecepcaoDispositivosRoute: typeof AuthenticatedRecepcaoDispositivosRoute
+  AuthenticatedRecepcaoPresencasRoute: typeof AuthenticatedRecepcaoPresencasRoute
   AuthenticatedAlunosIndexRoute: typeof AuthenticatedAlunosIndexRoute
   AuthenticatedInstrutoresIndexRoute: typeof AuthenticatedInstrutoresIndexRoute
   AuthenticatedRelatoriosIndexRoute: typeof AuthenticatedRelatoriosIndexRoute
@@ -580,6 +663,11 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedInstrutoresInstructorIdRoute:
     AuthenticatedInstrutoresInstructorIdRoute,
   AuthenticatedInstrutoresNovoRoute: AuthenticatedInstrutoresNovoRoute,
+  AuthenticatedRecepcaoControleAcessoRoute:
+    AuthenticatedRecepcaoControleAcessoRoute,
+  AuthenticatedRecepcaoDispositivosRoute:
+    AuthenticatedRecepcaoDispositivosRoute,
+  AuthenticatedRecepcaoPresencasRoute: AuthenticatedRecepcaoPresencasRoute,
   AuthenticatedAlunosIndexRoute: AuthenticatedAlunosIndexRoute,
   AuthenticatedInstrutoresIndexRoute: AuthenticatedInstrutoresIndexRoute,
   AuthenticatedRelatoriosIndexRoute: AuthenticatedRelatoriosIndexRoute,
@@ -596,6 +684,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   CadastroAcademiaRoute: CadastroAcademiaRoute,
   LoginRoute: LoginRoute,
+  ApiPublicAccessEventsRoute: ApiPublicAccessEventsRoute,
   ApiPublicCheckGraduationAlertsRoute: ApiPublicCheckGraduationAlertsRoute,
 }
 export const routeTree = rootRouteImport

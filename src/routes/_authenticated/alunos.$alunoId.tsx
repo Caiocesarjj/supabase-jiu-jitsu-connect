@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
+import { StudentCredentialsPanel } from "@/components/access/StudentCredentialsPanel";
 import {
   getStudentSubscription,
   listSubscriptionPlansForOrg,
@@ -330,7 +331,7 @@ function AlunoFichaPage() {
           <TabsTrigger value="turmas">Turmas</TabsTrigger>
           <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
           <TabsTrigger value="presenca">Presença</TabsTrigger>
-
+          <TabsTrigger value="acesso">Acesso</TabsTrigger>
           <TabsTrigger value="observacoes">Observações</TabsTrigger>
         </TabsList>
 
@@ -365,6 +366,9 @@ function AlunoFichaPage() {
         </TabsContent>
         <TabsContent value="presenca">
           <PresencaTab attendance={attendance} promotionDate={grad?.promotion_date ?? null} />
+        </TabsContent>
+        <TabsContent value="acesso">
+          <StudentCredentialsPanel organizationId={organizationId!} studentId={student.id} />
         </TabsContent>
         <TabsContent value="observacoes">
           <ObservacoesTab student={student} onChange={reload} />

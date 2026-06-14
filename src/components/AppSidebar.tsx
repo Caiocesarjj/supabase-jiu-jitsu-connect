@@ -11,6 +11,7 @@ import {
   Network,
   LogOut,
   ChevronDown,
+  DoorOpen,
 } from "lucide-react";
 import {
   Sidebar,
@@ -57,6 +58,12 @@ const financeSubitems = [
   { title: "Crescimento", url: "/financeiro/crescimento" },
 ];
 
+const recepcaoSubitems = [
+  { title: "Controle de Acesso", url: "/recepcao/controle-acesso" },
+  { title: "Presenças e Logs", url: "/recepcao/presencas" },
+  { title: "Dispositivos", url: "/recepcao/dispositivos" },
+];
+
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
@@ -68,6 +75,7 @@ export function AppSidebar() {
   const isActive = (path: string) =>
     currentPath === path || currentPath.startsWith(path + "/");
   const financeOpen = currentPath.startsWith("/financeiro");
+  const recepcaoOpen = currentPath.startsWith("/recepcao");
 
   return (
     <Sidebar collapsible="icon">
@@ -123,6 +131,36 @@ export function AppSidebar() {
                     <CollapsibleContent>
                       <SidebarMenuSub>
                         {financeSubitems.map((sub) => (
+                          <SidebarMenuSubItem key={sub.url}>
+                            <SidebarMenuSubButton asChild isActive={currentPath === sub.url}>
+                              <Link to={sub.url}>{sub.title}</Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  )}
+                </SidebarMenuItem>
+              </Collapsible>
+
+              {/* Recepção com sub-itens */}
+              <Collapsible defaultOpen={recepcaoOpen} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton isActive={recepcaoOpen}>
+                      <DoorOpen className="h-4 w-4" />
+                      {!collapsed && (
+                        <>
+                          <span>Recepção</span>
+                          <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                        </>
+                      )}
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  {!collapsed && (
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {recepcaoSubitems.map((sub) => (
                           <SidebarMenuSubItem key={sub.url}>
                             <SidebarMenuSubButton asChild isActive={currentPath === sub.url}>
                               <Link to={sub.url}>{sub.title}</Link>
