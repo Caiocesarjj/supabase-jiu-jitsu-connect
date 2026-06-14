@@ -366,6 +366,9 @@ function AlunoFichaPage() {
         <TabsContent value="presenca">
           <PresencaTab attendance={attendance} promotionDate={grad?.promotion_date ?? null} />
         </TabsContent>
+        <TabsContent value="acesso">
+          <StudentCredentialsPanel organizationId={organizationId!} studentId={student.id} />
+        </TabsContent>
         <TabsContent value="observacoes">
           <ObservacoesTab student={student} onChange={reload} />
         </TabsContent>
