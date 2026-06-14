@@ -292,7 +292,7 @@ function AcademySection({ org, onSaved }: { org: Org; onSaved: () => Promise<voi
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
+    <form onSubmit={handleSubmit} className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-sm space-y-4">
       <SectionHeader title="Academia" />
       {org.public_code && (
         <div className="space-y-1">
@@ -344,7 +344,7 @@ function PlanSection({ org }: { org: Org }) {
   const trialActive = org.trial_ends_at && new Date(org.trial_ends_at) > new Date();
   const trialEnded = org.trial_ends_at && new Date(org.trial_ends_at) <= new Date();
   return (
-    <div className="space-y-3">
+    <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-sm space-y-4">
       <SectionHeader title="Plano atual" />
       <div className="rounded-md border border-border bg-card p-4 space-y-2">
         <div className="flex items-center gap-2">
@@ -470,7 +470,7 @@ function WhatsappSection({
 
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
+    <form onSubmit={handleSubmit} className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-sm space-y-4">
       <SectionHeader title="Notificações WhatsApp" />
       <div className="flex items-center gap-2">
         <Switch checked={enabled} onCheckedChange={setEnabled} id="wpp" />
@@ -663,7 +663,7 @@ function IntegrationsSection({
 
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
+    <form onSubmit={handleSubmit} className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-sm space-y-4">
       <SectionHeader title="Integrações" />
       <div className="rounded-md border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-800">
         A API key é armazenada de forma segura e usada apenas para geração de cobranças PIX.
@@ -730,7 +730,7 @@ function AccountSection({ userEmail, userName }: { userEmail: string; userName: 
   };
 
   return (
-    <div className="space-y-3">
+    <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-sm space-y-4">
       <SectionHeader title="Conta" />
       <div className="text-sm">
         <p>
@@ -862,7 +862,7 @@ function WhatsappTemplatesSection({ organizationId }: { organizationId: string }
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-sm space-y-4">
       <SectionHeader title="Templates de Mensagens" />
       <div className="rounded-md border bg-muted/30 p-3 text-xs">
         <p className="font-medium mb-1">Tags disponíveis:</p>
