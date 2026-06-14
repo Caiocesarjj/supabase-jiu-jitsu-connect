@@ -75,6 +75,7 @@ export function AppSidebar() {
   const isActive = (path: string) =>
     currentPath === path || currentPath.startsWith(path + "/");
   const financeOpen = currentPath.startsWith("/financeiro");
+  const recepcaoOpen = currentPath.startsWith("/recepcao");
 
   return (
     <Sidebar collapsible="icon">
