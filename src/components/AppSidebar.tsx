@@ -11,6 +11,7 @@ import {
   Network,
   LogOut,
   ChevronDown,
+  DoorOpen,
 } from "lucide-react";
 import {
   Sidebar,
