@@ -56,9 +56,14 @@ export function QrScanner({
         if (cancelled) return;
         const elementId = "qr-scanner-container";
         if (containerRef.current) containerRef.current.id = elementId;
-        instance = new Html5Qrcode(elementId) as unknown as typeof instance;
+        const raw = new Html5Qrcode(elementId) as unknown as {
+          start: (a: unknown, b: unknown, c: (t: string) => void) => Promise<void>;
+          stop: () => Promise<void>;
+          clear: () => void;
+        };
+        instance = raw;
         scannerRef.current = instance;
-        await (instance as { start: (a: unknown, b: unknown, c: (t: string) => void) => Promise<void> }).start(
+        await raw.start(
           { facingMode: "environment" },
           { fps: 10, qrbox: { width: 220, height: 220 } },
           (text: string) => onScan(text),
