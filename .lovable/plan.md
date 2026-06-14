@@ -1,148 +1,113 @@
+# Módulo de Recepção e Controle de Acesso
 
-## Visão geral
+Construir um módulo completo e escalável de controle de acesso para academias, preparado para integração futura com Control iD, Henry e TopData — sem quebrar nada do que já existe.
 
-4 frentes em uma entrega. Tudo no frontend + utilitários puros, exceto o SQL que **você roda manualmente** no Supabase (listado no fim).
+## 1. Banco de Dados (migration)
 
----
+Novas tabelas (todas com RLS por `organization_id` + GRANTs):
 
-## 1) Categorias de peso (FBJJ)
+- **student_access_credentials** — código único, PIN, QR code, RFID, biometric_id, face_id, active.
+- **access_devices** — name, manufacturer (control_id | henry | topdata | other), model, ip_address, port, api_token, active.
+- **attendance_records** — student_id, access_method, checkin_at, device_id. (Coexiste com `attendance` atual de chamada por turma; este é o registro de catraca/recepção.)
+- **access_logs** — student_id, device_id, access_method, status (granted/denied), reason.
+- **student_face_profiles** — face_reference (apenas estrutura, sem ML local).
 
-**Novo módulo** `src/lib/weight-category.ts` com:
-- `AGE_GROUPS`: KIDS 1 (4-5), KIDS 2 (6-7), KIDS 3 (8-9), INFANTIL (10-11), JÚNIOR (12-13), ADOLESCENTES (14-15), JUVENIL (16-17), ADULTO (18-29), MASTER 1/2/3/4.
-- `MALE_WEIGHTS` e `FEMALE_WEIGHTS`: tabela oficial FBJJ (limites superiores por divisão; o último é "acima de" → "Pesadíssimo").
-- `getAgeGroup(birthDate)` → grupo etário.
-- `getWeightCategory({ birthDate, sex, weightKg })` → `{ ageGroup, categoryLabel }` (ex: "JÚNIOR — Leve (até 45 kg)").
-- Retorna `null` se faltar peso/sexo/nascimento.
+Trigger para gerar `access_code`, `pin_code` e `qr_code` automaticamente quando um aluno é criado (via função SQL chamada do server fn de criação).
 
-**Cadastro de aluno** (`alunos.novo.tsx` e `alunos.$alunoId.tsx`):
-- Adicionar campo **Sexo** (masc/fem) — usar `sex` na tabela `students`.
-- Peso já existe (`weight_kg`).
-- Exibir badge "Categoria FBJJ" calculada ao vivo.
+Função SQL `validate_student_access(p_student_id, p_org_id)` que retorna `{ allowed, reason }` checando: aluno ativo, matrícula ativa, plano ativo, mensalidade em dia, bloqueios.
 
-**Ficha do aluno** (`alunos.$alunoId.tsx`): mostrar a categoria no cabeçalho perto da faixa.
+## 2. Camada de providers (arquitetura)
 
-**Dashboard** (`dashboard.tsx`): novo card "Alunos por categoria de peso" — agrupar alunos ativos por `categoryLabel` (lista com contagem). Reuso do `BeltBadge` existente para visual consistente.
+`src/lib/access/providers/` com interface `AccessProvider`:
 
----
-
-## 2) Afiliações — limpeza de cards de receita
-
-Em `src/routes/_authenticated/afiliacoes.tsx`:
-- Remover os 2 cards "Recebido no mês (matriz)" e "Inadimplentes (matriz)" da seção "Rede consolidada".
-- Manter apenas o card "Alunos ativos".
-- Remover as colunas "Recebido (mês)" e "Inadimplentes" da tabela.
-- Manter botão "Ver alunos" (já existe) que mostra nome/idade/peso/graduação.
-
----
-
-## 3) Cores de faixa e categoria nas listagens
-
-- `alunos.index.tsx`: garantir que cada linha renderiza `<BeltBadge belt={...} stripes={...} />` (cores já existem em `BeltBadge.tsx`) + nova coluna "Categoria FBJJ".
-- Dashboard "Graduações pendentes": também usar `BeltBadge` em vez de texto.
-- Dialog "Ver alunos" em afiliações: trocar texto da graduação por `BeltBadge`.
-
----
-
-## 4) Financeiro — reformulação completa em sub-rotas
-
-### Sidebar (`AppSidebar.tsx`)
-- "Financeiro" vira **grupo colapsável** (usando `Collapsible` + `SidebarMenuSub`) com 5 sub-itens: Visão Geral, Mensalidades, Recorrentes, Formas de Pagamento, Crescimento.
-- Abre automático quando `pathname` começa com `/financeiro`.
-
-### Layout pai
-Renomear `src/routes/_authenticated/financeiro.tsx` (que hoje é a página) para layout pai com:
-- Header "Financeiro" + subtítulo.
-- Sub-navegação horizontal (`Tabs` linkando para sub-rotas).
-- `<Outlet />`.
-
-### Rotas (5 novos arquivos em `src/routes/_authenticated/financeiro.*.tsx`)
-- `financeiro.index.tsx` → redirect para `/financeiro/dashboard`.
-- `financeiro.dashboard.tsx` — abas internas (Geral / Receitas / Despesas / Fluxo de Caixa / Alunos) usando `Tabs`. Cards comparativos com % variação vs período anterior, "Resumo de Tendências" (badges altas/queda/estáveis). Gráficos com `recharts` (já no projeto via `chart.tsx`).
-- `financeiro.mensalidades.tsx` — gráfico anual BarChart empilhado (recebido/a receber/vencido), 4 cards de resumo, filtro de mês, tabela de pagamentos (extrai a tabela atual do `financeiro.tsx`).
-- `financeiro.recorrentes.tsx` — usa `subscription_records` + `subscription_plans` (que **você criará no SQL**). 4 cards de status, barras de progresso por status, tabela de assinaturas com ações (pausar/reativar/cancelar), modal "Gerenciar Planos" (CRUD).
-- `financeiro.formas-pagamento.tsx` — grid de `payment_methods` com toggle ativo/inativo; configuração de PIX integra com `organization_settings.pix_key`.
-- `financeiro.crescimento.tsx` — cards YTD, LineChart receita vs a receber com projeção pontilhada, botão exportar CSV.
-
-### Bibliotecas necessárias
-- `recharts` (verificar `package.json`; instalar se ausente).
-
----
-
-## SQL para você rodar no Supabase
-
-```sql
--- 1) Sexo no aluno
-ALTER TABLE public.students
-  ADD COLUMN IF NOT EXISTS sex text CHECK (sex IN ('male','female'));
-
--- 2) Planos de assinatura
-CREATE TABLE IF NOT EXISTS public.subscription_plans (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
-  name text NOT NULL,
-  amount numeric(10,2) NOT NULL,
-  frequency text NOT NULL CHECK (frequency IN ('monthly','quarterly','semiannual','annual')),
-  description text,
-  modality text,
-  active boolean NOT NULL DEFAULT true,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-ALTER TABLE public.subscription_plans ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "org members read plans" ON public.subscription_plans
-  FOR SELECT USING (organization_id IN (SELECT organization_id FROM public.profiles WHERE id = auth.uid()));
-CREATE POLICY "org admin write plans" ON public.subscription_plans
-  FOR ALL USING (organization_id IN (SELECT organization_id FROM public.profiles WHERE id = auth.uid()));
-
--- 3) Assinaturas ativas
-CREATE TABLE IF NOT EXISTS public.subscription_records (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
-  student_id uuid NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
-  plan_id uuid NOT NULL REFERENCES public.subscription_plans(id),
-  status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','paused','canceled','expired')),
-  last_paid_at date,
-  next_due_date date,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-ALTER TABLE public.subscription_records ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "org members read subs" ON public.subscription_records
-  FOR SELECT USING (organization_id IN (SELECT organization_id FROM public.profiles WHERE id = auth.uid()));
-CREATE POLICY "org admin write subs" ON public.subscription_records
-  FOR ALL USING (organization_id IN (SELECT organization_id FROM public.profiles WHERE id = auth.uid()));
-
--- 4) Métodos de pagamento
-CREATE TABLE IF NOT EXISTS public.payment_methods (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
-  name text NOT NULL,
-  type text NOT NULL,  -- 'pix' | 'credit' | 'debit' | 'boleto' | 'cash' | 'custom'
-  active boolean NOT NULL DEFAULT true,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE(organization_id, type, name)
-);
-ALTER TABLE public.payment_methods ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "org members payment_methods" ON public.payment_methods
-  FOR ALL USING (organization_id IN (SELECT organization_id FROM public.profiles WHERE id = auth.uid()));
-
--- 5) Coluna payment_method já existe em financial_records (verificar)
+```text
+AccessProvider
+├── connect()
+├── validateAccess(credential)
+├── openGate()
+├── receiveEvent(payload)
+├── syncUsers(students)
+└── syncCredentials(credentials)
 ```
 
----
+Implementações iniciais (stubs prontos para uso real):
+- `ControlIdProvider`
+- `HenryProvider`
+- `TopDataProvider`
+- `MockProvider` (para operação manual via recepção)
 
-## Pontos não cobertos (assumindo)
+Factory `getProvider(device)` seleciona por `manufacturer`.
 
-- "Despesas" fica como placeholder "Em breve" — não criei tabela `expenses` no SQL pois você indicou que rodaria o SQL próprio; se quiser, posso adicionar.
-- "Sexo" no cadastro existente: alunos antigos ficam `null` → categoria mostra "—" até preencher.
-- Sub-itens do sidebar usam `Collapsible` do shadcn já presente (`collapsible.tsx`).
+## 3. Server functions (`src/lib/access.functions.ts`)
 
----
+- `validateAccessAttempt({ method, value, deviceId? })` — resolve credencial → aluno → chama `validate_student_access` → grava `access_logs` + (se liberado) `attendance_records`.
+- `listTodayAttendance()`, `listAccessLogs(filters)`.
+- `upsertCredential(studentId, patch)`.
+- `regenerateQrCode(studentId)`, `regeneratePin(studentId)`.
+- `syncStudentAccess(studentId)` — dispara `provider.syncUsers/syncCredentials` para todos os devices ativos (best-effort, não bloqueia).
+- CRUD de `access_devices`.
 
-## Ordem de implementação
+Webhook público `src/routes/api/public/access-events.ts` para receber eventos das catracas (com verificação de token do device).
 
-1. Utilitários (`weight-category.ts`).
-2. Cadastro de aluno (campo sexo + preview categoria).
-3. Dashboard (card categorias + BeltBadge nas graduações).
-4. Listagem alunos (BeltBadge + categoria).
-5. Afiliações (remover cards/colunas, BeltBadge no dialog).
-6. Sidebar colapsável + layout pai do financeiro.
-7. 5 sub-rotas do financeiro (dashboard, mensalidades, recorrentes, formas-pagamento, crescimento).
+## 4. Telas
+
+**Sidebar:** novo grupo **Recepção** com item **Controle de Acesso**.
+
+- `/_authenticated/recepcao/controle-acesso` — tela operacional:
+  - Tabs: QR Code (scanner via webcam, biblioteca leve), Código, PIN.
+  - Resultado grande em tela cheia: ✅ verde com foto/nome/faixa/horário, ou ❌ vermelho com motivo + botão "Enviar Cobrança WhatsApp" (reusa fluxo existente).
+  - Feed lateral dos últimos acessos do dia.
+
+- `/_authenticated/recepcao/presencas` — histórico de attendance_records + filtros.
+
+- `/_authenticated/configuracoes/dispositivos` (nova aba em Configurações) — CRUD de `access_devices`.
+
+- Em `alunos.$alunoId.tsx`: nova seção "Credenciais de Acesso" exibindo código, PIN, QR code (renderizado), botões de regenerar e histórico de últimos acessos.
+
+- Em `dashboard.tsx`: cards "Presentes hoje", "Entradas do dia", "Acessos negados", "Mensalidades bloqueadas", "Alunos ativos".
+
+## 5. Portal do aluno
+
+Já existe área autenticada? Vamos adicionar dentro da própria página do aluno (visualização administrativa) os blocos: Meu QR Code, Meu Código, Histórico de Presenças, Últimos Acessos. (Se houver portal público de aluno futuramente, os componentes já estarão prontos para reuso.)
+
+## 6. Automações
+
+- Após `attendance_records` inserir: trigger atualiza `students.last_checkin_at` e incrementa contador de frequência.
+- `syncStudentAccess` chamado quando aluno é atualizado (status/plano).
+
+## 7. Bibliotecas
+
+- `qrcode` (geração SVG do QR no front e na página do aluno).
+- `html5-qrcode` (leitura via webcam na recepção). Leve, sem dependências nativas, compatível com Worker (usado só no browser).
+
+## 8. O que NÃO faremos agora
+
+- Não implementar SDKs proprietários de Control iD/Henry/TopData — apenas a interface e os stubs HTTP.
+- Não implementar reconhecimento facial local (apenas a tabela `student_face_profiles`).
+- Não alterar o módulo de Presença por turma existente — convivem.
+
+## Arquivos principais
+
+```text
+docs/sql/20260614_access_control.sql          (migration)
+src/lib/access.functions.ts                   (server fns)
+src/lib/access/providers/types.ts
+src/lib/access/providers/index.ts             (factory)
+src/lib/access/providers/control-id.ts
+src/lib/access/providers/henry.ts
+src/lib/access/providers/topdata.ts
+src/lib/access/providers/mock.ts
+src/routes/api/public/access-events.ts        (webhook)
+src/routes/_authenticated/recepcao.tsx        (layout)
+src/routes/_authenticated/recepcao.controle-acesso.tsx
+src/routes/_authenticated/recepcao.presencas.tsx
+src/routes/_authenticated/configuracoes.tsx   (+ aba Dispositivos)
+src/components/access/AccessResultCard.tsx
+src/components/access/QrScanner.tsx
+src/components/access/StudentCredentialsPanel.tsx
+src/components/AppSidebar.tsx                 (+ grupo Recepção)
+src/routes/_authenticated/alunos.$alunoId.tsx (+ painel credenciais)
+src/routes/_authenticated/dashboard.tsx       (+ cards)
+```
+
+Posso seguir com a implementação?
