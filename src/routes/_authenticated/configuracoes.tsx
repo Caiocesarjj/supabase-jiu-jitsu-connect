@@ -253,6 +253,10 @@ function SectionCard({
   );
 }
 
+function SectionHeader({ title }: { title: string }) {
+  return <h2 className="text-base sm:text-lg font-semibold tracking-tight">{title}</h2>;
+}
+
 function SaveButton({ saving }: { saving: boolean }) {
   return (
     <Button type="submit" disabled={saving}>
