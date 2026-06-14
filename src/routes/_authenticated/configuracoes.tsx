@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, Settings as SettingsIcon, Building2, CreditCard, MessageCircle, Wallet, Plug, UserCircle2, Copy, KeyRound, ShieldCheck, Send, Sparkles } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -133,19 +134,49 @@ function ConfiguracoesPage() {
     return <LoadingSpinner label="Carregando..." />;
   }
 
+  const tabs = [
+    { value: "academia", label: "Academia", icon: Building2 },
+    { value: "plano", label: "Plano", icon: CreditCard },
+    { value: "whatsapp", label: "WhatsApp", icon: MessageCircle },
+    { value: "pagamentos", label: "Pagamentos", icon: Wallet },
+    { value: "integracoes", label: "Integrações", icon: Plug },
+    { value: "conta", label: "Conta", icon: UserCircle2 },
+  ];
+
   return (
-    <div className="space-y-6 max-w-4xl">
-      <h1 className="text-2xl font-semibold">Configurações</h1>
+    <div className="space-y-6 max-w-5xl pb-10">
+      {/* Hero */}
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/10 via-card to-card p-5 sm:p-7 shadow-sm">
+        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-primary/10 blur-3xl" aria-hidden />
+        <div className="relative grid grid-cols-[auto_minmax(0,1fr)] items-center gap-4">
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary ring-1 ring-primary/20 sm:h-14 sm:w-14">
+            <SettingsIcon className="h-6 w-6 sm:h-7 sm:w-7" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">Configurações</h1>
+            <p className="mt-0.5 truncate text-sm text-muted-foreground">
+              Gerencie sua academia, plano, integrações e mensagens.
+            </p>
+          </div>
+        </div>
+      </div>
 
       <Tabs defaultValue="academia" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-6">
-          <TabsTrigger value="academia">Academia</TabsTrigger>
-          <TabsTrigger value="plano">Plano</TabsTrigger>
-          <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
-          <TabsTrigger value="pagamentos">Pagamentos</TabsTrigger>
-          <TabsTrigger value="integracoes">Integrações</TabsTrigger>
-          <TabsTrigger value="conta">Conta</TabsTrigger>
-        </TabsList>
+        {/* Mobile-friendly horizontally scrollable tab bar */}
+        <div className="-mx-2 overflow-x-auto px-2 sm:mx-0 sm:px-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <TabsList className="inline-flex h-auto w-max gap-1 rounded-xl bg-muted/60 p-1 sm:grid sm:w-full sm:grid-cols-6">
+            {tabs.map((t) => (
+              <TabsTrigger
+                key={t.value}
+                value={t.value}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+              >
+                <t.icon className="h-4 w-4 shrink-0" />
+                <span>{t.label}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
 
         <TabsContent value="academia" className="mt-6">
           <AcademySection
@@ -193,8 +224,37 @@ function ConfiguracoesPage() {
   );
 }
 
+function SectionCard({
+  title,
+  description,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  description?: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card className="border-border/70 shadow-sm">
+      <CardHeader className="space-y-1.5">
+        <div className="flex items-center gap-2.5">
+          {Icon && (
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15">
+              <Icon className="h-4 w-4" />
+            </span>
+          )}
+          <CardTitle className="text-base sm:text-lg">{title}</CardTitle>
+        </div>
+        {description && <CardDescription>{description}</CardDescription>}
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
+  );
+}
+
 function SectionHeader({ title }: { title: string }) {
-  return <h2 className="text-lg font-semibold">{title}</h2>;
+  return <h2 className="text-base sm:text-lg font-semibold tracking-tight">{title}</h2>;
 }
 
 function SaveButton({ saving }: { saving: boolean }) {
@@ -232,7 +292,7 @@ function AcademySection({ org, onSaved }: { org: Org; onSaved: () => Promise<voi
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
+    <form onSubmit={handleSubmit} className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-sm space-y-4">
       <SectionHeader title="Academia" />
       {org.public_code && (
         <div className="space-y-1">
@@ -284,7 +344,7 @@ function PlanSection({ org }: { org: Org }) {
   const trialActive = org.trial_ends_at && new Date(org.trial_ends_at) > new Date();
   const trialEnded = org.trial_ends_at && new Date(org.trial_ends_at) <= new Date();
   return (
-    <div className="space-y-3">
+    <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-sm space-y-4">
       <SectionHeader title="Plano atual" />
       <div className="rounded-md border border-border bg-card p-4 space-y-2">
         <div className="flex items-center gap-2">
@@ -410,7 +470,7 @@ function WhatsappSection({
 
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
+    <form onSubmit={handleSubmit} className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-sm space-y-4">
       <SectionHeader title="Notificações WhatsApp" />
       <div className="flex items-center gap-2">
         <Switch checked={enabled} onCheckedChange={setEnabled} id="wpp" />
@@ -603,7 +663,7 @@ function IntegrationsSection({
 
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
+    <form onSubmit={handleSubmit} className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-sm space-y-4">
       <SectionHeader title="Integrações" />
       <div className="rounded-md border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-800">
         A API key é armazenada de forma segura e usada apenas para geração de cobranças PIX.
@@ -670,7 +730,7 @@ function AccountSection({ userEmail, userName }: { userEmail: string; userName: 
   };
 
   return (
-    <div className="space-y-3">
+    <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-sm space-y-4">
       <SectionHeader title="Conta" />
       <div className="text-sm">
         <p>
@@ -802,7 +862,7 @@ function WhatsappTemplatesSection({ organizationId }: { organizationId: string }
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-sm space-y-4">
       <SectionHeader title="Templates de Mensagens" />
       <div className="rounded-md border bg-muted/30 p-3 text-xs">
         <p className="font-medium mb-1">Tags disponíveis:</p>
