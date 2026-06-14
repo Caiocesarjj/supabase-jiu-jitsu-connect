@@ -143,6 +143,36 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               </Collapsible>
 
+              {/* Recepção com sub-itens */}
+              <Collapsible defaultOpen={recepcaoOpen} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton isActive={recepcaoOpen}>
+                      <DoorOpen className="h-4 w-4" />
+                      {!collapsed && (
+                        <>
+                          <span>Recepção</span>
+                          <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                        </>
+                      )}
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  {!collapsed && (
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {recepcaoSubitems.map((sub) => (
+                          <SidebarMenuSubItem key={sub.url}>
+                            <SidebarMenuSubButton asChild isActive={currentPath === sub.url}>
+                              <Link to={sub.url}>{sub.title}</Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  )}
+                </SidebarMenuItem>
+              </Collapsible>
+
               {itemsAfter.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={isActive(item.url)}>
