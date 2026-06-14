@@ -134,19 +134,49 @@ function ConfiguracoesPage() {
     return <LoadingSpinner label="Carregando..." />;
   }
 
+  const tabs = [
+    { value: "academia", label: "Academia", icon: Building2 },
+    { value: "plano", label: "Plano", icon: CreditCard },
+    { value: "whatsapp", label: "WhatsApp", icon: MessageCircle },
+    { value: "pagamentos", label: "Pagamentos", icon: Wallet },
+    { value: "integracoes", label: "Integrações", icon: Plug },
+    { value: "conta", label: "Conta", icon: UserCircle2 },
+  ];
+
   return (
-    <div className="space-y-6 max-w-4xl">
-      <h1 className="text-2xl font-semibold">Configurações</h1>
+    <div className="space-y-6 max-w-5xl pb-10">
+      {/* Hero */}
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/10 via-card to-card p-5 sm:p-7 shadow-sm">
+        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-primary/10 blur-3xl" aria-hidden />
+        <div className="relative grid grid-cols-[auto_minmax(0,1fr)] items-center gap-4">
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary ring-1 ring-primary/20 sm:h-14 sm:w-14">
+            <SettingsIcon className="h-6 w-6 sm:h-7 sm:w-7" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">Configurações</h1>
+            <p className="mt-0.5 truncate text-sm text-muted-foreground">
+              Gerencie sua academia, plano, integrações e mensagens.
+            </p>
+          </div>
+        </div>
+      </div>
 
       <Tabs defaultValue="academia" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-6">
-          <TabsTrigger value="academia">Academia</TabsTrigger>
-          <TabsTrigger value="plano">Plano</TabsTrigger>
-          <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
-          <TabsTrigger value="pagamentos">Pagamentos</TabsTrigger>
-          <TabsTrigger value="integracoes">Integrações</TabsTrigger>
-          <TabsTrigger value="conta">Conta</TabsTrigger>
-        </TabsList>
+        {/* Mobile-friendly horizontally scrollable tab bar */}
+        <div className="-mx-2 overflow-x-auto px-2 sm:mx-0 sm:px-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <TabsList className="inline-flex h-auto w-max gap-1 rounded-xl bg-muted/60 p-1 sm:grid sm:w-full sm:grid-cols-6">
+            {tabs.map((t) => (
+              <TabsTrigger
+                key={t.value}
+                value={t.value}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+              >
+                <t.icon className="h-4 w-4 shrink-0" />
+                <span>{t.label}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
 
         <TabsContent value="academia" className="mt-6">
           <AcademySection
@@ -194,8 +224,33 @@ function ConfiguracoesPage() {
   );
 }
 
-function SectionHeader({ title }: { title: string }) {
-  return <h2 className="text-lg font-semibold">{title}</h2>;
+function SectionCard({
+  title,
+  description,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  description?: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card className="border-border/70 shadow-sm">
+      <CardHeader className="space-y-1.5">
+        <div className="flex items-center gap-2.5">
+          {Icon && (
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15">
+              <Icon className="h-4 w-4" />
+            </span>
+          )}
+          <CardTitle className="text-base sm:text-lg">{title}</CardTitle>
+        </div>
+        {description && <CardDescription>{description}</CardDescription>}
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
+  );
 }
 
 function SaveButton({ saving }: { saving: boolean }) {
