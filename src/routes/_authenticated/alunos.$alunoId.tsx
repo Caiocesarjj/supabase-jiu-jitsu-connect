@@ -330,7 +330,7 @@ function AlunoFichaPage() {
           <TabsTrigger value="turmas">Turmas</TabsTrigger>
           <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
           <TabsTrigger value="presenca">Presença</TabsTrigger>
-
+          <TabsTrigger value="acesso">Acesso</TabsTrigger>
           <TabsTrigger value="observacoes">Observações</TabsTrigger>
         </TabsList>
 
