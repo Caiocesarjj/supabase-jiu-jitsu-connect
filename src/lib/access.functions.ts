@@ -71,6 +71,7 @@ async function ensureCredential(
   if (existing) return existing;
   // gera com retry em caso de colisão de unique
   let lastError: { message?: string; code?: string; hint?: string } | null = null;
+  type PgErr = { message?: string; code?: string; hint?: string } | null;
   for (let i = 0; i < 5; i++) {
     const access_code = randomAccessCode();
     const pin_code = randomPin();
