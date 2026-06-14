@@ -69,7 +69,9 @@ async function ensureCredential(
     .eq("student_id", studentId)
     .maybeSingle();
   if (existing) return existing;
-  // gera com retry em caso de colisão
+  // gera com retry em caso de colisão de unique
+  type PgErr = { message?: string; code?: string; hint?: string };
+  let lastError: PgErr | null = null;
   for (let i = 0; i < 5; i++) {
     const access_code = randomAccessCode();
     const pin_code = randomPin();
@@ -87,8 +89,23 @@ async function ensureCredential(
       .select("*")
       .single();
     if (!error && data) return data;
+    lastError = (error ?? null) as PgErr | null;
+    if (lastError?.code && lastError.code !== "23505") break;
   }
-  throw new Error("Não foi possível gerar credenciais únicas.");
+  console.error("[ensureCredential] falha ao inserir credencial", lastError);
+  if (lastError?.code === "42P01") {
+    throw new Error(
+      "Tabela 'student_access_credentials' não existe. Rode a migração docs/sql/20260614_access_control.sql no SQL Editor do Lovable Cloud.",
+    );
+  }
+  if (lastError?.code === "42501") {
+    throw new Error(
+      "Sem permissão para criar credenciais (RLS/GRANT). Rode a migração docs/sql/20260614_access_control.sql.",
+    );
+  }
+  throw new Error(
+    `Não foi possível gerar credenciais: ${lastError?.message ?? "erro desconhecido"}`,
+  );
 }
 
 // --------- validação de acesso ---------
