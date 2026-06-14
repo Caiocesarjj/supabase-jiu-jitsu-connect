@@ -89,7 +89,7 @@ async function ensureCredential(
       .select("*")
       .single();
     if (!error && data) return data;
-    lastError = error as typeof lastError;
+    lastError = (error ?? null) as PgErr | null;
     if (lastError?.code && lastError.code !== "23505") break;
   }
   console.error("[ensureCredential] falha ao inserir credencial", lastError);
